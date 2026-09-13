@@ -106,6 +106,7 @@ it("starts all three independent requests together and deduplicates INITIAL_SESS
   await tick();
   expect(pending).toHaveLength(3);
   expect(state.loading).toBe(true);
+  expect(api.owner).toHaveBeenCalledExactlyOnceWith("student");
   await finish("student");
   expect(state.loading).toBe(false);
   expect(state.profile?.user_id).toBe("student");
@@ -160,6 +161,7 @@ it("updates a refreshed token without downloading profile and roles again", asyn
   await emit("TOKEN_REFRESHED", session("student", "new-token"));
   expect(state.session?.access_token).toBe("new-token");
   expect(pending).toHaveLength(3);
+  expect(api.owner).toHaveBeenCalledExactlyOnceWith("student");
 });
 it("still rechecks roles on subsequent sign-in and allows profile refresh after a save", async () => {
   await emit("INITIAL_SESSION", session("student"));
@@ -182,6 +184,7 @@ it("discards a late privileged response and a stale snapshot after sign-out", as
   expect(state.profile).toBeNull();
   expect(state.isAdmin).toBe(false);
   expect(state.loading).toBe(false);
+  expect(api.owner.mock.calls.map(([uid]) => uid)).toEqual(["admin", null]);
 });
 it("isolates overlapping account loads even when the old request finishes last", async () => {
   await emit("INITIAL_SESSION", session("admin"));
@@ -190,6 +193,7 @@ it("isolates overlapping account loads even when the old request finishes last",
   await finish("admin", true);
   expect(state.profile?.user_id).toBe("student");
   expect(state.isContentStaff).toBe(false);
+  expect(api.owner.mock.calls.map(([uid]) => uid)).toEqual(["admin", "student"]);
 });
 it("does not start a queued old-account request after switching accounts", async () => {
   await act(async () => {

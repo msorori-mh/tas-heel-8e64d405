@@ -46,6 +46,12 @@ checks plus lesson capability/lifecycle, school-profile, and question-image
 regressions. The seven existing PWA policy checks, TypeScript, lint (no errors),
 and production client/server build pass locally.
 
+Full-suite follow-up also passes: `npm test` (308/308), the maintained Vitest
+suite (499/499), and the remaining `test:core-reliability` checks. Existing
+source-level guards now follow the extracted explanation renderer, the unified
+offline-owner transition, and the newer cache version; the protected behavior
+remains checked, with additional owner assertions in the runtime auth tests.
+
 ```sh
 node node_modules/vitest/vitest.mjs run --config vitest.config.ts --maxWorkers=1 tests/performance
 node --test tests/pwa/service-worker-policy.static.test.mjs
