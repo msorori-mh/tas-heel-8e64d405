@@ -1,3 +1,5 @@
+import { QuestionFigure } from "@/components/lessons/QuestionFigure";
+import { parseQuestionImage, type QuestionImage } from "@/lib/lessons/question-image";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useCallback } from "react";
@@ -148,6 +150,7 @@ type StudentQuestionOption = {
 type LessonQuestionRow = {
   id: string;
   question_text: string;
+  question_image?: QuestionImage | null;
   options: StudentQuestionOption[];
   question_type: string | null;
   sort_order: number;
@@ -159,6 +162,7 @@ type LessonQuestionRow = {
 type LessonQuestionRpcRow = {
   id: string;
   question_text: string;
+  question_image?: QuestionImage | null;
   options: unknown;
   question_type: string | null;
   sort_order: number | null;
@@ -364,14 +368,16 @@ function LessonPage() {
     queryFn: async () => {
       // Role-filtered initial payload: no answer, correct option, explanation, or rationale.
       const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
-        "get_lesson_official_questions",
+        "get_lesson_questions_with_images",
         {
+          _kind: "official",
           _lesson_id: lessonId,
         },
       );
       return (data ?? []).map((r) => ({
         id: r.id,
         question_text: r.question_text,
+        question_image: parseQuestionImage(r.question_image),
         options: parseStudentOptions(r.options),
         question_type: r.question_type ?? null,
         sort_order: r.sort_order ?? 0,
@@ -390,14 +396,16 @@ function LessonPage() {
     queryKey: ["lesson-self-test-questions", lessonId],
     queryFn: async () => {
       const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(
-        "get_lesson_self_test_questions",
+        "get_lesson_questions_with_images",
         {
+          _kind: "self_test",
           _lesson_id: lessonId,
         },
       );
       return (data ?? []).map((r) => ({
         id: r.id,
         question_text: r.question_text,
+        question_image: parseQuestionImage(r.question_image),
         options: parseStudentOptions(r.options),
         question_type: r.question_type ?? "mcq",
         sort_order: r.sort_order ?? 0,
@@ -657,6 +665,7 @@ function LessonPage() {
   ).map((question) => ({
     id: question.id,
     question_text: question.questionText,
+    question_image: question.questionImage,
     options: question.options,
     question_type: question.questionType,
     sort_order: question.sortOrder,
@@ -668,6 +677,7 @@ function LessonPage() {
   ).map((question) => ({
     id: question.id,
     question_text: question.questionText,
+    question_image: question.questionImage,
     options: question.options,
     question_type: question.questionType,
     sort_order: question.sortOrder,
@@ -1379,6 +1389,7 @@ function MyAnswersLog({
             <p className="whitespace-pre-line text-sm font-medium text-foreground">
               {q.question_text}
             </p>
+            <QuestionFigure image={q.question_image} />
             <p className="mt-2 whitespace-pre-line rounded-md bg-muted/50 p-2 text-sm text-muted-foreground">
               {notes[q.id]}
             </p>
@@ -1497,6 +1508,7 @@ function OfficialBookQuestionCard({
         <span className="text-muted-foreground">س{index}: </span>
         {q.question_text}
       </div>
+      <QuestionFigure image={q.question_image} />
 
       {q.options.length > 0 ? (
         <div className="space-y-2">
@@ -1647,6 +1659,7 @@ function SelfTestQuestionCard({
         <span className="text-muted-foreground">س{index}: </span>
         {q.question_text}
       </div>
+      <QuestionFigure image={q.question_image} />
 
       <div className="space-y-2">
         {q.options.map((option) => {

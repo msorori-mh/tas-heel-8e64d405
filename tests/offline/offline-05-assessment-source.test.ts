@@ -90,7 +90,7 @@ describe("OFFLINE-05 assessment source boundary", () => {
     });
 
     expect(calls).toEqual([
-      "student:get_lesson_self_test_questions",
+      "student:get_lesson_questions_with_images",
       "service:get_offline_assessment_answer_layer",
     ]);
     expect(source).not.toBeNull();

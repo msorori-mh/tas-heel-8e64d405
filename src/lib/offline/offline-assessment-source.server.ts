@@ -1,3 +1,4 @@
+import { parseQuestionImage } from "../lessons/question-image";
 /**
  * OFFLINE-05 — build private, student-scoped question payloads for offline use.
  *
@@ -24,6 +25,7 @@ import {
 type StudentQuestionRow = {
   id: string;
   question_text: string;
+  question_image?: unknown;
   options: unknown;
   question_type: string | null;
   sort_order: number | null;
@@ -128,7 +130,10 @@ async function loadStudentRows(
     kind === "official-questions"
       ? "get_lesson_official_questions"
       : "get_lesson_self_test_questions";
-  const { data, error } = await rpc(name, { _lesson_id: lessonId });
+  const { data, error } = await rpc("get_lesson_questions_with_images", {
+    _lesson_id: lessonId,
+    _kind: name === "get_lesson_official_questions" ? "official" : "self_test",
+  });
   if (error) throw new Error("OFFLINE_ASSESSMENT_QUESTION_LOOKUP_FAILED");
   return Array.isArray(data) ? (data as StudentQuestionRow[]) : [];
 }
@@ -216,6 +221,7 @@ export async function loadOfflineAssessmentSource(params: {
           questionId: row.id,
           revisionId: row.revision_id,
           questionText: row.question_text,
+          ...(row.question_image ? { questionImage: parseQuestionImage(row.question_image) } : {}),
           questionType: row.question_type ?? "SHORT_ANSWER",
           sortOrder: row.sort_order ?? 0,
           options,
@@ -254,6 +260,7 @@ export async function loadOfflineAssessmentSource(params: {
           questionId: row.id,
           revisionId: row.revision_id,
           questionText: row.question_text,
+          ...(row.question_image ? { questionImage: parseQuestionImage(row.question_image) } : {}),
           questionType: row.question_type ?? "mcq",
           sortOrder: row.sort_order ?? 0,
           options,

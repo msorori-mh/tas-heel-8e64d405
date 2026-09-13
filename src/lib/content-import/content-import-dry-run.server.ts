@@ -74,6 +74,14 @@ export async function parseContentImportBuffer(
   }
 
   const sheet = pickDataWorksheet(workbook, templateKey);
+  if (
+    (templateKey === "questions" || templateKey === "self_test_questions") &&
+    sheet.getImages().length > 0
+  ) {
+    throw new Error(
+      "لاستبقاء صور الأسئلة، ارفع هذا الملف من استيراد محتويات الدرس (قالب 09 أو 10).",
+    );
+  }
 
   const headerRow = sheet.getRow(1);
   const headerMap = new Map<number, string>();

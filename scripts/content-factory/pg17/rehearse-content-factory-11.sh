@@ -81,4 +81,10 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-publishing-v2-pg17.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-multiple-lab-pg17.sql" \
   -f "$root_dir/supabase/migrations/20260913010000_allowlisted_phet_lab_embed.sql" \
-  -f "$root_dir/supabase/migrations/20260918030000_phet_wrapper_attribution_links.sql"
+  -f "$root_dir/supabase/migrations/20260918030000_phet_wrapper_attribution_links.sql" \
+  -f "$root_dir/tests/lessons/question-images-prereq.sql" \
+  -f "$root_dir/tests/lessons/question-images-student-rpcs.fixture.sql" \
+  -f "$root_dir/supabase/migrations/20260918040000_self_test_answer_and_question_management.sql" \
+  -f "$root_dir/tests/lessons/question-images-baseline.sql" \
+  -f "$root_dir/supabase/migrations/20260918040001_lesson_question_images.sql" \
+  -f "$root_dir/tests/lessons/question-images.pg17.sql"
