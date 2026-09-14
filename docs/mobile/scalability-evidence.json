@@ -1,0 +1,29 @@
+{
+  "scope": "Review only; no production capacity approval or Google Play upload",
+  "reviewDate": "2026-09-14",
+  "applicationSource": "c587980518a91dfa47b367daa480b21ab0e3f241",
+  "journeySource": "7c4371ad6171ed353e6c10ff4bbc579e76603bac",
+  "journeyRun": 34909058561,
+  "journeyArtifact": 10373128183,
+  "journeyZipSha256": "871dbbf4b902095ca31c940cf563b92d55b4ea4c689043ead21203ec0ee1d8b0",
+  "apk": {
+    "source": "7072b0abede5072e550959f38ffd04b80a616f5d",
+    "run": 34907875839,
+    "artifact": 10373033501,
+    "filename": "Student-Tamkeen-Unified-Review.apk",
+    "bytes": 11982464,
+    "sha256": "5afdf8ceefcd8ab35e7a3b5f5ca398815e5e82f944ea12123a83c1f21b584edb",
+    "zipSha256": "86433932a3cdcfc95b14f6bde80d20052b932ba8d3c6e368f8e88d3a420db3a6",
+    "backendCapacityApplied": false,
+    "playUpload": false,
+    "identity": "app.studentamkeen.tamkeen.review"
+  },
+  "gates": {
+    "isolatedFunctionalJourneys": "PASS",
+    "productionConcurrentCapacity": "NOT_ESTABLISHED",
+    "burstFirstAttemptSlo": "HOLD_32_OF_50_TEMPORARY_REJECTIONS",
+    "realGoogleMobileSignIn": "NOT_TESTED",
+    "realPhoneColdStartSavedSession": "NOT_TESTED",
+    "longSoak": "NOT_TESTED"
+  }
+}
