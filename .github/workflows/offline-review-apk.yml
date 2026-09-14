@@ -6,6 +6,9 @@ on:
       - "scripts/mobile/review/**"
       - ".github/workflows/offline-review-apk.yml"
       - "vite.config.ts"
+      - "src/components/lessons/**"
+      - "tests/lessons/lesson-content-zoom.test.tsx"
+      - "tests/e2e/lesson-zoom/**"
 permissions:
   contents: read
 concurrency:
@@ -33,6 +36,12 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - run: npm ci
+      - name: Verify lesson zoom before packaging
+        run: |
+          npx vitest run tests/lessons/lesson-content-zoom.test.tsx
+          npx playwright install --with-deps chromium
+          npx vite build --config tests/e2e/lesson-zoom/vite.config.ts
+          node tests/e2e/lesson-zoom/verify.mjs
       - run: npx tsc --noEmit
       - run: npm run build
       - name: Package the reviewed UI in an isolated debug application

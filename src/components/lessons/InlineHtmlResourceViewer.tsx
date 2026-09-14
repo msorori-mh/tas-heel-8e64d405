@@ -1,3 +1,4 @@
+import { LessonContentZoom } from "./LessonContentZoom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, FileText, FlaskConical, Map as MapIcon, ShieldCheck } from "lucide-react";
 import {
@@ -74,16 +75,18 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
         <p className="mt-2 text-xs text-destructive">المحتوى غير متاح حالياً.</p>
       ) : (
         <>
-          <iframe
-            ref={iframeRef}
-            title={title}
-            srcDoc={srcDoc}
-            sandbox={inlineHtmlSandbox(mode)}
-            referrerPolicy="no-referrer"
-            loading="lazy"
-            style={{ height: expanded ? "90vh" : `${contentHeight}px` }}
-            className="mt-2 w-full touch-auto rounded-lg border border-border bg-white transition-[height]"
-          />
+          <LessonContentZoom height={expanded ? "90vh" : `${contentHeight}px`} contentKey={srcDoc}>
+            <iframe
+              ref={iframeRef}
+              title={title}
+              srcDoc={srcDoc}
+              sandbox={inlineHtmlSandbox(mode)}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              style={{ height: expanded ? "90vh" : `${contentHeight}px` }}
+              className="block w-full touch-auto rounded-lg border border-border bg-white transition-[height]"
+            />
+          </LessonContentZoom>
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
