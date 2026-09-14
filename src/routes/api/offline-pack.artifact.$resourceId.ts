@@ -1,3 +1,4 @@
+import { withOfflineArtifactCapacity } from "@/lib/offline/offline-capacity.server";
 /**
  * OFFLINE-02 — authenticated delivery of exact inline bytes declared by a
  * subject pack manifest.
@@ -300,8 +301,16 @@ async function handle(
 export const Route = createFileRoute("/api/offline-pack/artifact/$resourceId")({
   server: {
     handlers: {
-      GET: ({ request, params }) => handle(request, params.resourceId, "GET"),
-      HEAD: ({ request, params }) => handle(request, params.resourceId, "HEAD"),
+      GET: ({ request, params }) =>
+        withOfflineArtifactCapacity(
+          () => handle(request, params.resourceId, "GET"),
+          request.signal,
+        ),
+      HEAD: ({ request, params }) =>
+        withOfflineArtifactCapacity(
+          () => handle(request, params.resourceId, "HEAD"),
+          request.signal,
+        ),
     },
   },
 });

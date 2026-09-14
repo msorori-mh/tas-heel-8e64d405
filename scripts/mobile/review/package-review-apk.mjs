@@ -33,7 +33,7 @@ await writeFile(
     `
 // Generated review package: bundled UI, same authenticated API origin, separate app data.
 config.appId = ${JSON.stringify(appId)};
-config.appName = "تمكين — اختبار 237";
+config.appName = "تمكين — اختبار موحّد";
 config.webDir = "mobile/review-www";
 config.server = { androidScheme: "https", hostname: "studentamkeen.com", cleartext: false, errorPath: "review-offline.html" };
 export default config;`,
@@ -46,7 +46,7 @@ gradle = gradle.replace(
   `    buildTypes {
         debug {
             applicationIdSuffix ".review"
-            versionNameSuffix "-review237"
+            versionNameSuffix "-unified-review"
         }`,
 );
 await writeFile("android/app/build.gradle", gradle);
@@ -59,7 +59,7 @@ await cp(
 );
 await writeFile(
   `${dir}/res/values/strings.xml`,
-  '<resources><string name="app_name">تمكين — اختبار 237</string><string name="title_activity_main">تمكين — اختبار 237</string></resources>\n',
+  '<resources><string name="app_name">تمكين — اختبار موحّد</string><string name="title_activity_main">تمكين — اختبار موحّد</string></resources>\n',
 );
 await writeFile(
   `${dir}/AndroidManifest.xml`,
@@ -81,6 +81,8 @@ const descriptor = {
   appId,
   sourceSha: sha,
   featureSha: "7a8c7c7dbfab7ac56b95360ebe035c2a88276074",
+  capacitySha: "01310672afdb3805bceb8bd4c124bf5557718ea9",
+  backendCapacityApplied: false,
   settingsAsset: settings[0],
   settingsSha256: createHash("sha256")
     .update(await readFile(`${assetDir}/${settings[0]}`))

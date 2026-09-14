@@ -28,6 +28,51 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn());
 });
 afterEach(() => vi.unstubAllGlobals());
+it("retries a busy manifest while preserving owner checks, omissions and abort signal", async () => {
+  const subject = await prepared();
+  const controller = new AbortController();
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  vi.mocked(fetch)
+    .mockResolvedValueOnce(new Response("busy", { status: 503, headers: { "retry-after": "0" } }))
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ manifest: subject.manifest, omitted: 3 })),
+    );
+  try {
+    const result = await prepareOfflineSubjectPack(subject.id, {
+      expectedOwnerId: scope.ownerId,
+      signal: controller.signal,
+    });
+    expect(result.omitted).toBe(3);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    for (const [, init] of vi.mocked(fetch).mock.calls) {
+      expect(init?.signal).toBe(controller.signal);
+      expect(init?.headers).toEqual({ Authorization: "Bearer TEST_ONLY" });
+    }
+  } finally {
+    vi.mocked(Math.random).mockRestore();
+  }
+});
+it("cancelling a retry wait prevents another manifest request", async () => {
+  const subject = await prepared();
+  const controller = new AbortController();
+  let requested!: () => void;
+  const first = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  vi.mocked(fetch).mockImplementation(async () => {
+    requested();
+    return new Response("busy", { status: 503, headers: { "retry-after": "30" } });
+  });
+  const pending = prepareOfflineSubjectPack(subject.id, {
+    expectedOwnerId: scope.ownerId,
+    signal: controller.signal,
+  });
+  const rejected = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  await first;
+  controller.abort();
+  await rejected;
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
 it("metadata validates subject identity, retains omission counts, and propagates cancellation", async () => {
   const subject = await prepared();
   const controller = new AbortController();

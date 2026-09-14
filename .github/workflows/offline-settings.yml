@@ -30,9 +30,12 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx vite build --config tests/e2e/offline-settings/vite.config.ts
       - run: node tests/e2e/offline-settings/verify.mjs
+      - run: node tests/e2e/offline-settings/network.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: offline-settings-${{ github.sha }}
-          path: artifacts/offline-settings
+          path: |
+            artifacts/offline-settings
+            artifacts/offline-network
           if-no-files-found: error

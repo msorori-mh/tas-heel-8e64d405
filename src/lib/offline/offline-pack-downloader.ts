@@ -1,3 +1,4 @@
+import { fetchOfflineRead } from "./offline-fetch";
 /** OFFLINE-02 — differential, file-resumable subject pack downloader. */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -106,7 +107,7 @@ function createDeviceIo(token: string): OfflinePackDownloadIo {
       return readOfflineArtifactBytes(ownerId, artifact);
     },
     async fetch(artifact, signal, onProgress) {
-      const response = await fetch(artifactEndpoint(artifact), {
+      const response = await fetchOfflineRead(artifactEndpoint(artifact), {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
         signal,
@@ -175,10 +176,13 @@ async function fetchOfflineSubjectPackManifestWithIdentity(
   options: OfflineDownloadRequest = {},
 ): Promise<{ ownerId: string; token: string; manifest: OfflinePackManifest; omitted: number }> {
   const identity = await checkedIdentity(options);
-  const response = await fetch(`/api/offline-pack/manifest/${encodeURIComponent(subjectId)}`, {
-    headers: { Authorization: `Bearer ${identity.token}` },
-    signal: options.signal,
-  });
+  const response = await fetchOfflineRead(
+    `/api/offline-pack/manifest/${encodeURIComponent(subjectId)}`,
+    {
+      headers: { Authorization: `Bearer ${identity.token}` },
+      signal: options.signal,
+    },
+  );
   if (!response.ok) throw new Error(`OFFLINE_MANIFEST_FETCH_${response.status}`);
   const payload = (await response.json()) as { manifest?: unknown; omitted?: unknown };
   checkDownloadSignal(options.signal);

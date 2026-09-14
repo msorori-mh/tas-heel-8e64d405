@@ -10,6 +10,8 @@ with zipfile.ZipFile(apk) as archive:
     descriptor = json.loads(archive.read('assets/public/review-build.json'))
     assert descriptor['kind'] == 'TEST_ONLY' and descriptor['playUpload'] is False
     assert descriptor['featureSha'] == '7a8c7c7dbfab7ac56b95360ebe035c2a88276074'
+    assert descriptor['capacitySha'] == '01310672afdb3805bceb8bd4c124bf5557718ea9'
+    assert descriptor['backendCapacityApplied'] is False
     html = archive.read('assets/public/index.html')
     assert hashlib.sha256(html).hexdigest() == descriptor['htmlSha256']
     settings = archive.read('assets/public/assets/' + descriptor['settingsAsset'])

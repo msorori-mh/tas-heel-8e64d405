@@ -47,12 +47,12 @@ jobs:
       - name: Verify signature, identity, pinned UI and archive content
         run: |
           mkdir -p artifacts/offline-review-apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/offline-review-apk/Student-Tamkeen-Review-237.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs artifacts/offline-review-apk/Student-Tamkeen-Review-237.apk > artifacts/offline-review-apk/signature.txt
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging artifacts/offline-review-apk/Student-Tamkeen-Review-237.apk > artifacts/offline-review-apk/package.txt
-          python3 scripts/mobile/review/verify-review-apk.py artifacts/offline-review-apk/Student-Tamkeen-Review-237.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk > artifacts/offline-review-apk/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk > artifacts/offline-review-apk/package.txt
+          python3 scripts/mobile/review/verify-review-apk.py artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk
           cp mobile/review-www/review-build.json artifacts/offline-review-apk/review-build.json
-          sha256sum artifacts/offline-review-apk/Student-Tamkeen-Review-237.apk > artifacts/offline-review-apk/SHA256SUMS.txt
+          sha256sum artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk > artifacts/offline-review-apk/SHA256SUMS.txt
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -66,7 +66,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            adb install -r artifacts/offline-review-apk/Student-Tamkeen-Review-237.apk
+            adb install -r artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk
             adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -e class app.studentamkeen.tamkeen.ReviewApkSmokeTest app.studentamkeen.tamkeen.review.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/offline-review-apk/instrumentation.txt
             grep -F 'OK (1 test)' artifacts/offline-review-apk/instrumentation.txt
