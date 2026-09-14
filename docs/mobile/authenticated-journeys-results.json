@@ -1,0 +1,471 @@
+{
+  "applicationSourceSha": "c587980518a91dfa47b367daa480b21ab0e3f241",
+  "burst": {
+    "clients": 50,
+    "elapsedMs": 1652.0313949999982,
+    "endpoints": {
+      "manifest-burst": {
+        "bytes": 289308,
+        "failures": 32,
+        "p50Ms": 939.0833540000021,
+        "p95Ms": 1650.533625000011,
+        "p99Ms": 1650.533625000011,
+        "requests": 50,
+        "statuses": {
+          "200": 18,
+          "503": 32
+        }
+      }
+    }
+  },
+  "fixture": {
+    "bookBodyBytes": 1048785,
+    "books": 478,
+    "database_bytes": "547086863",
+    "lessons": 1458,
+    "questions": 3830,
+    "scope": "TEST_ONLY generated users/content; not a production copy",
+    "users": 50003
+  },
+  "host": {
+    "cpuCount": 4,
+    "databaseCpuLimit": 2,
+    "databaseMemoryBytes": 1073741824,
+    "postgrestPool": 12,
+    "totalMemory": 16770748416
+  },
+  "limits": [
+    "30 seconds per concurrency step is an initial sustained component exercise, not a production soak test",
+    "50k fixture profiles are not 50k simultaneous clients",
+    "App server and load generator share the CI runner",
+    "Online high-stakes exam submission, Google token renewal and real-device cold start are not covered",
+    "First-file bytes do not include Internet protocol overhead"
+  ],
+  "preflight": {
+    "accessAndReplay": {
+      "anonymous": {
+        "bytes": 24,
+        "failures": 0,
+        "p50Ms": 19.504181000000017,
+        "p95Ms": 19.504181000000017,
+        "p99Ms": 19.504181000000017,
+        "requests": 1,
+        "statuses": {
+          "401": 1
+        }
+      },
+      "answer-layer-denial": {
+        "bytes": 122,
+        "failures": 0,
+        "p50Ms": 6.223599000000036,
+        "p95Ms": 6.223599000000036,
+        "p99Ms": 6.223599000000036,
+        "requests": 1,
+        "statuses": {
+          "403": 1
+        }
+      },
+      "artifact-smoke": {
+        "bytes": 1048785,
+        "failures": 0,
+        "p50Ms": 68.65123000000006,
+        "p95Ms": 68.65123000000006,
+        "p99Ms": 68.65123000000006,
+        "requests": 1,
+        "statuses": {
+          "200": 1
+        }
+      },
+      "assessment-smoke": {
+        "bytes": 3324,
+        "failures": 0,
+        "p50Ms": 25.218434000000002,
+        "p95Ms": 25.218434000000002,
+        "p99Ms": 25.218434000000002,
+        "requests": 1,
+        "statuses": {
+          "200": 1
+        }
+      },
+      "bad-signature": {
+        "bytes": 24,
+        "failures": 0,
+        "p50Ms": 15.192950999999994,
+        "p95Ms": 15.192950999999994,
+        "p99Ms": 15.192950999999994,
+        "requests": 1,
+        "statuses": {
+          "401": 1
+        }
+      },
+      "expired": {
+        "bytes": 24,
+        "failures": 0,
+        "p50Ms": 4.716770999999994,
+        "p95Ms": 4.716770999999994,
+        "p99Ms": 4.716770999999994,
+        "requests": 1,
+        "statuses": {
+          "401": 1
+        }
+      },
+      "manifest-smoke": {
+        "bytes": 16014,
+        "failures": 0,
+        "p50Ms": 276.393957,
+        "p95Ms": 276.393957,
+        "p99Ms": 276.393957,
+        "requests": 1,
+        "statuses": {
+          "200": 1
+        }
+      },
+      "other-track": {
+        "bytes": 21,
+        "failures": 0,
+        "p50Ms": 25.915621999999985,
+        "p95Ms": 25.915621999999985,
+        "p99Ms": 25.915621999999985,
+        "requests": 1,
+        "statuses": {
+          "403": 1
+        }
+      },
+      "sync-first": {
+        "bytes": 36,
+        "failures": 0,
+        "p50Ms": 9.611987999999997,
+        "p95Ms": 9.611987999999997,
+        "p99Ms": 9.611987999999997,
+        "requests": 1,
+        "statuses": {
+          "200": 1
+        }
+      },
+      "sync-replay": {
+        "bytes": 35,
+        "failures": 0,
+        "p50Ms": 6.010289000000057,
+        "p95Ms": 6.010289000000057,
+        "p99Ms": 6.010289000000057,
+        "requests": 1,
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    "googleSignIn": "NOT_TESTED",
+    "pass": true
+  },
+  "recovery": true,
+  "resources": {
+    "authFixtureCalls": 78,
+    "eventLoopP95Ms": 21.250047,
+    "peakDatabaseClientBackends": 14,
+    "peakProcessRssBytes": 408072192
+  },
+  "scenarios": [
+    {
+      "completedCycles": 725,
+      "concurrentSyntheticStudents": 25,
+      "elapsedMs": 31001.355837,
+      "endpoints": {
+        "book-download": {
+          "bytes": 3146355,
+          "failures": 0,
+          "p50Ms": 64.7804920000001,
+          "p95Ms": 72.8996390000002,
+          "p99Ms": 72.8996390000002,
+          "requests": 3,
+          "statuses": {
+            "200": 3
+          }
+        },
+        "first-book": {
+          "bytes": 26220175,
+          "failures": 0,
+          "p50Ms": 254.92436999999995,
+          "p95Ms": 414.88865899999996,
+          "p99Ms": 442.450961,
+          "requests": 25,
+          "statuses": {
+            "200": 25
+          }
+        },
+        "lessons": {
+          "bytes": 1568900,
+          "failures": 0,
+          "p50Ms": 14.496174999996583,
+          "p95Ms": 57.63457699999981,
+          "p99Ms": 166.42018600000006,
+          "requests": 725,
+          "statuses": {
+            "200": 725
+          }
+        },
+        "manifest": {
+          "bytes": 48042,
+          "failures": 0,
+          "p50Ms": 335.2079080000001,
+          "p95Ms": 479.640942,
+          "p99Ms": 479.640942,
+          "requests": 3,
+          "statuses": {
+            "200": 3
+          }
+        },
+        "quiz-download": {
+          "bytes": 9972,
+          "failures": 0,
+          "p50Ms": 31.428717000000006,
+          "p95Ms": 34.19125400000007,
+          "p99Ms": 34.19125400000007,
+          "requests": 3,
+          "statuses": {
+            "200": 3
+          }
+        },
+        "safe-questions": {
+          "bytes": 1589200,
+          "failures": 0,
+          "p50Ms": 4.777344999998604,
+          "p95Ms": 15.648278000000573,
+          "p99Ms": 112.52186299999994,
+          "requests": 725,
+          "statuses": {
+            "200": 725
+          }
+        },
+        "subjects": {
+          "bytes": 1423900,
+          "failures": 0,
+          "p50Ms": 6.046336000003066,
+          "p95Ms": 26.761007999999947,
+          "p99Ms": 104.6049250000001,
+          "requests": 725,
+          "statuses": {
+            "200": 725
+          }
+        },
+        "sync": {
+          "bytes": 26100,
+          "failures": 0,
+          "p50Ms": 4.626581999999871,
+          "p95Ms": 12.052287000000433,
+          "p99Ms": 58.219171999999844,
+          "requests": 725,
+          "statuses": {
+            "200": 725
+          }
+        }
+      },
+      "errorExamples": [],
+      "failedCycles": 0,
+      "failureRate": 0,
+      "scheduledDurationMs": 30000,
+      "successfulCyclesPerSecond": 23.386073945021312
+    },
+    {
+      "completedCycles": 1418,
+      "concurrentSyntheticStudents": 50,
+      "elapsedMs": 31007.850414999997,
+      "endpoints": {
+        "book-download": {
+          "bytes": 5243925,
+          "failures": 0,
+          "p50Ms": 57.794582000002265,
+          "p95Ms": 82.92020599999523,
+          "p99Ms": 82.92020599999523,
+          "requests": 5,
+          "statuses": {
+            "200": 5
+          }
+        },
+        "first-book": {
+          "bytes": 52440350,
+          "failures": 0,
+          "p50Ms": 283.3230769999973,
+          "p95Ms": 594.6527119999992,
+          "p99Ms": 720.5751779999991,
+          "requests": 50,
+          "statuses": {
+            "200": 50
+          }
+        },
+        "lessons": {
+          "bytes": 3068552,
+          "failures": 0,
+          "p50Ms": 15.71557600000233,
+          "p95Ms": 111.87571200000093,
+          "p99Ms": 355.8688899999979,
+          "requests": 1418,
+          "statuses": {
+            "200": 1418
+          }
+        },
+        "manifest": {
+          "bytes": 80070,
+          "failures": 0,
+          "p50Ms": 478.68941400000404,
+          "p95Ms": 619.9004840000016,
+          "p99Ms": 619.9004840000016,
+          "requests": 5,
+          "statuses": {
+            "200": 5
+          }
+        },
+        "quiz-download": {
+          "bytes": 16620,
+          "failures": 0,
+          "p50Ms": 33.2901650000058,
+          "p95Ms": 46.83705799999734,
+          "p99Ms": 46.83705799999734,
+          "requests": 5,
+          "statuses": {
+            "200": 5
+          }
+        },
+        "safe-questions": {
+          "bytes": 3108256,
+          "failures": 0,
+          "p50Ms": 4.7682889999996405,
+          "p95Ms": 33.848492000004626,
+          "p99Ms": 154.7127460000047,
+          "requests": 1418,
+          "statuses": {
+            "200": 1418
+          }
+        },
+        "subjects": {
+          "bytes": 2784952,
+          "failures": 0,
+          "p50Ms": 6.072225000003527,
+          "p95Ms": 37.04554300000018,
+          "p99Ms": 133.5760799999989,
+          "requests": 1418,
+          "statuses": {
+            "200": 1418
+          }
+        },
+        "sync": {
+          "bytes": 51048,
+          "failures": 0,
+          "p50Ms": 4.595965000000433,
+          "p95Ms": 23.290797000001476,
+          "p99Ms": 144.98001099999965,
+          "requests": 1418,
+          "statuses": {
+            "200": 1418
+          }
+        }
+      },
+      "errorExamples": [],
+      "failedCycles": 0,
+      "failureRate": 0,
+      "scheduledDurationMs": 30000,
+      "successfulCyclesPerSecond": 45.73035476570942
+    },
+    {
+      "completedCycles": 2514,
+      "concurrentSyntheticStudents": 100,
+      "elapsedMs": 31039.126192999996,
+      "endpoints": {
+        "book-download": {
+          "bytes": 10487850,
+          "failures": 0,
+          "p50Ms": 84.21430300000065,
+          "p95Ms": 473.9918719999987,
+          "p99Ms": 473.9918719999987,
+          "requests": 10,
+          "statuses": {
+            "200": 10
+          }
+        },
+        "first-book": {
+          "bytes": 104880700,
+          "failures": 0,
+          "p50Ms": 387.3426830000026,
+          "p95Ms": 834.4354260000036,
+          "p99Ms": 1141.9152870000034,
+          "requests": 100,
+          "statuses": {
+            "200": 100
+          }
+        },
+        "lessons": {
+          "bytes": 5440296,
+          "failures": 0,
+          "p50Ms": 72.63005199999316,
+          "p95Ms": 192.94017099999473,
+          "p99Ms": 609.4598780000015,
+          "requests": 2514,
+          "statuses": {
+            "200": 2514
+          }
+        },
+        "manifest": {
+          "bytes": 160140,
+          "failures": 0,
+          "p50Ms": 1589.6580929999982,
+          "p95Ms": 2764.7763110000014,
+          "p99Ms": 2764.7763110000014,
+          "requests": 10,
+          "statuses": {
+            "200": 10
+          }
+        },
+        "quiz-download": {
+          "bytes": 33240,
+          "failures": 0,
+          "p50Ms": 74.62339600000269,
+          "p95Ms": 508.7851609999925,
+          "p99Ms": 508.7851609999925,
+          "requests": 10,
+          "statuses": {
+            "200": 10
+          }
+        },
+        "safe-questions": {
+          "bytes": 5510688,
+          "failures": 0,
+          "p50Ms": 13.087270000003628,
+          "p95Ms": 102.97064100000716,
+          "p99Ms": 285.9425770000089,
+          "requests": 2514,
+          "statuses": {
+            "200": 2514
+          }
+        },
+        "subjects": {
+          "bytes": 4937496,
+          "failures": 0,
+          "p50Ms": 19.907529000003706,
+          "p95Ms": 104.79078500000469,
+          "p99Ms": 513.3288170000014,
+          "requests": 2514,
+          "statuses": {
+            "200": 2514
+          }
+        },
+        "sync": {
+          "bytes": 90504,
+          "failures": 0,
+          "p50Ms": 13.007219000006444,
+          "p95Ms": 77.51767600000312,
+          "p99Ms": 211.36272400000598,
+          "requests": 2514,
+          "statuses": {
+            "200": 2514
+          }
+        }
+      },
+      "errorExamples": [],
+      "failedCycles": 0,
+      "failureRate": 0,
+      "scheduledDurationMs": 30000,
+      "successfulCyclesPerSecond": 80.99454811865684
+    }
+  ],
+  "scope": "TEST_ONLY actual HTTP application handlers, Supabase JS, PostgREST 16.3 and PG17; synthetic identity issuer and safe-question SQL adapter; not Google, WAN or deployed worker capacity",
+  "sourceSha": "7c4371ad6171ed353e6c10ff4bbc579e76603bac"
+}
