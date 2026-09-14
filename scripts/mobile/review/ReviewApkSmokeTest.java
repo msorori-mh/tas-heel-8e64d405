@@ -50,12 +50,39 @@ public class ReviewApkSmokeTest {
                 @Override public void onComplete(long requestId) { drawn.countDown(); }
             }));
         assertTrue("WebView did not finish drawing", drawn.await(15, TimeUnit.SECONDS));
-        android.graphics.Bitmap screenshot = automation.takeScreenshot();
-        assertNotNull("Screenshot unavailable", screenshot);
+        // postVisualStateCallback guarantees the NEXT draw, not that the display
+        // compositor has already presented it. Reject blank capture frames.
+        android.graphics.Bitmap screenshot = null;
+        long captureEnd = System.currentTimeMillis() + 15000;
+        while (System.currentTimeMillis() < captureEnd) {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            android.graphics.Bitmap candidate = automation.takeScreenshot();
+            if (candidate != null && hasVisibleLoginContent(candidate)) {
+                screenshot = candidate;
+                break;
+            }
+            if (candidate != null) candidate.recycle();
+            Thread.sleep(100);
+        }
+        assertNotNull("Login DOM exists but no rendered login frame was captured", screenshot);
         try (java.io.FileOutputStream output = new java.io.FileOutputStream(
                 new java.io.File(context.getExternalFilesDir(null), "review-launch.png"))) {
             assertTrue(screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output));
         } finally { screenshot.recycle(); }
+    }
+    private boolean hasVisibleLoginContent(android.graphics.Bitmap bitmap) {
+        int sampled = 0, colored = 0;
+        // Exclude system bars. The purple login control occupies well over 2%
+        // of this region; an empty frame or a status/navigation bar does not.
+        for (int y = bitmap.getHeight() / 5; y < bitmap.getHeight() * 17 / 20; y += 4) {
+            for (int x = bitmap.getWidth() / 10; x < bitmap.getWidth() * 9 / 10; x += 4) {
+                int pixel = bitmap.getPixel(x, y);
+                int red = android.graphics.Color.red(pixel), green = android.graphics.Color.green(pixel), blue = android.graphics.Color.blue(pixel);
+                if (Math.max(red, Math.max(green, blue)) - Math.min(red, Math.min(green, blue)) > 48) colored++;
+                sampled++;
+            }
+        }
+        return colored > sampled * 0.02;
     }
     @Test public void pinnedAppLaunchAndAuthenticatedApiBoundary() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
