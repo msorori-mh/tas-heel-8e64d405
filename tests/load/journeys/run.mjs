@@ -40,7 +40,7 @@ process.env.SUPABASE_PUBLISHABLE_KEY = anonKey;
 process.env.SUPABASE_SERVICE_ROLE_KEY = serviceKey;
 function claims(header) {
   try {
-    const raw = (header ?? "").replace(/^*** "");
+    const raw = (header ?? "").replace(/^Bearer /, "");
     const parts = raw.split(".");
     if (parts.length !== 3) return null;
     const expected = createHmac("sha256", secret)
