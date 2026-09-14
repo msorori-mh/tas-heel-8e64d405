@@ -26,7 +26,14 @@ export function assertSafeTarget(rawUrl) {
   if (PRODUCTION_HOSTS.has(target.hostname)) {
     throw new Error("Production load testing is blocked. Use staging.");
   }
-  if (target.origin !== "https://qwfvlppsffcmmbjpznkw.supabase.co" || target.username || target.password || target.pathname !== "/" || target.search || target.hash) {
+  if (
+    target.origin !== "https://qwfvlppsffcmmbjpznkw.supabase.co" ||
+    target.username ||
+    target.password ||
+    target.pathname !== "/" ||
+    target.search ||
+    target.hash
+  ) {
     throw new Error("This runner accepts the approved Supabase staging origin only");
   }
   return target;
@@ -106,8 +113,11 @@ async function requestOnce({ baseUrl, apiKey, endpoint, timeoutMs }) {
 
 export async function runScenario(config) {
   assertSafeTarget(String(config.baseUrl));
-  if (!Array.isArray(config.endpoints) || config.endpoints.length === 0 ||
-      config.endpoints.some((endpoint) => !DEFAULT_ENDPOINTS.includes(endpoint))) {
+  if (
+    !Array.isArray(config.endpoints) ||
+    config.endpoints.length === 0 ||
+    config.endpoints.some((endpoint) => !DEFAULT_ENDPOINTS.includes(endpoint))
+  ) {
     throw new Error("Only approved public catalog endpoints are allowed");
   }
   const samples = [];
@@ -126,9 +136,7 @@ export async function runScenario(config) {
 }
 
 async function main() {
-  const baseUrl = assertSafeTarget(
-    process.env.LOAD_TARGET_URL ?? "",
-  );
+  const baseUrl = assertSafeTarget(process.env.LOAD_TARGET_URL ?? "");
   const apiKey = process.env.LOAD_PUBLISHABLE_KEY;
   if (!apiKey) throw new Error("LOAD_PUBLISHABLE_KEY is required");
 
