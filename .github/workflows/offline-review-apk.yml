@@ -70,11 +70,7 @@ jobs:
             adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -e class app.studentamkeen.tamkeen.ReviewApkSmokeTest app.studentamkeen.tamkeen.review.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/offline-review-apk/instrumentation.txt
             grep -F 'OK (1 test)' artifacts/offline-review-apk/instrumentation.txt
-            adb shell am force-stop app.studentamkeen.tamkeen.review
-            adb shell am start -n app.studentamkeen.tamkeen.review/app.studentamkeen.tamkeen.ReviewActivity
-            sleep 5
-            adb shell screencap -p /sdcard/review-launch.png
-            adb pull /sdcard/review-launch.png artifacts/offline-review-apk/review-launch.png
+            adb pull /sdcard/Android/data/app.studentamkeen.tamkeen.review/files/review-launch.png artifacts/offline-review-apk/review-launch.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:

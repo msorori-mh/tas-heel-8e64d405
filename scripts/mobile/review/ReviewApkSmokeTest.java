@@ -33,6 +33,30 @@ public class ReviewApkSmokeTest {
         fail("Expected " + expected + " but got " + value);
         return value;
     }
+    private void captureVisibleApp(ActivityScenario<ReviewActivity> activity, Context context) throws Exception {
+        android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        long end = System.currentTimeMillis() + 45000;
+        String foreground = "";
+        while (System.currentTimeMillis() < end) {
+            android.view.accessibility.AccessibilityNodeInfo root = automation.getRootInActiveWindow();
+            foreground = root == null ? "" : String.valueOf(root.getPackageName());
+            if (context.getPackageName().equals(foreground)) break;
+            Thread.sleep(250);
+        }
+        assertEquals("A launcher/system dialog obscures the app", context.getPackageName(), foreground);
+        CountDownLatch drawn = new CountDownLatch(1);
+        activity.onActivity(current -> current.getBridge().getWebView().postVisualStateCallback(1,
+            new WebView.VisualStateCallback() {
+                @Override public void onComplete(long requestId) { drawn.countDown(); }
+            }));
+        assertTrue("WebView did not finish drawing", drawn.await(15, TimeUnit.SECONDS));
+        android.graphics.Bitmap screenshot = automation.takeScreenshot();
+        assertNotNull("Screenshot unavailable", screenshot);
+        try (java.io.FileOutputStream output = new java.io.FileOutputStream(
+                new java.io.File(context.getExternalFilesDir(null), "review-launch.png"))) {
+            assertTrue(screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output));
+        } finally { screenshot.recycle(); }
+    }
     @Test public void pinnedAppLaunchAndAuthenticatedApiBoundary() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertEquals("app.studentamkeen.tamkeen.review", context.getPackageName());
@@ -49,6 +73,7 @@ public class ReviewApkSmokeTest {
             assertEquals("\"https://studentamkeen.com/\"", evaluate(activity, "location.href"));
             evaluate(activity, "location.href='/auth?mode=login'; 'opening'");
             until(activity, "document.body.innerText", "Google");
+            captureVisibleApp(activity, context);
             // This request has no credentials: it must reach the existing API and remain denied.
             evaluate(activity, "window.__reviewApi='pending'; fetch('/api/offline-pack/manifest/00000000-0000-4000-8000-000000000001').then(async r=>{window.__reviewApi=String(r.status)+':'+(await r.text())}).catch(()=>{window.__reviewApi='network-error'}); 'requested'");
             until(activity, "window.__reviewApi", "401");
