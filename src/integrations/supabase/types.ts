@@ -3397,8 +3397,8 @@ export type Database = {
           phone: string | null
           referral_code: string | null
           referred_by: string | null
-          school_id: string | null
           school_district: string | null
+          school_id: string | null
           school_locality: string | null
           school_name: string | null
           updated_at: string
@@ -3419,8 +3419,8 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
-          school_id?: string | null
           school_district?: string | null
+          school_id?: string | null
           school_locality?: string | null
           school_name?: string | null
           updated_at?: string
@@ -3441,8 +3441,8 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
-          school_id?: string | null
           school_district?: string | null
+          school_id?: string | null
           school_locality?: string | null
           school_name?: string | null
           updated_at?: string
@@ -3468,6 +3468,13 @@ export type Database = {
             columns: ["grade_uuid"]
             isOneToOne: false
             referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
             referencedColumns: ["id"]
           },
         ]
@@ -4194,6 +4201,60 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      schools: {
+        Row: {
+          created_at: string
+          district: string
+          district_key: string | null
+          governorate_id: string
+          id: string
+          locality: string
+          locality_key: string | null
+          merged_into: string | null
+          name: string
+          name_key: string | null
+        }
+        Insert: {
+          created_at?: string
+          district: string
+          district_key?: string | null
+          governorate_id: string
+          id?: string
+          locality: string
+          locality_key?: string | null
+          merged_into?: string | null
+          name: string
+          name_key?: string | null
+        }
+        Update: {
+          created_at?: string
+          district?: string
+          district_key?: string | null
+          governorate_id?: string
+          id?: string
+          locality?: string
+          locality_key?: string | null
+          merged_into?: string | null
+          name?: string
+          name_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schools_governorate_id_fkey"
+            columns: ["governorate_id"]
+            isOneToOne: false
+            referencedRelation: "governorates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schools_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_badges: {
         Row: {
@@ -4979,8 +5040,6 @@ export type Database = {
       }
     }
     Functions: {
-      get_lesson_question_images: { Args: { _lesson_ids: string[] }; Returns: Json }
-      get_lesson_questions_with_images: { Args: { _lesson_id: string; _kind: string }; Returns: Json }
       _lesson_question_content_fingerprint: {
         Args: { p: Json; p_role: string }
         Returns: string
@@ -5182,6 +5241,18 @@ export type Database = {
         Args: { _expected_preview_sha256: string }
         Returns: Json
       }
+      admin_list_students_by_school: {
+        Args: {
+          p_governorate_id?: string
+          p_grade_id?: string
+          p_page?: number
+          p_page_size?: number
+          p_pending_school?: boolean
+          p_school_id?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
       admin_list_students_filtered: {
         Args: {
           p_governorate_id?: string
@@ -5197,6 +5268,15 @@ export type Database = {
         Args: { _confirmation: string; _reason: string }
         Returns: Json
       }
+      admin_merge_schools: {
+        Args: {
+          p_expected_source: Json
+          p_expected_target: Json
+          p_source_id: string
+          p_target_id: string
+        }
+        Returns: Json
+      }
       admin_refund_subscription: {
         Args: {
           _amount?: number
@@ -5206,6 +5286,15 @@ export type Database = {
           _subscription_id: string
         }
         Returns: Json
+      }
+      admin_review_school_profile: {
+        Args: {
+          p_expected: Json
+          p_kind: string
+          p_school: Json
+          p_user_id: string
+        }
+        Returns: string
       }
       admin_save_curriculum_subject: {
         Args: {
@@ -5221,11 +5310,21 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_school_details: { Args: { p_id: string }; Returns: Json }
+      admin_school_directory: {
+        Args: { p_governorate_id?: string; p_page?: number; p_query?: string }
+        Returns: Json
+      }
+      admin_school_review_queue: {
+        Args: { p_governorate_id?: string; p_page?: number; p_query?: string }
+        Returns: Json
+      }
       admin_set_primary_lesson_resource: {
         Args: { _lesson_id: string; _resource_id: string }
         Returns: Json
       }
       admin_student_filter_options: { Args: never; Returns: Json }
+      admin_student_school_filter_options: { Args: never; Returns: Json }
       admin_subject_track_detach: {
         Args: {
           _curriculum_track_id: string
@@ -5467,6 +5566,7 @@ export type Database = {
         Returns: string
       }
       cf11_inline_scripts: { Args: { _html: string }; Returns: string[] }
+      cf11_is_allowed_phet_lab: { Args: { _html: string }; Returns: boolean }
       cf11_is_managed_lesson: { Args: { _lesson_id: string }; Returns: boolean }
       cf11_lifecycle_capabilities: { Args: never; Returns: string[] }
       cf11_live_lifecycle_capabilities: {
@@ -5649,6 +5749,14 @@ export type Database = {
           title: string
           url: string
         }[]
+      }
+      get_lesson_question_images: {
+        Args: { _lesson_ids: string[] }
+        Returns: Json
+      }
+      get_lesson_questions_with_images: {
+        Args: { _kind: string; _lesson_id: string }
+        Returns: Json
       }
       get_lesson_quiz_questions: {
         Args: { _lesson_id: string }
@@ -6064,6 +6172,27 @@ export type Database = {
           ready_capabilities: string[]
         }[]
       }
+      lesson_self_test_question_delete: {
+        Args: { _lesson_id: string; _question_id: string; _reason: string }
+        Returns: Json
+      }
+      lesson_self_test_question_update: {
+        Args: {
+          _correct_option_code: string
+          _display_order: number
+          _explanation: string
+          _lesson_id: string
+          _options: Json
+          _question_id: string
+          _question_text: string
+          _reason: string
+        }
+        Returns: Json
+      }
+      lesson_self_test_questions_admin_list: {
+        Args: { _lesson_id: string }
+        Returns: Json
+      }
       lesson_student_content_gate: {
         Args: { _lesson_id: string }
         Returns: {
@@ -6370,6 +6499,22 @@ export type Database = {
       revoke_question_bank_capability: {
         Args: { p_grant_id: string; p_reason: string }
         Returns: Json
+      }
+      school_identity_key: { Args: { p_value: string }; Returns: string }
+      school_search_key: { Args: { p_value: string }; Returns: string }
+      search_school_directory: {
+        Args: {
+          p_district?: string
+          p_governorate_id: string
+          p_query?: string
+        }
+        Returns: {
+          district: string
+          governorate_id: string
+          id: string
+          locality: string
+          name: string
+        }[]
       }
       set_question_bank_attempt_pin_mode: {
         Args: { p_attempt_pin_mode: string; p_reason: string }
