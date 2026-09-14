@@ -1,0 +1,98 @@
+name: Isolated authenticated student HTTP journeys
+on:
+  pull_request:
+    branches: [test/unified-offline-capacity]
+    paths:
+      - "tests/load/journeys/**"
+      - ".github/workflows/student-journeys.yml"
+permissions:
+  contents: read
+concurrency:
+  group: student-journeys-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      UNIFIED_TEST_ONLY: "1"
+      UNIFIED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+      UNIFIED_PG_URL: postgresql://postgres:journey_fixture_only_password@127.0.0.1:5432/tamkeen_journey_test
+      UNIFIED_PG_MODULE: /tmp/tamkeen-journey-tools/node_modules/pg/lib/index.js
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check source formatting and syntax
+        run: |
+          npx prettier --check tests/load/journeys/*.mjs
+          node --check tests/load/journeys/setup.mjs
+          node --check tests/load/journeys/run.mjs
+      - name: Start isolated PostgreSQL 17
+        run: |
+          docker run --detach --rm --name tamkeen-journey-pg --cpus 2 --memory 1g \
+            --publish 127.0.0.1:5432:5432 \
+            --env POSTGRES_PASSWORD=journey_fixture_only_password \
+            --env POSTGRES_DB=tamkeen_journey_test \
+            postgres:17 -c max_connections=60 -c shared_buffers=224MB -c work_mem=2184kB
+          for attempt in {1..45}; do
+            if docker exec tamkeen-journey-pg pg_isready -h 127.0.0.1 -U postgres; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: Seed TEST_ONLY content and apply exact migrations
+        run: |
+          npm install --prefix /tmp/tamkeen-journey-tools --no-package-lock --no-save pg@8.16.3
+          node tests/load/journeys/setup.mjs
+      - name: Start real PostgREST over the isolated fixture
+        run: |
+          docker run --detach --rm --name tamkeen-journey-rest --network host --cpus 1 --memory 256m \
+            --env PGRST_DB_URI=postgresql://authenticator:journey_fixture_only_password@127.0.0.1:5432/tamkeen_journey_test \
+            --env PGRST_DB_SCHEMAS=public --env PGRST_DB_ANON_ROLE=anon \
+            --env PGRST_JWT_SECRET=TEST_ONLY_journey_hmac_key_never_use_in_production \
+            --env PGRST_DB_POOL=12 --env PGRST_DB_POOL_ACQUISITION_TIMEOUT=10 \
+            --env PGRST_SERVER_HOST=127.0.0.1 --env PGRST_SERVER_PORT=3001 \
+            postgrest/postgrest:v16.3
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:3001/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs tamkeen-journey-rest
+          exit 1
+      - name: Exercise access, bytes, assessment, replay and sustained HTTP load
+        run: node --import tsx tests/load/journeys/run.mjs
+      - name: Capture machine-readable formatting suggestions
+        if: failure()
+        run: |
+          node --input-type=module <<'JS'
+          import fs from "node:fs";
+          import prettier from "prettier";
+          for (const path of ["tests/load/journeys/setup.mjs","tests/load/journeys/run.mjs"]) {
+            const source=fs.readFileSync(path,"utf8");
+            const formatted=await prettier.format(source,{...(await prettier.resolveConfig(path)),filepath:path});
+            if(source!==formatted) console.log("FORMAT_SOURCE "+JSON.stringify({path,content:formatted}));
+          }
+          JS
+      - name: Capture container evidence and stop exact test resources
+        if: always()
+        run: |
+          mkdir -p artifacts/journeys
+          docker stats --no-stream tamkeen-journey-pg tamkeen-journey-rest > artifacts/journeys/container-stats.txt 2>&1 || true
+          docker logs tamkeen-journey-pg > artifacts/journeys/postgres.log 2>&1 || true
+          docker logs tamkeen-journey-rest > artifacts/journeys/postgrest.log 2>&1 || true
+          docker stop tamkeen-journey-rest tamkeen-journey-pg || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: authenticated-journeys-${{ github.event.pull_request.head.sha }}
+          path: artifacts/journeys
+          if-no-files-found: error
