@@ -332,3 +332,48 @@ describe("OFFLINE-02 resumable differential downloader", () => {
     expect(record.downloadedBytes).toBe(3);
   });
 });
+
+it("cancellation rejects late bytes, preserves completed files, and resumes without fetching them again", async () => {
+  const repository = new OfflineStateRepository(new MemoryOfflineStateAdapter());
+  const io = new MemoryIo({ one: "abc", two: "def" });
+  const controller = new AbortController();
+  const normalFetch = io.fetch.bind(io);
+  io.fetch = async (artifact) => {
+    const bytes = await normalFetch(artifact);
+    if (artifact.artifactId === "two") controller.abort();
+    return bytes; // Simulates a fetch implementation delivering bytes after cancellation.
+  };
+  const manifest = await manifestForDownload();
+  await expect(
+    downloadOfflinePackManifest({
+      ownerId: "student-a",
+      manifest,
+      repository,
+      io,
+      signal: controller.signal,
+    }),
+  ).rejects.toThrow("OFFLINE_DOWNLOAD_ABORTED");
+  expect(io.files.has("student-a:one")).toBe(true);
+  expect(io.files.has("student-a:two")).toBe(false);
+  expect((await repository.read()).packs[0].verifiedArtifactIds).toEqual(["one"]);
+  io.fetch = normalFetch;
+  await downloadOfflinePackManifest({ ownerId: "student-a", manifest, repository, io });
+  expect(io.fetches.get("one")).toBe(1);
+  expect((await repository.read()).packs[0].status).toBe("ready");
+});
+
+it("a pre-cancelled request does not register or mutate a pack", async () => {
+  const repository = new OfflineStateRepository(new MemoryOfflineStateAdapter());
+  const controller = new AbortController();
+  controller.abort();
+  await expect(
+    downloadOfflinePackManifest({
+      ownerId: "student-a",
+      manifest: await manifestForDownload(),
+      repository,
+      io: new MemoryIo({ one: "abc", two: "def" }),
+      signal: controller.signal,
+    }),
+  ).rejects.toThrow("OFFLINE_DOWNLOAD_ABORTED");
+  expect((await repository.read()).packs).toEqual([]);
+});
