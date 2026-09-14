@@ -1,0 +1,38 @@
+name: Offline downloads in Settings
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/offline/**"
+      - "src/components/offline/**"
+      - "src/routes/_authenticated/settings.tsx"
+      - "src/routes/_authenticated/subjects.$subjectId.tsx"
+      - "tests/offline/**"
+      - "tests/e2e/offline-settings/**"
+      - ".github/workflows/offline-settings.yml"
+permissions:
+  contents: read
+concurrency:
+  group: offline-settings-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  settings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/offline tests/mobile/android-offline-03-ui.static.test.mjs tests/low-data
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/offline-settings/vite.config.ts
+      - run: node tests/e2e/offline-settings/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-settings-${{ github.sha }}
+          path: artifacts/offline-settings
+          if-no-files-found: error

@@ -47,16 +47,32 @@ export interface OfflinePackDownloadIo {
   save(ownerId: string, artifact: OfflinePackArtifact, bytes: Uint8Array): Promise<void>;
 }
 
-async function sessionIdentity(): Promise<{ ownerId: string; token: string }> {
-  const { data } = await supabase.auth.getSession();
+async function cancellableSession(signal?: AbortSignal) {
+  checkDownloadSignal(signal);
+  let abort: (() => void) | undefined;
+  try {
+    return await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) => {
+        abort = () => reject(new Error("OFFLINE_DOWNLOAD_ABORTED"));
+        signal?.addEventListener("abort", abort, { once: true });
+      }),
+    ]);
+  } finally {
+    if (abort) signal?.removeEventListener("abort", abort);
+  }
+}
+
+async function sessionIdentity(signal?: AbortSignal): Promise<{ ownerId: string; token: string }> {
+  const { data } = await cancellableSession(signal);
   const ownerId = data.session?.user.id;
   const token = data.session?.access_token;
   if (!ownerId || !token) throw new Error("OFFLINE_UNAUTHENTICATED");
   return { ownerId, token };
 }
 
-async function sessionOwnerId(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
+async function sessionOwnerId(signal?: AbortSignal): Promise<string> {
+  const { data } = await cancellableSession(signal);
   const ownerId = data.session?.user.id;
   if (!ownerId) throw new Error("OFFLINE_UNAUTHENTICATED");
   return ownerId;
@@ -138,19 +154,58 @@ function createDeviceIo(token: string): OfflinePackDownloadIo {
   };
 }
 
+export type OfflineDownloadRequest = { signal?: AbortSignal; expectedOwnerId?: string };
+
+function checkDownloadSignal(signal?: AbortSignal) {
+  if (signal?.aborted) throw new Error("OFFLINE_DOWNLOAD_ABORTED");
+}
+
+async function checkedIdentity(options: OfflineDownloadRequest) {
+  checkDownloadSignal(options.signal);
+  const identity = await sessionIdentity(options.signal);
+  checkDownloadSignal(options.signal);
+  if (options.expectedOwnerId && identity.ownerId !== options.expectedOwnerId) {
+    throw new Error("OFFLINE_OWNER_CHANGED");
+  }
+  return identity;
+}
+
 async function fetchOfflineSubjectPackManifestWithIdentity(
   subjectId: string,
-): Promise<{ ownerId: string; token: string; manifest: OfflinePackManifest }> {
-  const identity = await sessionIdentity();
+  options: OfflineDownloadRequest = {},
+): Promise<{ ownerId: string; token: string; manifest: OfflinePackManifest; omitted: number }> {
+  const identity = await checkedIdentity(options);
   const response = await fetch(`/api/offline-pack/manifest/${encodeURIComponent(subjectId)}`, {
     headers: { Authorization: `Bearer ${identity.token}` },
+    signal: options.signal,
   });
   if (!response.ok) throw new Error(`OFFLINE_MANIFEST_FETCH_${response.status}`);
-  const payload = (await response.json()) as { manifest?: unknown };
+  const payload = (await response.json()) as { manifest?: unknown; omitted?: unknown };
+  checkDownloadSignal(options.signal);
+  const manifest = parseOfflinePackManifest(payload.manifest);
+  if (manifest.scope.subjectId !== subjectId || manifest.packId !== `subject-${subjectId}`) {
+    throw new Error("OFFLINE_MANIFEST_SCOPE_MISMATCH");
+  }
   return {
     ...identity,
-    manifest: parseOfflinePackManifest(payload.manifest),
+    manifest,
+    omitted:
+      typeof payload.omitted === "number" && Number.isSafeInteger(payload.omitted)
+        ? Math.max(0, payload.omitted)
+        : 0,
   };
+}
+
+/** Metadata only; no content bytes are fetched until the student starts the download. */
+export async function prepareOfflineSubjectPack(
+  subjectId: string,
+  options: OfflineDownloadRequest,
+) {
+  const { manifest, omitted } = await fetchOfflineSubjectPackManifestWithIdentity(
+    subjectId,
+    options,
+  );
+  return { manifest, omitted };
 }
 
 export async function fetchOfflineSubjectPackManifest(
@@ -169,6 +224,7 @@ export async function downloadOfflinePackManifest(params: {
 }): Promise<OfflinePackRecord> {
   const repository = params.repository ?? deviceOfflineStateRepository;
   const manifest = parseOfflinePackManifest(params.manifest);
+  checkDownloadSignal(params.signal);
   const registered = await registerOfflinePack(repository, params.ownerId, manifest);
   await startOfflinePackDownload(
     repository,
@@ -196,6 +252,7 @@ export async function downloadOfflinePackManifest(params: {
           local = null;
         }
       }
+      checkDownloadSignal(params.signal);
       if (local) {
         completedBytes += artifact.byteSize;
         await recordVerifiedOfflineArtifact(repository, {
@@ -242,7 +299,9 @@ export async function downloadOfflinePackManifest(params: {
           status: "downloading",
         });
       });
+      checkDownloadSignal(params.signal);
       await verifyOfflineArtifact(bytes, artifact);
+      checkDownloadSignal(params.signal);
       await params.io.save(params.ownerId, artifact, bytes);
       const persisted = await params.io.read(params.ownerId, artifact);
       if (!persisted) throw new Error("OFFLINE_ARTIFACT_PERSISTENCE_FAILED");
@@ -282,13 +341,22 @@ export async function downloadOfflinePackManifest(params: {
 
 export async function downloadOfflineSubjectPack(params: {
   subjectId: string;
+  expectedOwnerId?: string;
+  /** Reuse the exact size/content preview without fetching its manifest again. */
+  manifest?: OfflinePackManifest;
   repository?: OfflineStateRepository;
   signal?: AbortSignal;
   onProgress?: (progress: OfflinePackDownloadProgress) => void;
 }): Promise<OfflinePackRecord> {
-  const { ownerId, token, manifest } = await fetchOfflineSubjectPackManifestWithIdentity(
-    params.subjectId,
-  );
+  const { ownerId, token, manifest } = params.manifest
+    ? { ...(await checkedIdentity(params)), manifest: parseOfflinePackManifest(params.manifest) }
+    : await fetchOfflineSubjectPackManifestWithIdentity(params.subjectId, params);
+  if (
+    manifest.scope.subjectId !== params.subjectId ||
+    manifest.packId !== `subject-${params.subjectId}`
+  ) {
+    throw new Error("OFFLINE_MANIFEST_SCOPE_MISMATCH");
+  }
   return downloadOfflinePackManifest({
     ownerId,
     manifest,
@@ -311,8 +379,9 @@ export type OfflineSubjectPackLocalStatus = {
 export async function inspectOfflineSubjectPack(
   subjectId: string,
   repository: OfflineStateRepository = deviceOfflineStateRepository,
+  signal?: AbortSignal,
 ): Promise<OfflineSubjectPackLocalStatus> {
-  const ownerId = await sessionOwnerId();
+  const ownerId = await sessionOwnerId(signal);
   const snapshot = await repository.read();
   const record =
     snapshot.packs.find(
@@ -334,6 +403,7 @@ export async function inspectOfflineSubjectPack(
   const presentArtifactIds = new Set<string>();
   let presentBytes = 0;
   for (const artifact of record.manifest.artifacts) {
+    checkDownloadSignal(signal);
     let bytes: Uint8Array | null = null;
     try {
       bytes = await io.read(ownerId, artifact);
@@ -378,8 +448,11 @@ export async function inspectOfflineSubjectPack(
 export async function deleteOfflineSubjectPack(
   subjectId: string,
   repository: OfflineStateRepository = deviceOfflineStateRepository,
+  expectedOwnerId?: string,
 ): Promise<void> {
   const status = await inspectOfflineSubjectPack(subjectId, repository);
+  if (expectedOwnerId && status.ownerId !== expectedOwnerId)
+    throw new Error("OFFLINE_OWNER_CHANGED");
   if (!status.record) return;
   for (const artifact of status.record.manifest.artifacts) {
     if (artifact.kind === "textbook-pdf" || artifact.kind === "lesson-pdf") {
@@ -403,8 +476,10 @@ export async function getRecordedOfflinePackBytes(
 
 export async function deleteAllOfflinePacks(
   repository: OfflineStateRepository = deviceOfflineStateRepository,
+  expectedOwnerId?: string,
 ): Promise<void> {
   const ownerId = await sessionOwnerId();
+  if (expectedOwnerId && ownerId !== expectedOwnerId) throw new Error("OFFLINE_OWNER_CHANGED");
   const snapshot = await repository.read();
   const records = snapshot.packs.filter((record) => record.ownerId === ownerId);
   const removedFiles = new Set<string>();

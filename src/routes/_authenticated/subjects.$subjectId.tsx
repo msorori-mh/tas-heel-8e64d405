@@ -29,7 +29,6 @@ import {
 import { semesterLabel, type Semester } from "@/lib/subject-semester";
 import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
-import { OfflineSubjectPackCard } from "@/components/offline/OfflineSubjectPackCard";
 import { fetchStudentLessonVisibility } from "@/lib/lessons/lesson-lifecycle";
 
 const searchSchema = z.object({
@@ -295,11 +294,6 @@ function SubjectIndexPage() {
       </header>
 
       {!hasAny && <StateMessage>لم تُضاف دروس لهذه المادة بعد.</StateMessage>}
-
-      {/* 18C — تحميل ملفات المادة للاستخدام دون إنترنت */}
-      {lessons.length > 0 && (
-        <OfflineSubjectPackCard subjectId={subjectId} subjectName={subject.name} />
-      )}
 
       {hasAny &&
         (hasUnits ? (
