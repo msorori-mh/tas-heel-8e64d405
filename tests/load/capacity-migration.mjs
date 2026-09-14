@@ -124,6 +124,12 @@ try {
   ).rows[0];
   assert.notEqual(fresh.offline_metadata_v1.sha256, old.offline_metadata_v1.sha256);
   await db.exec("RESET ROLE");
+  // Restore the exact fixture body after the write test so before/after timings
+  // and payload measurements use identical content.
+  await db.query(
+    `UPDATE lesson_book_contents SET content=$1 WHERE id='40000000-0000-4000-8000-000000000001'`,
+    [old.content],
+  );
   // Real PostgreSQL regex/SHA parity with the client reference, including Arabic boundaries.
   const vectors = JSON.parse(
     await readFile("artifacts/capacity/offline-metadata-vectors.json", "utf8"),
@@ -135,7 +141,7 @@ try {
     assert.deepEqual(observed, metadata, body.slice(0, 100));
   }
   console.log(
-    `PASS: 5-role equivalence, grade/track/draft isolation, batch bound, generated-column protection, anon denial, source refresh, ${vectors.length} SQL/JS parity vectors`,
+    `PASS: 5-identity equivalence, grade/track/draft isolation, batch bound, generated-column protection, anon denial, source refresh, ${vectors.length} SQL/JS parity vectors`,
   );
   if (beforeBenchmark) {
     const afterBenchmark = await benchmarkCapacity(db, "after");
