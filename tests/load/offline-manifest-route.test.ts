@@ -57,7 +57,14 @@ async function setup(count: number, missing = false) {
           : gates.filter((g) => args._lesson_ids!.includes(g.lesson_id)),
   }));
   const from = (table: string) => {
-    const chain: any = {
+    type Query = PromiseLike<{ data: unknown; error: null }> & {
+      select: (fields: string) => Query;
+      eq: () => Query;
+      order: () => Query;
+      in: () => Query;
+      maybeSingle: () => Query;
+    };
+    const chain: Query = {
       select: (fields: string) => {
         selects.push({ table, fields });
         return chain;
@@ -66,7 +73,8 @@ async function setup(count: number, missing = false) {
       order: () => chain,
       in: () => chain,
       maybeSingle: () => chain,
-      then: (resolve: any) => Promise.resolve({ data: tables[table], error: null }).then(resolve),
+      then: (resolve, reject) =>
+        Promise.resolve({ data: tables[table], error: null }).then(resolve, reject),
     };
     return chain;
   };
@@ -74,11 +82,20 @@ async function setup(count: number, missing = false) {
   mocks.assessments.mockResolvedValue([]);
   return { rpc, selects };
 }
+const handlers = (
+  Route.options as unknown as {
+    server: {
+      handlers: {
+        GET: (context: { request: Request; params: { subjectId: string } }) => Promise<Response>;
+      };
+    };
+  }
+).server.handlers;
 const call = () =>
-  (Route.options as any).server.handlers.GET({
+  handlers.GET({
     request: new Request("https://test.invalid/api/offline-pack/manifest/" + id(1)),
     params: { subjectId: id(1) },
-  }) as Promise<Response>;
+  });
 it("40 lessons use one gate batch and no full text columns", async () => {
   const { rpc, selects } = await setup(40);
   const response = await call();

@@ -302,9 +302,15 @@ export const Route = createFileRoute("/api/offline-pack/artifact/$resourceId")({
   server: {
     handlers: {
       GET: ({ request, params }) =>
-        withOfflineArtifactCapacity(() => handle(request, params.resourceId, "GET")),
+        withOfflineArtifactCapacity(
+          () => handle(request, params.resourceId, "GET"),
+          request.signal,
+        ),
       HEAD: ({ request, params }) =>
-        withOfflineArtifactCapacity(() => handle(request, params.resourceId, "HEAD")),
+        withOfflineArtifactCapacity(
+          () => handle(request, params.resourceId, "HEAD"),
+          request.signal,
+        ),
     },
   },
 });

@@ -66,7 +66,12 @@ $$;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT INSERT,UPDATE,DELETE ON lessons,lesson_book_contents TO authenticated;
 ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Subjects readable" ON subjects FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Subjects viewable per track assignment" ON subjects FOR SELECT TO authenticated
+ USING (has_role(auth.uid(),'admin') OR is_content_staff(auth.uid()) OR EXISTS (
+  SELECT 1 FROM subject_curriculum_tracks sct JOIN profiles p ON p.user_id=auth.uid()
+  WHERE sct.subject_id=subjects.id AND sct.is_active AND sct.curriculum_track_id=p.curriculum_track_id));
+CREATE POLICY "Content staff manage subjects" ON subjects FOR ALL TO authenticated
+ USING (is_content_staff(auth.uid())) WITH CHECK (is_content_staff(auth.uid()));
 ALTER TABLE lessons ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Lessons viewable per access" ON lessons FOR SELECT TO authenticated USING (can_access_lesson(id));
 CREATE POLICY "Content staff manage lessons" ON lessons FOR ALL TO authenticated USING (is_content_staff(auth.uid()));
@@ -79,7 +84,7 @@ INSERT INTO subjects SELECT ('10000000-0000-4000-8000-'||lpad(i::text,12,'0'))::
 INSERT INTO subject_curriculum_tracks SELECT id,'30000000-0000-4000-8000-000000000001',true FROM subjects;
 INSERT INTO profiles VALUES
  ('00000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001',null,'30000000-0000-4000-8000-000000000001'),
- ('00000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000000',null,'30000000-0000-4000-8000-000000000001'),
+ ('00000000-0000-4000-8000-000000000002',null,'20000000-0000-4000-8000-000000000000','30000000-0000-4000-8000-000000000001'),
  ('00000000-0000-4000-8000-000000000005','20000000-0000-4000-8000-000000000001',null,'30000000-0000-4000-8000-000000000002');
 INSERT INTO user_roles VALUES ('00000000-0000-4000-8000-000000000003','admin'),('00000000-0000-4000-8000-000000000004','content_manager');
 INSERT INTO lessons SELECT ('40000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,

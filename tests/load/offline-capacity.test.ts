@@ -8,6 +8,7 @@ import {
 import { fingerprintOfflineText } from "../../src/lib/offline/offline-text-metadata";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -45,7 +46,7 @@ function input(body: string): OfflinePackBuildInput {
 }
 describe("offline preparation capacity", () => {
   it("rejects excess work and frees the slot after both success and error", async () => {
-    const limit = createOfflineCapacityLimit(1);
+    const limit = createOfflineCapacityLimit(1, 0);
     let release!: () => void;
     const active = limit(async () => {
       await new Promise<void>((r) => {
@@ -53,6 +54,7 @@ describe("offline preparation capacity", () => {
       });
       return new Response("ok");
     });
+    await Promise.resolve();
     const rejected = await limit(async () => new Response("should not run"));
     expect(rejected.status).toBe(503);
     expect(rejected.headers.get("retry-after")).toBe("3");
@@ -64,6 +66,49 @@ describe("offline preparation capacity", () => {
       }),
     ).rejects.toThrow("failed");
     expect((await limit(async () => new Response("next"))).status).toBe(200);
+  });
+  it("queues a burst fairly, bounds waiting, and removes cancelled callers", async () => {
+    vi.useFakeTimers();
+    const limit = createOfflineCapacityLimit(1, 2, 1000);
+    let release!: () => void;
+    const order: number[] = [];
+    const first = limit(async () => {
+      await new Promise<void>((r) => {
+        release = r;
+      });
+      return new Response("first");
+    });
+    await Promise.resolve();
+    const c = new AbortController();
+    const cancelled = limit(async () => {
+      order.push(99);
+      return new Response("never");
+    }, c.signal);
+    const second = limit(async () => {
+      order.push(2);
+      return new Response("second");
+    });
+    expect((await limit(async () => new Response("over queue"))).status).toBe(503);
+    c.abort();
+    expect((await cancelled).status).toBe(499);
+    release();
+    await first;
+    await second;
+    expect(order).toEqual([2]);
+    let unlock!: () => void;
+    const held = limit(async () => {
+      await new Promise<void>((r) => {
+        unlock = r;
+      });
+      return new Response("held");
+    });
+    await Promise.resolve();
+    const timed = limit(async () => new Response("late"));
+    await vi.advanceTimersByTimeAsync(1001);
+    expect((await timed).status).toBe(503);
+    unlock();
+    await held;
+    expect((await limit(async () => new Response("recovered"))).status).toBe(200);
   });
   it("retries only transient reads and returns a final access denial immediately", async () => {
     vi.useFakeTimers();

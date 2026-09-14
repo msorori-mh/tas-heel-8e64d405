@@ -20,8 +20,10 @@ The configured 60 database connections are not a 60-student capacity limit.
 - Evaluate subject access as a non-correlated set for the lesson SELECT policy and cache
   invariant staff checks once per SQL statement. Keep all staff/student/grade/track rules.
 - Limit concurrent manifest preparation to 2 and artifact preparation to 8 **per server
-  instance**. Return 503 plus Retry-After under contention. These limits do not establish
-  a distributed/global traffic quota or a simultaneous-user capacity guarantee.
+  instance**. Queue up to 16 pending preparations for 15 seconds, preserving FIFO and
+  cancellation; return 503 plus Retry-After when the queue is full or its wait expires.
+  These limits do not establish a distributed/global traffic quota or a simultaneous-user
+  capacity guarantee.
 - Retry only transient read responses (429/502/503/504), at most twice, with bounded
   Retry-After and jitter. Preserve cancellation; never retry a write, 401/403, or 409.
 - Reuse home/lesson query data for 30 seconds and avoid focus-driven duplicate reads for
@@ -32,7 +34,8 @@ The configured 60 database connections are not a 60-student capacity limit.
 - Manifest equivalence between original bytes and stored descriptors; malformed, unsafe,
   empty, oversized, or stale content rejected/omitted consistently.
 - Real route test: 40 lessons -> 1 gate RPC; 201 lessons -> batches of 200 and 1.
-- Five-role SQL equivalence, grade/track/draft/legacy isolation, anonymous denial,
+- Five authenticated identities: two student grades (UUID and legacy text grade), admin,
+  content manager and a student on another track. SQL equivalence, draft/legacy isolation, anonymous denial,
   unforgeable generated columns, unchanged content checksums/timestamps and automatic
   descriptor refresh. SQL and JavaScript use the same 72 edge-case vectors.
 - PostgreSQL 17 fixture: 1,458 lessons, 44 subjects, 478 synthetic 1 MiB bodies. Compare

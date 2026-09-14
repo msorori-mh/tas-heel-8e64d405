@@ -90,6 +90,15 @@ try {
       ),
     (e) => e.code === "428C9",
   );
+  assert.deepEqual(
+    (
+      await db.query(
+        `UPDATE lesson_book_contents SET content='TEST_ONLY forbidden' WHERE id='40000000-0000-4000-8000-000000000001' RETURNING id`,
+      )
+    ).rows,
+    [],
+    "student must not edit content",
+  );
   await db.exec("RESET ROLE; SET ROLE anon;");
   await assert.rejects(
     () => db.query(`SELECT * FROM lesson_student_content_gates('{}')`),
@@ -103,6 +112,9 @@ try {
   ).rows[0];
   assert.equal(old.offline_metadata_v1.byteSize, Buffer.byteLength(old.content));
   await db.exec(
+    `SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000004',false)`,
+  );
+  await db.exec(
     `UPDATE lesson_book_contents SET content='<html>TEST_ONLY revised</html>' WHERE id='40000000-0000-4000-8000-000000000001'`,
   );
   const fresh = (
@@ -111,6 +123,7 @@ try {
     )
   ).rows[0];
   assert.notEqual(fresh.offline_metadata_v1.sha256, old.offline_metadata_v1.sha256);
+  await db.exec("RESET ROLE");
   // Real PostgreSQL regex/SHA parity with the client reference, including Arabic boundaries.
   const vectors = JSON.parse(
     await readFile("artifacts/capacity/offline-metadata-vectors.json", "utf8"),
