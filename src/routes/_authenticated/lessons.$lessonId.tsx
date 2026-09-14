@@ -246,6 +246,8 @@ function LessonPage() {
 
   const { data: remoteLesson, isLoading: loadingLesson } = useQuery({
     queryKey: ["lesson-meta", lessonId],
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lessons")
@@ -273,6 +275,8 @@ function LessonPage() {
   const { data: remoteSubject } = useQuery({
     enabled: !!lesson?.subject_id,
     queryKey: ["lesson-subject", lesson?.subject_id],
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subjects")
@@ -307,6 +311,8 @@ function LessonPage() {
   const { data: unit } = useQuery({
     enabled: !!lesson?.unit_id,
     queryKey: ["lesson-unit", lesson?.unit_id],
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("units")
@@ -352,6 +358,8 @@ function LessonPage() {
   const { data: summary } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-summary", lessonId],
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     queryFn: ({ signal }) =>
       withForegroundTransfer(async () => {
         const { data, error } = await supabase
@@ -377,6 +385,8 @@ function LessonPage() {
   } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-official-book-questions", lessonId],
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     queryFn: ({ signal }) =>
       withForegroundTransfer(async () => {
         // Role-filtered initial payload: no answer, correct option, explanation, or rationale.
@@ -408,6 +418,8 @@ function LessonPage() {
   } = useQuery({
     enabled: !!lesson && accessible === true,
     queryKey: ["lesson-self-test-questions", lessonId],
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     queryFn: ({ signal }) =>
       withForegroundTransfer(async () => {
         const data = await callLessonQuestionRpc<LessonQuestionRpcRow[]>(

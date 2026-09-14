@@ -20,14 +20,21 @@ export function percentile(values, ratio) {
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * ratio) - 1)];
 }
 
-export function assertSafeTarget(rawUrl, allowProduction = false) {
+export function assertSafeTarget(rawUrl) {
   const target = new URL(rawUrl);
   if (target.protocol !== "https:") throw new Error("LOAD_TARGET_URL must use HTTPS");
-  if (PRODUCTION_HOSTS.has(target.hostname) && !allowProduction) {
+  if (PRODUCTION_HOSTS.has(target.hostname)) {
     throw new Error("Production load testing is blocked. Use staging.");
   }
-  if (!target.hostname.endsWith(".supabase.co")) {
-    throw new Error("This runner accepts an explicit Supabase staging endpoint only");
+  if (
+    target.origin !== "https://qwfvlppsffcmmbjpznkw.supabase.co" ||
+    target.username ||
+    target.password ||
+    target.pathname !== "/" ||
+    target.search ||
+    target.hash
+  ) {
+    throw new Error("This runner accepts the approved Supabase staging origin only");
   }
   return target;
 }
@@ -82,6 +89,7 @@ async function requestOnce({ baseUrl, apiKey, endpoint, timeoutMs }) {
   try {
     const response = await fetch(new URL(endpoint, baseUrl), {
       headers: { apikey: apiKey },
+      redirect: "error",
       signal: controller.signal,
     });
     await response.arrayBuffer();
@@ -104,6 +112,14 @@ async function requestOnce({ baseUrl, apiKey, endpoint, timeoutMs }) {
 }
 
 export async function runScenario(config) {
+  assertSafeTarget(String(config.baseUrl));
+  if (
+    !Array.isArray(config.endpoints) ||
+    config.endpoints.length === 0 ||
+    config.endpoints.some((endpoint) => !DEFAULT_ENDPOINTS.includes(endpoint))
+  ) {
+    throw new Error("Only approved public catalog endpoints are allowed");
+  }
   const samples = [];
   let cursor = 0;
   const started = performance.now();
@@ -120,10 +136,7 @@ export async function runScenario(config) {
 }
 
 async function main() {
-  const baseUrl = assertSafeTarget(
-    process.env.LOAD_TARGET_URL ?? "",
-    process.env.ALLOW_PRODUCTION_LOAD_TEST === "I_ACCEPT_PRODUCTION_RISK",
-  );
+  const baseUrl = assertSafeTarget(process.env.LOAD_TARGET_URL ?? "");
   const apiKey = process.env.LOAD_PUBLISHABLE_KEY;
   if (!apiKey) throw new Error("LOAD_PUBLISHABLE_KEY is required");
 

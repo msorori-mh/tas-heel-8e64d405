@@ -1,0 +1,91 @@
+name: Offline Settings review APK
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/mobile/review/**"
+      - ".github/workflows/offline-review-apk.yml"
+      - "vite.config.ts"
+      - "src/components/lessons/**"
+      - "tests/lessons/lesson-content-zoom.test.tsx"
+      - "tests/e2e/lesson-zoom/**"
+permissions:
+  contents: read
+concurrency:
+  group: offline-review-apk-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      TAMKEEN_REVIEW_APK: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: npm ci
+      - name: Verify lesson zoom before packaging
+        run: |
+          npx vitest run tests/lessons/lesson-content-zoom.test.tsx
+          npx playwright install --with-deps chromium
+          npx vite build --config tests/e2e/lesson-zoom/vite.config.ts
+          node tests/e2e/lesson-zoom/verify.mjs
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - name: Package the reviewed UI in an isolated debug application
+        run: |
+          node scripts/mobile/review/package-review-apk.mjs
+          npx cap sync android
+          mkdir -p android/app/src/androidTest/java/app/studentamkeen/tamkeen
+          cp scripts/mobile/review/ReviewApkSmokeTest.java android/app/src/androidTest/java/app/studentamkeen/tamkeen/
+      - name: Build installable debug APK and instrumentation
+        working-directory: android
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+      - name: Verify signature, identity, pinned UI and archive content
+        run: |
+          mkdir -p artifacts/offline-review-apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk > artifacts/offline-review-apk/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk > artifacts/offline-review-apk/package.txt
+          python3 scripts/mobile/review/verify-review-apk.py artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk
+          cp mobile/review-www/review-build.json artifacts/offline-review-apk/review-build.json
+          sha256sum artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk > artifacts/offline-review-apk/SHA256SUMS.txt
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify installation and launch on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            adb install -r artifacts/offline-review-apk/Student-Tamkeen-Unified-Review.apk
+            adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e class app.studentamkeen.tamkeen.ReviewApkSmokeTest app.studentamkeen.tamkeen.review.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/offline-review-apk/instrumentation.txt
+            grep -F 'OK (1 test)' artifacts/offline-review-apk/instrumentation.txt
+            adb pull /sdcard/Android/data/app.studentamkeen.tamkeen.review/files/review-launch.png artifacts/offline-review-apk/review-launch.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-tamkeen-review-apk-${{ github.event.pull_request.head.sha }}
+          path: artifacts/offline-review-apk
+          if-no-files-found: error
+          retention-days: 30

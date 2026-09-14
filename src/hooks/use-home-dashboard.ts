@@ -40,6 +40,8 @@ export function useHomeDashboard() {
   const trackId = profile?.curriculum_track_id ?? null;
 
   const statsQ = useQuery({
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     enabled: !!user?.id,
     queryKey: ["home-stats", user?.id, gradeKey, trackId],
     queryFn: async (): Promise<HomeStats> => {
@@ -99,6 +101,8 @@ export function useHomeDashboard() {
   });
 
   const continueQ = useQuery({
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     enabled: !!user?.id,
     queryKey: ["home-continue", user?.id],
     queryFn: async (): Promise<ContinueItem[]> => {
@@ -144,6 +148,8 @@ export function useHomeDashboard() {
   });
 
   const badgesQ = useQuery({
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     enabled: !!user?.id,
     queryKey: ["home-badges", user?.id],
     queryFn: async () => {

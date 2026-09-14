@@ -2131,6 +2131,7 @@ export type Database = {
       }
       lesson_book_contents: {
         Row: {
+          offline_metadata_v1: Json
           content: string | null
           created_at: string
           id: string
@@ -2437,6 +2438,7 @@ export type Database = {
       }
       lesson_explanations: {
         Row: {
+          offline_metadata_v1: Json
           content: string
           created_at: string
           explanation_code: string | null
@@ -2523,6 +2525,7 @@ export type Database = {
       }
       lesson_resources: {
         Row: {
+          offline_metadata_v1: Json
           created_at: string
           description: string | null
           html_resource_type: string | null
@@ -2617,6 +2620,7 @@ export type Database = {
       }
       lesson_summaries: {
         Row: {
+          offline_metadata_v1: Json
           created_at: string
           id: string
           key_points: Json
@@ -6158,6 +6162,15 @@ export type Database = {
           _resource_type: string
         }
         Returns: string
+      }
+      lesson_student_content_gates: {
+        Args: { _lesson_ids: string[] }
+        Returns: {
+          lesson_id: string
+          managed: boolean
+          visible: boolean
+          ready_capabilities: string[]
+        }[]
       }
       lesson_self_test_question_delete: {
         Args: { _lesson_id: string; _question_id: string; _reason: string }
