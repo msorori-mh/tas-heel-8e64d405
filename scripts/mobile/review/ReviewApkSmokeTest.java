@@ -73,6 +73,7 @@ public class ReviewApkSmokeTest {
             assertEquals("\"https://studentamkeen.com/\"", evaluate(activity, "location.href"));
             evaluate(activity, "location.href='/auth?mode=login'; 'opening'");
             until(activity, "document.body.innerText", "Google");
+            until(activity, "Array.from(document.images).every(image => image.complete && image.naturalWidth > 0)", "true");
             captureVisibleApp(activity, context);
             // This request has no credentials: it must reach the existing API and remain denied.
             evaluate(activity, "window.__reviewApi='pending'; fetch('/api/offline-pack/manifest/00000000-0000-4000-8000-000000000001').then(async r=>{window.__reviewApi=String(r.status)+':'+(await r.text())}).catch(()=>{window.__reviewApi='network-error'}); 'requested'");
