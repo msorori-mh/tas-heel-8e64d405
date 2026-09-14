@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BookOpen, LoaderCircle } from "lucide-react";
@@ -21,8 +21,13 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "سجّل بحساب Google وابدأ التعلّم في تمكين." },
     ],
   }),
-  component: StudentAuthPage,
+  component: AuthRoute,
 });
+
+function AuthRoute() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  return pathname === "/auth" || pathname === "/auth/" ? <StudentAuthPage /> : <Outlet />;
+}
 
 function GoogleMark() {
   return (
