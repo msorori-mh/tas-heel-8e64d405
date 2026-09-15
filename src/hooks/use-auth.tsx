@@ -149,6 +149,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
+      // Revoke the academy's offline entry when the shared account changes or signs out.
+      try {
+        const owner = localStorage.getItem("tamkeen-academy-offline-owner");
+        if (event === "SIGNED_OUT" || (sess && owner && owner !== sess.user.id)) {
+          localStorage.removeItem("tamkeen-academy-offline-owner");
+          window.dispatchEvent(new Event("academy-offline-change"));
+        }
+      } catch {
+        /* Storage may be unavailable. */
+      }
       receivedAuthEvent = true;
       acceptSession(sess, event === "SIGNED_IN" || event === "USER_UPDATED");
     });

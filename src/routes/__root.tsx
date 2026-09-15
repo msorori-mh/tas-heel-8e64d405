@@ -17,6 +17,7 @@ import { PwaUpdateNotice } from "@/components/pwa/PwaUpdateNotice";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
+import { NativeSessionResume } from "@/components/mobile/NativeSessionResume";
 import { NativeAuthDeepLinkHandler } from "@/components/mobile/NativeAuthDeepLinkHandler";
 import { NativeNotificationHandler } from "@/components/mobile/NativeNotificationHandler";
 
@@ -201,6 +202,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <NativeSessionResume />
         <Outlet />
         <AndroidBackHandler />
         <NativeAuthDeepLinkHandler />

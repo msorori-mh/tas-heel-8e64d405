@@ -6,7 +6,7 @@
  * answer bytes are content-addressed but never embedded in the manifest.
  */
 
-import { ANSWER_LEAK_PATTERNS } from "@/lib/lessons/html-content-standard";
+import { fingerprintOfflineText, offlineTextMetadataSchema } from "./offline-text-metadata";
 
 import {
   OFFLINE_PACK_MAX_ARTIFACT_BYTES,
@@ -24,8 +24,6 @@ import type { OfflineAssessmentSource } from "./offline-assessment-contract";
 
 const HTML_MAX_BYTES = 5 * 1024 * 1024;
 const SHA256_RE = /^[a-f0-9]{64}$/;
-const REMOTE_REFERENCE_RE =
-  /(?:src|href)\s*=\s*["'](?:https?:)?\/\/|url\(\s*["']?(?:https?:)?\/\/|\bfetch\s*\(\s*["']https?:\/\//i;
 
 export const OFFLINE_TEXT_SOURCE_TYPES = [
   "official-book",
@@ -60,7 +58,9 @@ export type OfflineTextSource = {
   sourceId: string;
   lessonId: string;
   title: string;
-  body: string;
+  body?: string;
+  /** Only the DB-generated column is used by the server; no client-supplied metadata. */
+  preparedMetadata?: unknown;
   updatedAt: string;
   sortOrder: number;
   attestation: "lifecycle" | "body";
@@ -98,12 +98,6 @@ export type OfflinePackBuildResult = {
   manifest: OfflinePackManifest;
   omissions: ReadonlyArray<{ sourceId: string; code: OfflineManifestOmissionCode }>;
 };
-
-function assertSafeTextBody(body: string): void {
-  if (ANSWER_LEAK_PATTERNS.some((pattern) => pattern.test(body))) {
-    throw new Error("OFFLINE_ANSWER_LEAK_DETECTED");
-  }
-}
 
 function safeSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "-");
@@ -179,19 +173,29 @@ export async function buildOfflineSubjectPack(
       continue;
     }
 
-    if (!source.body.trim()) {
+    const parsedMetadata =
+      source.preparedMetadata === undefined
+        ? null
+        : offlineTextMetadataSchema.safeParse(source.preparedMetadata);
+    if (parsedMetadata && !parsedMetadata.success)
+      throw new Error("OFFLINE_SOURCE_METADATA_INVALID");
+    if (!parsedMetadata && typeof source.body !== "string")
+      throw new Error("OFFLINE_SOURCE_METADATA_MISSING");
+    const metadata = parsedMetadata?.success
+      ? parsedMetadata.data
+      : await fingerprintOfflineText(source.body!);
+    if (metadata.empty) {
       omissions.push({ sourceId: source.sourceId, code: "EMPTY_BODY" });
       continue;
     }
-    assertSafeTextBody(source.body);
-    if (REMOTE_REFERENCE_RE.test(source.body)) {
+    if (metadata.answerLeak) throw new Error("OFFLINE_ANSWER_LEAK_DETECTED");
+    if (metadata.remote) {
       omissions.push({ sourceId: source.sourceId, code: "REMOTE_DEPENDENCY" });
       continue;
     }
 
-    const bytes = new TextEncoder().encode(source.body);
-    if (bytes.byteLength > HTML_MAX_BYTES) throw new Error("OFFLINE_HTML_TOO_LARGE");
-    const observedSha256 = await sha256Hex(bytes);
+    if (metadata.byteSize > HTML_MAX_BYTES) throw new Error("OFFLINE_HTML_TOO_LARGE");
+    const observedSha256 = metadata.sha256;
     if (source.attestation === "lifecycle" && ready && observedSha256 !== ready.sha256) {
       throw new Error("OFFLINE_SOURCE_READY_HASH_MISMATCH");
     }
@@ -215,7 +219,7 @@ export async function buildOfflineSubjectPack(
       title: source.title || lesson.title,
       relativePath: `packs/${safeSegment(input.scope.subjectId ?? "subject")}/lessons/${safeSegment(source.lessonId)}/${source.sourceType}-${safeSegment(source.sourceId)}.html`,
       contentType: "text/html; charset=utf-8",
-      byteSize: bytes.byteLength,
+      byteSize: metadata.byteSize,
       sha256: observedSha256,
       sortOrder: lessonOrder * 10 + sourceOrder(source.sourceType),
     });

@@ -1,0 +1,77 @@
+name: Academy offline learning
+on:
+  pull_request:
+    paths:
+      - "apps/teacher-academy/**"
+      - "public/academy*"
+      - "scripts/academy/**"
+      - "scripts/teacher-academy/**"
+      - "supabase/migrations/*academy_offline*"
+      - "tests/academy-offline/**"
+      - "tests/e2e/academy-offline/**"
+      - "src/components/home/OfflineDownloadNotice.tsx"
+      - ".github/workflows/academy-offline.yml"
+permissions:
+  contents: read
+concurrency:
+  group: academy-offline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run academy:typecheck
+      - run: npm run academy:test
+      - run: npx vitest run tests/academy-offline
+      - run: npm run build
+      - run: npm run academy:build
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/academy-offline/vite.config.ts
+      - run: node tests/e2e/academy-offline/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: academy-offline-${{ github.sha }}
+          path: artifacts/academy-offline
+          if-no-files-found: warn
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: academy_ci_only
+          POSTGRES_DB: academy_offline
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rehearse academy and note ownership contracts
+        env:
+          PGPASSWORD: academy_ci_only
+        run: |
+          psql -h localhost -U postgres -d academy_offline -v ON_ERROR_STOP=1 \
+            -f scripts/teacher-academy/pg17-fixture.sql \
+            -f supabase/migrations/20260830020000_teacher_academy_mvp_foundation.sql \
+            -f supabase/migrations/20260830030000_teacher_academy_mvp_learning.sql \
+            -f supabase/migrations/20260830040000_teacher_academy_mvp_assessment_certificates.sql \
+            -f supabase/migrations/20260830100000_teacher_academy_admin_operational_closure.sql \
+            -f supabase/migrations/20260830110000_academy_program_details_structured_learning_live_sessions.sql \
+            -f supabase/migrations/20260911020000_academy_admin_program_management_closure.sql \
+            -f supabase/migrations/20260911030000_academy_admin_reports_settings_closure.sql \
+            -f supabase/migrations/20260911040000_academy_google_only_teacher_portal.sql \
+            -f scripts/teacher-academy/pg17-contract.sql \
+            -f supabase/migrations/20260915021143_academy_offline_notes.sql \
+            -f scripts/teacher-academy/pg17-offline-notes-contract.sql

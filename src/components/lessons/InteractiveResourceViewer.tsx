@@ -1,3 +1,4 @@
+import { LessonContentZoom } from "./LessonContentZoom";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -319,7 +320,7 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
         {/* Sandboxed Iframe Container */}
         {capability.allowed && !errorMsg && srcDoc && (
           <div
-            className={`w-full transition-all ${isFullscreen ? "fixed inset-0 z-50 bg-background" : "h-[450px]"}`}
+            className={`w-full transition-all ${isFullscreen ? "fixed inset-0 z-50 bg-background" : "min-h-[450px]"}`}
           >
             {isFullscreen && (
               <div className="absolute top-3 left-3 z-50">
@@ -337,16 +338,21 @@ export function InteractiveResourceViewer({ resource, onEventTriggered }: Props)
                 - NO allow-forms
                 - NO allow-popups
             */}
-            <iframe
-              key={`${resource.resource_code}-${resource.version}-${session.generation}`}
-              data-iframe-generation={session.generation}
-              ref={iframeRef}
-              title={resource.title_ar}
-              srcDoc={srcDoc}
-              sandbox="allow-scripts"
-              onLoad={handleIframeLoad}
-              className="h-full w-full touch-auto border-0 bg-background"
-            />
+            <LessonContentZoom
+              height={isFullscreen ? "calc(100dvh - 72px)" : "450px"}
+              contentKey={`${resource.id}-${session.generation}`}
+            >
+              <iframe
+                key={`${resource.resource_code}-${resource.version}-${session.generation}`}
+                data-iframe-generation={session.generation}
+                ref={iframeRef}
+                title={resource.title_ar}
+                srcDoc={srcDoc}
+                sandbox="allow-scripts"
+                onLoad={handleIframeLoad}
+                className="block h-full w-full touch-auto border-0 bg-background"
+              />
+            </LessonContentZoom>
           </div>
         )}
 

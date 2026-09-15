@@ -1,3 +1,4 @@
+import { withOfflineManifestCapacity } from "@/lib/offline/offline-capacity.server";
 /**
  * OFFLINE-02 — authenticated, RLS-preserving subject manifest.
  *
@@ -65,20 +66,17 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
   const lessonIds = (lessonRows ?? []).map((lesson) => lesson.id);
 
   const gates = new Map<string, Gate>();
-  const gateResults = await Promise.all(
-    lessonIds.map(async (lessonId) => ({
-      lessonId,
-      result: await caller.supabase.rpc("lesson_student_content_gate", { _lesson_id: lessonId }),
-    })),
-  );
-  for (const { lessonId, result } of gateResults) {
-    if (result.error) return offlineApiError(500, "lifecycle_gate_failed");
-    const row = (Array.isArray(result.data) ? result.data[0] : result.data) as Gate | undefined;
-    gates.set(lessonId, {
-      managed: row?.managed === true,
-      visible: row?.visible !== false,
-      ready_capabilities: row?.ready_capabilities ?? [],
+  // Bound the SQL batch and make one network request per 200 lessons, not per lesson.
+  for (let offset = 0; offset < lessonIds.length; offset += 200) {
+    const { data, error } = await caller.supabase.rpc("lesson_student_content_gates", {
+      _lesson_ids: lessonIds.slice(offset, offset + 200),
     });
+    if (error) return offlineApiError(500, "lifecycle_gate_failed");
+    for (const row of data ?? []) gates.set(row.lesson_id, row);
+  }
+  if (lessonIds.some((id) => !gates.has(id))) {
+    // Access may have changed between the catalog read and the RLS-protected batch.
+    return offlineApiError(409, "lesson_access_changed");
   }
 
   let readyRows: ReadyRow[] = [];
@@ -123,20 +121,20 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
     const [books, explanations, summaries, resources] = await Promise.all([
       caller.supabase
         .from("lesson_book_contents")
-        .select("id,lesson_id,content,updated_at")
+        .select("id,lesson_id,offline_metadata_v1,updated_at")
         .in("lesson_id", lessonIds),
       caller.supabase
         .from("lesson_explanations")
-        .select("id,lesson_id,title,content,sort_order,updated_at")
+        .select("id,lesson_id,title,offline_metadata_v1,sort_order,updated_at")
         .in("lesson_id", lessonIds),
       caller.supabase
         .from("lesson_summaries")
-        .select("id,lesson_id,summary,updated_at")
+        .select("id,lesson_id,offline_metadata_v1,updated_at")
         .in("lesson_id", lessonIds),
       caller.supabase
         .from("lesson_resources")
         .select(
-          "id,lesson_id,title,description,url,resource_type,html_resource_type,metadata,sort_order,created_at",
+          "id,lesson_id,title,offline_metadata_v1,url,resource_type,html_resource_type,metadata,sort_order,created_at",
         )
         .in("lesson_id", lessonIds)
         .in("resource_type", ["mindmap", "experiment"]),
@@ -146,13 +144,12 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
     }
 
     for (const row of books.data ?? []) {
-      if (!row.content) continue;
       textSources.push({
         sourceType: "official-book",
         sourceId: row.id,
         lessonId: row.lesson_id,
         title: "محتوى الكتاب الرسمي",
-        body: row.content,
+        preparedMetadata: row.offline_metadata_v1,
         updatedAt: row.updated_at,
         sortOrder: 0,
         attestation: "lifecycle",
@@ -164,7 +161,7 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
         sourceId: row.id,
         lessonId: row.lesson_id,
         title: row.title || "شرح تمكين",
-        body: row.content,
+        preparedMetadata: row.offline_metadata_v1,
         updatedAt: row.updated_at,
         sortOrder: row.sort_order,
         attestation: "lifecycle",
@@ -176,18 +173,14 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
         sourceId: row.id,
         lessonId: row.lesson_id,
         title: "المراجعة السريعة",
-        body: row.summary,
+        preparedMetadata: row.offline_metadata_v1,
         updatedAt: row.updated_at,
         sortOrder: 0,
         attestation: "lifecycle",
       });
     }
     for (const row of resources.data ?? []) {
-      if (
-        !row.description ||
-        !isInlineHtmlResourceUrl(row.url) ||
-        row.html_resource_type !== "INTERACTIVE"
-      ) {
+      if (!isInlineHtmlResourceUrl(row.url) || row.html_resource_type !== "INTERACTIVE") {
         continue;
       }
       textSources.push({
@@ -195,7 +188,7 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
         sourceId: row.id,
         lessonId: row.lesson_id,
         title: row.title,
-        body: row.description,
+        preparedMetadata: row.offline_metadata_v1,
         updatedAt: metadataString(row.metadata, "cf11_published_at") ?? row.created_at,
         sortOrder: row.sort_order,
         attestation: "body",
@@ -286,7 +279,8 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
 export const Route = createFileRoute("/api/offline-pack/manifest/$subjectId")({
   server: {
     handlers: {
-      GET: ({ request, params }) => handle(request, params.subjectId),
+      GET: ({ request, params }) =>
+        withOfflineManifestCapacity(() => handle(request, params.subjectId), request.signal),
     },
   },
 });

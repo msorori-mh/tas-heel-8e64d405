@@ -97,7 +97,7 @@ export function initializeAcademyPwa(): void {
   window.addEventListener("offline", () => emit({ online: false }));
 
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
-  window.addEventListener("load", () => {
+  const register = () => {
     navigator.serviceWorker
       .register("/academy-sw.js", { scope: "/academy/" })
       .then((registration) => {
@@ -115,7 +115,9 @@ export function initializeAcademyPwa(): void {
         });
       })
       .catch(() => undefined);
-  });
+  };
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register, { once: true });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload());
 }

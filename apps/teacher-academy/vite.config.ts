@@ -7,6 +7,9 @@ const academyRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   root: academyRoot,
+  ...(process.env.ACADEMY_OFFLINE_SHELL === "1"
+    ? { publicDir: false, base: "/academy-shell/" }
+    : {}),
   envDir: path.resolve(academyRoot, "../.."),
   plugins: [react()],
   resolve: {
@@ -15,7 +18,10 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.resolve(academyRoot, "../../dist-academy"),
+    outDir: path.resolve(
+      academyRoot,
+      process.env.ACADEMY_OFFLINE_SHELL === "1" ? "../../dist-academy-shell" : "../../dist-academy",
+    ),
     emptyOutDir: true,
   },
   server: {
