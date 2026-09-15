@@ -22,9 +22,15 @@ assert.match(await readFile(`${assetDir}/${settings[0]}`, "utf8"), /تحميل �
 // Keep the native student entry and expose the bundled academy to its cached owner.
 const offlineEntry = await readFile("mobile/www/index.html", "utf8");
 assert.ok(offlineEntry.includes('<main id="home-view">'));
-await writeFile("dist/client/review-offline.html", offlineEntry.replace('<main id="home-view">', `<main id="home-view">
+await writeFile(
+  "dist/client/review-offline.html",
+  offlineEntry.replace(
+    '<main id="home-view">',
+    `<main id="home-view">
 <a id="academy-offline-entry" class="card" href="/academy/" hidden>فتح تنزيلات أكاديمية المعلمين</a>
-<script>try { document.getElementById("academy-offline-entry").hidden = !localStorage.getItem("tamkeen-academy-offline-owner"); } catch {}</script>`));
+<script>try { document.getElementById("academy-offline-entry").hidden = !localStorage.getItem("tamkeen-academy-offline-owner"); } catch {}</script>`,
+  ),
+);
 await cp("mobile/www/student-tamkeen-mark.png", "dist/client/student-tamkeen-mark.png");
 await mkdir("mobile/review-www", { recursive: true });
 await cp("dist/client", "mobile/review-www", { recursive: true });

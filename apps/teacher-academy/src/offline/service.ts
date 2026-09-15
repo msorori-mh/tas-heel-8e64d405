@@ -187,7 +187,9 @@ export function syncAcademy(owner: string): Promise<void> {
     const generation = epoch;
     const events = await readAll("events", owner);
     // Sequential, bounded replay: a lost response leaves its operation pending.
-    for (const entry of events.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, 100)) {
+    for (const entry of events
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(0, 100)) {
       check(owner, generation);
       await assertSession(owner);
       check(owner, generation);

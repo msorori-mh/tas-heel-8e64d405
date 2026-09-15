@@ -93,7 +93,9 @@ try {
   });
   const page = await context.newPage();
   page.on("pageerror", (error) => console.error("PAGE", error.message));
-  page.on("console", (message) => { if (message.type() === "error") console.error("BROWSER", message.text()); });
+  page.on("console", (message) => {
+    if (message.type() === "error") console.error("BROWSER", message.text());
+  });
   await page.goto("http://127.0.0.1:4386/academy/");
   await page.getByRole("button", { name: "تحميل البرنامج", exact: true }).click();
   await page.getByRole("button", { name: "فتح المحتوى المحفوظ" }).waitFor();
@@ -114,7 +116,12 @@ try {
       omitted: [],
     });
     const reg = await navigator.serviceWorker.register("/academy-sw.js", { scope: "/academy/" });
-    await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => setTimeout(() => reject(new Error("offline worker installation timed out")), 20000))]);
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("offline worker installation timed out")), 20000),
+      ),
+    ]);
   });
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
   await context.setOffline(true);
@@ -128,7 +135,12 @@ try {
   await page.getByRole("button", { name: "حفظ الملاحظة", exact: true }).click();
   await page.getByText("إكمال محفوظ — بانتظار المزامنة").waitFor();
   await page.locator("p").filter({ hasText: "ملاحظتي أثناء الانقطاع" }).waitFor();
-  assert.equal(await page.evaluate(async () => (await window.offlineStore.readAll("notes", "teacher-a")).length), 1);
+  assert.equal(
+    await page.evaluate(
+      async () => (await window.offlineStore.readAll("notes", "teacher-a")).length,
+    ),
+    1,
+  );
   await page.reload();
   await page.getByRole("button", { name: "فتح المحتوى المحفوظ" }).click();
   await page.locator("p").filter({ hasText: "ملاحظتي أثناء الانقطاع" }).waitFor();
