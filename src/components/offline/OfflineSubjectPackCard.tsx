@@ -65,7 +65,7 @@ export function OfflineSubjectPackCard({
         setError(
           code === "OFFLINE_MANIFEST_FETCH_422"
             ? "لا يوجد محتوى موثّق متاح للتنزيل في هذه المادة بعد."
-            : "تعذّر التحقق من حزمة المادة الآن.",
+            : offlineDownloadErrorMessage(caught),
         );
       }
     } finally {
