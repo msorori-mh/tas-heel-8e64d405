@@ -3025,3 +3025,288 @@ textarea:focus {
     display: none;
   }
 }
+
+/* 21K — coherent teacher workspace and touch-first navigation. */
+.workspace-content > section {
+  width: min(100%, 1180px);
+  margin-inline: auto;
+}
+.teacher-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  background:
+    radial-gradient(circle at 10% 15%, rgba(244, 166, 63, 0.3), transparent 38%),
+    linear-gradient(135deg, var(--navy), var(--sea));
+  box-shadow: var(--shadow);
+}
+.teacher-welcome .eyebrow {
+  color: #f8ce77;
+}
+.teacher-welcome h1 {
+  margin-bottom: 0.45rem;
+  color: #fff;
+  font-size: clamp(1.55rem, 3vw, 2.35rem);
+}
+.teacher-welcome p:last-child {
+  max-width: 56ch;
+  margin-bottom: 0;
+  color: #dbe7ef;
+  line-height: 1.8;
+}
+.teacher-welcome > svg {
+  width: clamp(4.5rem, 9vw, 7rem);
+  height: clamp(4.5rem, 9vw, 7rem);
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.2);
+}
+.teacher-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1.25rem;
+}
+.teacher-metrics button {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  min-height: 5.4rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  color: var(--navy);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  text-align: right;
+  transition: 0.18s ease;
+}
+.teacher-metrics button:hover,
+.teacher-action-grid button:hover {
+  border-color: rgba(45, 138, 158, 0.55);
+  transform: translateY(-2px);
+}
+.teacher-metrics button > svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.58rem;
+  flex: 0 0 2.5rem;
+  border-radius: 0.8rem;
+  color: var(--teal);
+  background: var(--mint);
+}
+.teacher-metrics span {
+  display: grid;
+  min-width: 0;
+}
+.teacher-metrics strong {
+  font-size: 1.35rem;
+}
+.teacher-metrics small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.teacher-quick-start {
+  margin-top: 1.5rem;
+}
+.teacher-quick-start .page-heading {
+  margin-bottom: 0.8rem;
+}
+.teacher-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.teacher-action-grid button {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  min-height: 9rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  color: var(--navy);
+  background: #fff;
+  text-align: right;
+  transition: 0.18s ease;
+}
+.teacher-action-grid svg {
+  width: 1.45rem;
+  height: 1.45rem;
+  color: var(--teal);
+}
+.teacher-action-grid small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.catalog-details-drawer {
+  margin-bottom: 1.25rem;
+  padding: 1.15rem;
+  border: 1px solid rgba(45, 138, 158, 0.28);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  animation: tk-rise 0.25s ease both;
+}
+.catalog-details-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+.catalog-details-heading h2 {
+  margin: 0;
+  color: var(--navy);
+}
+.catalog-details-drawer .program-details-panel {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.program-card {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+.program-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.program-body .card-actions {
+  margin-top: auto;
+}
+.embedded-profile {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.38fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  min-height: auto;
+  padding: 0;
+  background: transparent;
+}
+.embedded-profile .profile-heading,
+.embedded-profile .profile-form {
+  width: 100%;
+  margin: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+.embedded-profile .profile-heading {
+  align-self: start;
+}
+.embedded-profile .profile-heading h1 {
+  font-size: 1.55rem;
+}
+.tk-learning-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.9rem;
+}
+.tk-learning-progress-row > div:last-child {
+  min-width: 0;
+  flex: 1;
+}
+.tk-learning-progress-row p {
+  margin: 0.55rem 0 0;
+}
+.teacher-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 980px) {
+  .workspace-content {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+  .teacher-bottom-nav {
+    position: fixed;
+    z-index: 24;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 -8px 26px rgba(12, 35, 64, 0.08);
+    backdrop-filter: blur(12px);
+  }
+  .teacher-bottom-nav button {
+    display: grid;
+    min-width: 0;
+    min-height: 4rem;
+    place-items: center;
+    align-content: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.15rem;
+    border: 0;
+    color: var(--muted);
+    background: transparent;
+    font-size: 0.64rem;
+    font-weight: 800;
+  }
+  .teacher-bottom-nav button.active {
+    color: var(--teal);
+  }
+  .teacher-bottom-nav svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .teacher-welcome {
+    align-items: flex-start;
+    min-height: 11rem;
+  }
+  .teacher-welcome > svg {
+    width: 4rem;
+    height: 4rem;
+  }
+  .teacher-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .teacher-metrics button {
+    display: grid;
+    justify-items: center;
+    min-height: 6.2rem;
+    padding: 0.7rem 0.35rem;
+    text-align: center;
+  }
+  .teacher-metrics button > svg {
+    width: 2.15rem;
+    height: 2.15rem;
+    flex-basis: 2.15rem;
+  }
+  .teacher-metrics strong {
+    font-size: 1.12rem;
+  }
+  .teacher-action-grid,
+  .embedded-profile {
+    grid-template-columns: 1fr;
+  }
+  .teacher-action-grid button {
+    min-height: 7rem;
+  }
+  .page-heading {
+    margin-bottom: 1.2rem;
+  }
+  .page-heading h1 {
+    font-size: 1.55rem;
+  }
+  .program-body h2,
+  .program-body p {
+    min-height: auto;
+  }
+}

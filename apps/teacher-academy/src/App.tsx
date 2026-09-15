@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   ExternalLink,
   GraduationCap,
+  Home,
   LoaderCircle,
   LogOut,
   Menu,
@@ -87,7 +88,7 @@ function academyUrl(path = "") {
 }
 
 type AcademyPortal = "teacher" | "admin" | "verify";
-type WorkspaceView = "catalog" | "learning" | "certificates" | "profile" | "admin";
+type WorkspaceView = "home" | "catalog" | "learning" | "certificates" | "profile" | "admin";
 
 function isGoogleAccount(user: User): boolean {
   const providers = Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers : [];
@@ -674,10 +675,12 @@ function ProfileForm({
   user,
   existing,
   onSaved,
+  embedded = false,
 }: {
   user: User;
   existing: TeacherProfile | null;
   onSaved: (profile: TeacherProfile) => void;
+  embedded?: boolean;
 }) {
   const [subjects, setSubjects] = useState<AcademySubject[]>([]);
   const [governorates, setGovernorates] = useState<Governorate[]>([]);
@@ -729,16 +732,20 @@ function ProfileForm({
     }
   }
 
+  const Wrapper = embedded ? "section" : "main";
+
   return (
-    <main className="profile-page">
+    <Wrapper className={embedded ? "profile-page embedded-profile" : "profile-page"}>
       <section className="profile-heading">
-        <div className="brand-line">
-          <span className="brand-mark">
-            <GraduationCap />
-          </span>
-          <strong>أكاديمية تمكين</strong>
-        </div>
-        <p className="eyebrow">خطوة واحدة فقط</p>
+        {!embedded ? (
+          <div className="brand-line">
+            <span className="brand-mark">
+              <GraduationCap />
+            </span>
+            <strong>أكاديمية تمكين</strong>
+          </div>
+        ) : null}
+        <p className="eyebrow">{embedded ? "بياناتك المهنية" : "خطوة واحدة فقط"}</p>
         <h1>{existing ? "تحديث الملف المهني" : "أكمل ملفك المهني"}</h1>
         <p className="muted">
           أدخل اسمك والمادة الأساسية، ثم اختر المحافظة وابحث عن مدرستك. إذا لم تجدها، يمكنك إدخال
@@ -821,7 +828,134 @@ function ProfileForm({
           حفظ والانتقال إلى البرامج
         </button>
       </form>
-    </main>
+    </Wrapper>
+  );
+}
+
+function TeacherDashboard({
+  profile,
+  onNavigate,
+}: {
+  profile: TeacherProfile;
+  onNavigate: (view: WorkspaceView) => void;
+}) {
+  const [programs, setPrograms] = useState<LearningProgram[]>([]);
+  const [availableCount, setAvailableCount] = useState(0);
+  const [certificateCount, setCertificateCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([listMyLearning(), loadVisiblePrograms(), listMyCertificates()])
+      .then(([learning, available, certificates]) => {
+        if (!active) return;
+        setPrograms(learning);
+        setAvailableCount(available.length);
+        setCertificateCount(certificates.filter((item) => item.valid).length);
+      })
+      .catch((loadError) => active && setError(getErrorMessage(loadError)))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const resume =
+    programs.find((item) => item.status !== "COMPLETED" && item.completed_lessons > 0) ??
+    programs.find((item) => item.status !== "COMPLETED") ??
+    null;
+  const resumeProgress =
+    resume && resume.total_lessons
+      ? Math.round((resume.completed_lessons / resume.total_lessons) * 100)
+      : 0;
+
+  return (
+    <section className="teacher-dashboard">
+      <div className="teacher-welcome">
+        <div>
+          <p className="eyebrow">مساحتك المهنية</p>
+          <h1>مرحبًا، {profile.full_name.split(" ")[0]}</h1>
+          <p>طوّر مهاراتك، أكمل برامجك، واحتفظ بإنجازاتك المهنية في مكان واحد.</p>
+        </div>
+        <GraduationCap aria-hidden="true" />
+      </div>
+      {error ? <div className="notice error-notice">{error}</div> : null}
+      {loading ? (
+        <div className="loading-inline">
+          <LoaderCircle className="spin" /> جارٍ تجهيز ملخصك…
+        </div>
+      ) : (
+        <>
+          <div className="teacher-metrics" aria-label="ملخص الحساب">
+            <button type="button" onClick={() => onNavigate("catalog")}>
+              <BookOpen />
+              <span>
+                <strong>{availableCount}</strong>
+                <small>برنامج متاح</small>
+              </span>
+            </button>
+            <button type="button" onClick={() => onNavigate("learning")}>
+              <Target />
+              <span>
+                <strong>{programs.length}</strong>
+                <small>برامجي</small>
+              </span>
+            </button>
+            <button type="button" onClick={() => onNavigate("certificates")}>
+              <Award />
+              <span>
+                <strong>{certificateCount}</strong>
+                <small>شهاداتي</small>
+              </span>
+            </button>
+          </div>
+          {resume ? (
+            <NextStepCard
+              eyebrow="واصل من حيث توقفت"
+              title={resume.title}
+              description={`${resume.completed_lessons} من ${resume.total_lessons} دروس مكتملة.`}
+              actionLabel="متابعة البرنامج"
+              onAction={() => onNavigate("learning")}
+              progress={resumeProgress}
+            />
+          ) : (
+            <NextStepCard
+              eyebrow="ابدأ رحلتك"
+              title="اختر أول برنامج تدريبي"
+              description="استكشف البرامج المناسبة لمادتك وابدأ التعلم بخطوات واضحة."
+              actionLabel="استعراض البرامج"
+              onAction={() => onNavigate("catalog")}
+            />
+          )}
+          <section className="teacher-quick-start" aria-label="روابط سريعة">
+            <div className="page-heading compact-heading">
+              <div>
+                <p className="eyebrow">وصول سريع</p>
+                <h2>ماذا تريد أن تفعل؟</h2>
+              </div>
+            </div>
+            <div className="teacher-action-grid">
+              <button type="button" onClick={() => onNavigate("catalog")}>
+                <BookOpen />
+                <strong>اكتشف البرامج</strong>
+                <small>برامج مناسبة لتخصصك</small>
+              </button>
+              <button type="button" onClick={() => onNavigate("learning")}>
+                <Target />
+                <strong>تابع مسارك</strong>
+                <small>دروس وتقييمات وإنجاز</small>
+              </button>
+              <button type="button" onClick={() => onNavigate("certificates")}>
+                <Award />
+                <strong>شهاداتي</strong>
+                <small>عرض وتحقق ومشاركة</small>
+              </button>
+            </div>
+          </section>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -869,6 +1003,8 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
     }
   }
 
+  const expandedProgram = programs.find((item) => item.program_version_id === expandedId) ?? null;
+
   return (
     <section>
       <div className="page-heading">
@@ -883,6 +1019,28 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
         <div className="loading-inline">
           <LoaderCircle className="spin" /> جارٍ تحميل البرامج…
         </div>
+      ) : null}
+      {expandedProgram ? (
+        <section className="catalog-details-drawer" aria-label={`تفاصيل ${expandedProgram.title}`}>
+          <div className="catalog-details-heading">
+            <div>
+              <p className="eyebrow">تفاصيل البرنامج</p>
+              <h2>{expandedProgram.title}</h2>
+            </div>
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => setExpandedId(null)}
+              aria-label="إغلاق التفاصيل"
+            >
+              <X />
+            </button>
+          </div>
+          <ProgramDetails
+            programVersionId={expandedProgram.program_version_id}
+            information={expandedProgram}
+          />
+        </section>
       ) : null}
       {!loading && programs.length === 0 ? (
         <div className="empty-state">
@@ -940,12 +1098,6 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
                     {program.enrolled ? "مسجل في البرنامج" : "ابدأ التدريب"}
                   </button>
                 </div>
-                {expandedId === program.program_version_id ? (
-                  <ProgramDetails
-                    programVersionId={program.program_version_id}
-                    information={program}
-                  />
-                ) : null}
               </div>
             </article>
           ))}
@@ -1237,18 +1389,11 @@ function Learning() {
                     <span className="status live">مكتمل</span>
                   ) : null}
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    marginTop: "0.9rem",
-                  }}
-                >
+                <div className="tk-learning-progress-row">
                   <ProgressRing value={progress} size={64} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
+                  <div>
                     <ProgressBar value={progress} label={`نسبة الإنجاز ${progress}%`} />
-                    <p style={{ margin: "0.55rem 0 0" }}>
+                    <p>
                       {program.completed_lessons} من {program.total_lessons} درسًا
                     </p>
                   </div>
@@ -1501,13 +1646,14 @@ function Workspace({
 }) {
   const hasAdminAccess = portal === "admin" && capabilities.size > 0;
   const hasTeacherAccess = portal === "teacher" && profile?.status === "ACTIVE";
-  const [view, setView] = useState<WorkspaceView>(() => (portal === "admin" ? "admin" : "catalog"));
+  const [view, setView] = useState<WorkspaceView>(() => (portal === "admin" ? "admin" : "home"));
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navigation = useMemo(
     () => [
       ...(hasTeacherAccess
         ? [
+            { id: "home" as const, label: "الرئيسية", icon: Home },
             { id: "catalog" as const, label: "البرامج", icon: BookOpen },
             { id: "learning" as const, label: "مساري", icon: Award },
             { id: "certificates" as const, label: "الشهادات", icon: GraduationCap },
@@ -1587,14 +1733,36 @@ function Workspace({
       {menuOpen ? <button className="menu-backdrop" onClick={() => setMenuOpen(false)} /> : null}
 
       <main className="workspace-content">
+        {view === "home" && profile && hasTeacherAccess ? (
+          <TeacherDashboard profile={profile} onNavigate={selectView} />
+        ) : null}
         {view === "catalog" && hasTeacherAccess ? <Catalog onChanged={() => undefined} /> : null}
         {view === "learning" && hasTeacherAccess ? <Learning /> : null}
         {view === "certificates" && hasTeacherAccess ? <Certificates /> : null}
         {view === "profile" && profile && hasTeacherAccess ? (
-          <ProfileForm user={user} existing={profile} onSaved={onProfileChanged} />
+          <ProfileForm user={user} existing={profile} onSaved={onProfileChanged} embedded />
         ) : null}
         {view === "admin" && hasAdminAccess ? <AdminHome capabilities={capabilities} /> : null}
       </main>
+      {hasTeacherAccess ? (
+        <nav className="teacher-bottom-nav" aria-label="التنقل الرئيسي على الجوال">
+          {navigation.slice(0, 5).map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                type="button"
+                key={item.id}
+                className={view === item.id ? "active" : ""}
+                aria-current={view === item.id ? "page" : undefined}
+                onClick={() => selectView(item.id)}
+              >
+                <Icon aria-hidden="true" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
     </div>
   );
 }
