@@ -125,7 +125,7 @@ public class ReviewSessionRestoreTest {
                     network(true); until(activity, "navigator.onLine", "true");
                     evaluate(activity, "location.href='/';'opening'");
                     until(activity, "location.pathname", space.equals("teacher") ? "/academy" : "/app");
-                    until(activity, "document.body.innerText", space.equals("teacher") ? "البرامج المناسبة" : "اختبار حفظ الجلسة");
+                    until(activity, "document.body.innerText", space.equals("teacher") ? "البرامج المناسبة" : "مرحباً، اختبار");
                     assertEquals("0", evaluate(activity, "Array.from(document.querySelectorAll('button')).filter(b=>b.textContent.includes('المتابعة باستخدام Google')).length"));
                     assertNotNull(context.getSharedPreferences("CapacitorStorage", 0).getString(KEY, null));
                     if (space.equals("teacher")) {
