@@ -379,7 +379,10 @@ it("admin adds a school directly with field errors and no profile mutation", asy
     p_commit: true,
     p_rows: [{ governorate_id: "gov-1", district: "المجمع", name: "الميثاق", locality: "" }],
   });
-  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("تمت إضافة المدرسة");
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(mocks.toast).toHaveBeenCalledWith("تمت إضافة المدرسة بنجاح.");
+  await click("إضافة مدرسة");
+  expect((document.getElementById("intake-name") as HTMLInputElement).value).toBe("");
   expect(mocks.update).not.toHaveBeenCalled();
   expect(mocks.upsert).not.toHaveBeenCalled();
 });

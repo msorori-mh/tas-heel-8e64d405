@@ -136,8 +136,7 @@ try {
     await page.locator("#intake-district-error").filter({ hasText: "حرفين" }).waitFor();
     await page.getByLabel("المديرية", { exact: true }).fill("معين");
     await page.getByRole("button", { name: "حفظ المدرسة", exact: true }).click();
-    await page.getByText("تمت إضافة المدرسة وأصبحت متاحة للاختيار.").waitFor();
-    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "استيراد من Excel", exact: true }).click();
     const templateDownload = page.waitForEvent("download");
     await page.getByRole("button", { name: "تنزيل قالب Excel" }).click();
