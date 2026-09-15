@@ -202,8 +202,9 @@ try {
     await page.getByRole("button", { name: "الإدارة", exact: true }).click();
     await page.getByRole("button", { name: "المدارس المعتمدة", exact: true }).click();
     await page.getByText("3000 مدرسة معتمدة", { exact: false }).waitFor();
+    await page.screenshot({ path: `${output}/directory-large-${width}.png`, fullPage: true });
     assert.equal(await page.getByRole("button", { name: "تعديل", exact: true }).count(), 25);
-    await page.getByLabel("انتقل إلى صفحة", { exact: true }).selectOption("119");
+    await page.getByLabel("انتقل إلى صفحة", { exact: true }).selectOption({ value: "119" });
     await page
       .getByRole(width >= 1024 ? "rowheader" : "heading", { name: "مدرسة 3000", exact: true })
       .waitFor();

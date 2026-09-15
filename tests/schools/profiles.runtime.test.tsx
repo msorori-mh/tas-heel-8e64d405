@@ -383,3 +383,38 @@ it("admin adds a school directly with field errors and no profile mutation", asy
   expect(mocks.update).not.toHaveBeenCalled();
   expect(mocks.upsert).not.toHaveBeenCalled();
 });
+
+it("pages through a large school directory without resetting the requested page", async () => {
+  mocks.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+    if (name === "admin_school_directory") {
+      const page = Number(args.p_page);
+      return {
+        error: null,
+        data: {
+          count: 3000,
+          rows: Array.from({ length: 25 }, (_, i) => ({
+            ...managed,
+            id: `id-${page * 25 + i}`,
+            name: `مدرسة ${page * 25 + i + 1}`,
+          })),
+        },
+      };
+    }
+    return { error: null, data: { count: 0, rows: [] } };
+  });
+  await mount(SchoolDirectory);
+  await click("المدارس المعتمدة");
+  await flush();
+  const select = document.querySelector<HTMLSelectElement>('[aria-label="انتقل إلى صفحة"]')!;
+  await act(async () => {
+    select.value = "119";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await flush();
+  expect(mocks.rpc).toHaveBeenCalledWith("admin_school_directory", {
+    p_query: "",
+    p_governorate_id: null,
+    p_page: 119,
+  });
+  expect(document.body.textContent).toContain("مدرسة 3000");
+});
