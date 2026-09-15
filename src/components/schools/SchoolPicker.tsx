@@ -101,7 +101,7 @@ export function SchoolPicker({
             }
           />
           <label htmlFor={`${id}-district`}>
-            المديرية{value.mode === "search" ? " (اختياري لتضييق البحث)" : ""}
+            المديرية{value.mode === "search" ? " (اختياري لتضييق البحث)" : " (اختياري)"}
           </label>
           <input
             id={`${id}-district`}
@@ -154,14 +154,17 @@ export function SchoolPicker({
           </div>
           {value.mode === "proposal" ? (
             <>
-              <label htmlFor={`${id}-locality`}>الحي أو القرية</label>
+              <label htmlFor={`${id}-locality`}>الحي أو القرية (اختياري)</label>
               <input
                 id={`${id}-locality`}
                 value={value.school_locality}
                 maxLength={120}
                 onChange={(event) => onChange({ ...value, school_locality: event.target.value })}
               />
-              <p>يمكنك إكمال التسجيل الآن. ستراجع الإدارة المدرسة قبل إضافتها إلى الدليل.</p>
+              <p>
+                يمكنك إكمال التسجيل الآن باسم المدرسة والمحافظة فقط. المديرية والحي يساعداننا على
+                تمييز المدارس المتشابهة. ستراجع الإدارة المدرسة قبل إضافتها إلى الدليل.
+              </p>
               <button type="button" onClick={() => onChange({ ...value, mode: "search" })}>
                 العودة لاختيار مدرسة موجودة
               </button>

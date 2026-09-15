@@ -49,3 +49,11 @@ This follow-up orders both student forms as name, grade, governorate, school, th
 Validation: 22 school unit/runtime tests pass, including actual student form field order, preservation of existing pending school profiles, empty-directory guidance, and changing school without an inherited location filter. Student and teacher TypeScript checks pass. Real mobile/Google-login E2E and deployment are not established by these checks.
 
 Data completion remains HOLD: obtain a verified school source with governorate, district and locality before importing approved identities. The reported Marib names are التميز بنين، التميز بنات، بلقيس، الميثاق; no locations were guessed and no synthetic catalog entries were added. Source baseline: `7ae2fee6fcc460843c455393e0256f1689855c04` on `main`.
+
+### Manual entry and Marib research extension
+
+New manual proposals now require only school name and governorate. District/locality are optional, with length checks when supplied. The same helper and picker serve student and teacher profiles. Null school IDs remain pending; this does not weaken admin approval, which still requires verified location. Existing database profile triggers accept null optional locations; no schema migration is needed.
+
+`data/schools/marib-candidates.json` records four research candidates, source URLs, evidence limitations and missing location checks. It is deliberately not imported by the application or any migration. All four remain unapproved: public search excerpts establish useful leads but do not fully establish each branch's administrative location. In particular, do not confuse Balqis girls school with the separate school for deaf students in Al Rawdah, or copy the general Al Tamayuz address to both branches.
+
+Acceptance evidence: 24 school tests pass, including saving the actual student completion form with a manually entered school and null district/locality, shared picker behavior, optional-field bounds, and keeping renamed/moved proposals unapproved. Source collection did not write production data. The next data step is verification of candidate locations before approved import, not automatic promotion of search snippets.

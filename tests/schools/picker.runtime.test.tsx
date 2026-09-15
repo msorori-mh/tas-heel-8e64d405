@@ -84,6 +84,21 @@ afterEach(async () => {
 });
 
 describe("school picker runtime", () => {
+  it("saves a manual school without district or locality when the directory is empty", async () => {
+    const save = vi.fn();
+    await act(async () => root.render(<Harness search={async () => []} save={save} />));
+    await flush();
+    await input("ابحث باسم", "التميز بنات");
+    await click("لم أجد مدرستي");
+    expect(host.textContent).toContain("الحي أو القرية (اختياري)");
+    await click("حفظ ومتابعة");
+    expect(save).toHaveBeenCalledWith({
+      school_id: null,
+      school_name: "التميز بنات",
+      school_district: null,
+      school_locality: null,
+    });
+  });
   it("explains an empty governorate directory and keeps manual entry available", async () => {
     await act(async () => root.render(<Harness search={async () => []} save={vi.fn()} />));
     await flush();
