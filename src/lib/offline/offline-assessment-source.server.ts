@@ -155,6 +155,7 @@ export async function loadOfflineAssessmentSource(params: {
   lessonId: string;
   kind: OfflineAssessmentKind;
   readyAt: string;
+  onUnavailableQuestion?: () => void;
 }): Promise<OfflineAssessmentSource | null> {
   const rows = await loadStudentRows(params.userClient, params.lessonId, params.kind);
   if (rows.length === 0) return null;
@@ -206,11 +207,20 @@ export async function loadOfflineAssessmentSource(params: {
   );
   let bundle: OfflineAssessmentBundle;
   if (params.kind === "official-questions") {
+    // Incomplete answer data must not block unrelated verified book/lesson files.
+    // Keep authorization and option binding strict before excluding unready questions.
+    const readyRows = orderedRows.filter((row) => {
+      assertOptionBinding(parseOptions(row.options), optionsByRevision.get(row.revision_id) ?? []);
+      const ready = Boolean(answers.get(`${row.id}\u0000${row.revision_id}`)?.modelAnswer?.trim());
+      if (!ready) params.onUnavailableQuestion?.();
+      return ready;
+    });
+    if (readyRows.length === 0) return null;
     bundle = {
       schemaVersion: 1,
       kind: params.kind,
       lessonId: params.lessonId,
-      questions: orderedRows.map((row) => {
+      questions: readyRows.map((row) => {
         const answer = answers.get(`${row.id}\u0000${row.revision_id}`);
         const options = parseOptions(row.options);
         const answerOptions = optionsByRevision.get(row.revision_id) ?? [];
@@ -290,6 +300,7 @@ export async function loadOfflineAssessmentSource(params: {
 }
 
 export async function loadOfflineAssessmentSources(params: {
+  onUnavailableQuestion?: () => void;
   userClient: SupabaseClient<Database>;
   lessons: ReadonlyArray<{
     id: string;
@@ -330,6 +341,7 @@ export async function loadOfflineAssessmentSources(params: {
         loadOfflineAssessmentSource({
           userClient: params.userClient,
           answerClient,
+          onUnavailableQuestion: params.onUnavailableQuestion,
           ...task,
         }),
       ),

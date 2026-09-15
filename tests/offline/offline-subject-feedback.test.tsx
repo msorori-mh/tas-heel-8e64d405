@@ -91,3 +91,19 @@ it("shows the manifest failure code instead of a generic message", async () => {
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("OFFLINE_MANIFEST_FETCH_500");
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("على الخادم");
 });
+
+it("discloses unavailable questions while keeping the available pack downloadable", async () => {
+  api.manifest.mockImplementation(async (_subject, reportAvailability) => {
+    reportAvailability?.(8);
+    return { artifacts: [{ byteSize: 100 }] };
+  });
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="test-subject" subjectName="الكيمياء" />),
+  );
+  expect(host.querySelector('[role="status"]')?.textContent).toContain("8");
+  expect(host.querySelector('[role="status"]')?.textContent).toContain("لن تُضمّن");
+  expect(
+    [...host.querySelectorAll("button")].find((x) => x.textContent?.includes("تنزيل المادة"))
+      ?.disabled,
+  ).toBe(false);
+});
