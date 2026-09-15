@@ -70,3 +70,20 @@ it.each([
   expect(offlineDownloadErrorMessage(error)).toContain(expected);
   expect(offlineDownloadErrorMessage(error)).toContain("الملفات المكتملة محفوظة");
 });
+it("shows a bounded server reason so manifest failures can be diagnosed", async () => {
+  const failure = await offlineResponseError(
+    Response.json({ error: "OFFLINE_ASSESSMENT_OPTION_BINDING_MISMATCH" }, { status: 500 }),
+    "OFFLINE_MANIFEST_FETCH",
+  );
+  expect(offlineDownloadErrorMessage(failure)).toContain(
+    "OFFLINE_ASSESSMENT_OPTION_BINDING_MISMATCH",
+  );
+});
+it("never renders arbitrary server bodies as diagnostic text", () => {
+  const failure = new OfflineDownloadError(
+    "OFFLINE_MANIFEST_FETCH_500",
+    "private response: email@example.test",
+  );
+  expect(offlineDownloadErrorMessage(failure)).not.toContain("email@example.test");
+  expect(offlineDownloadErrorMessage(failure)).toContain("OFFLINE_MANIFEST_FETCH_500");
+});
