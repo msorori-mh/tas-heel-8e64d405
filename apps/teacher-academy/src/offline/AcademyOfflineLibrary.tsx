@@ -154,16 +154,18 @@ export function AcademyOfflineLibrary({ owner }: { owner: string }) {
   }
   const pack = packs.find((p) => p.id === selected);
   return (
-    <section className="page-stack" dir="rtl">
+    <section className="academy-offline-library" dir="rtl">
       <a className="secondary-button" href="/academy/">
         العودة إلى الأكاديمية عند الاتصال
       </a>
       <header className="page-heading">
-        <h1>المحتوى دون إنترنت</h1>
-        <p className="muted">
-          نزّل برنامجك أثناء الاتصال. تُحفظ القراءة والتقدم والملاحظات على هذا الجهاز، وتُزامن عند
-          فتح الأكاديمية بوجود شبكة.
-        </p>
+        <div>
+          <h1>المحتوى دون إنترنت</h1>
+          <p className="muted">
+            نزّل برنامجك أثناء الاتصال. تُحفظ القراءة والتقدم والملاحظات على هذا الجهاز، وتُزامن عند
+            فتح الأكاديمية بوجود شبكة.
+          </p>
+        </div>
       </header>
       <div className="notice">
         {packs.length} برامج محفوظة · {pending.length} تغييرات بانتظار المزامنة. الاختبارات المعتمدة
@@ -175,7 +177,7 @@ export function AcademyOfflineLibrary({ owner }: { owner: string }) {
           {error}
         </p>
       )}
-      <div className="actions">
+      <div className="card-actions">
         <button className="secondary-button" onClick={() => void sync()} disabled={busy}>
           <RefreshCw /> مزامنة الآن
         </button>

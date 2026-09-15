@@ -1846,7 +1846,7 @@ export function App({ portal }: { portal?: AcademyPortal }) {
     <>
       <AcademyPwaControls />
       {offlineOwner ? (
-        <main className="workspace-content">
+        <main className="workspace-content academy-offline-workspace">
           <AcademyOfflineLibrary key={offlineOwner} owner={offlineOwner} />
         </main>
       ) : (
