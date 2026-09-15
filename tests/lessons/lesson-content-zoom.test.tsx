@@ -36,6 +36,28 @@ test.each(["official", "explanation", "summary", "mindmap", "experiment"])(
       act(async () =>
         (container.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement).click(),
       );
+    const viewport = container.querySelector("[data-lesson-zoom]")!;
+    const gesture = async (phase: string, factor = 1) =>
+      act(async () => {
+        viewport.dispatchEvent(
+          new CustomEvent("tamkeen:lesson-pinch", { detail: { phase, factor } }),
+        );
+      });
+    await gesture("scale", 2); // Unstarted/stale gestures must not change content.
+    expect(container.querySelector("output")?.textContent).toBe("100%");
+    await gesture("start");
+    await gesture("scale", 2);
+    expect(container.querySelector("output")?.textContent).toBe("200%");
+    await gesture("scale", NaN);
+    await gesture("scale", -1);
+    expect(container.querySelector("output")?.textContent).toBe("200%");
+    await gesture("scale", 4);
+    expect(container.querySelector("output")?.textContent).toBe("300%");
+    await gesture("scale", 0.1);
+    expect(container.querySelector("output")?.textContent).toBe("100%");
+    await gesture("end");
+    await gesture("scale", 2);
+    expect(container.querySelector("output")?.textContent).toBe("100%");
     await click("تكبير المحتوى");
     expect(container.querySelector("output")?.textContent).toBe("125%");
     expect(frame.parentElement?.style.transform).toBe("scale(1.25)");
