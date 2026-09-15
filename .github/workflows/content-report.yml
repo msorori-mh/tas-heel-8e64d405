@@ -1,0 +1,33 @@
+name: Content completion report
+on:
+  pull_request:
+    paths:
+      [
+        "src/lib/content-report/**",
+        "src/components/admin/ContentCompletionReport*",
+        "src/routes/_authenticated/admin.academic.tsx",
+        "tests/e2e/content-report/**",
+        ".github/workflows/content-report.yml",
+      ]
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/lib/content-report src/components/admin/ContentCompletionReport.test.tsx
+      - run: npx tsc --noEmit
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/content-report/vite.config.ts
+      - run: node tests/e2e/content-report/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: content-report-evidence
+          path: artifacts/content-report
