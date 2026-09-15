@@ -1,7 +1,7 @@
 name: Offline Settings review APK
 on:
   pull_request:
-    branches: [main]
+    branches: [main, test/unified-offline-capacity]
     paths:
       - "scripts/mobile/review/**"
       - "apps/teacher-academy/**"
