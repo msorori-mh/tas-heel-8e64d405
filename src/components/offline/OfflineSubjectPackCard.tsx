@@ -41,6 +41,7 @@ export function OfflineSubjectPackCard({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<OfflinePackDownloadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -99,6 +100,7 @@ export function OfflineSubjectPackCard({
     abortRef.current = controller;
     setBusy(true);
     setError(null);
+    setDownloadError(null);
     try {
       await downloadOfflineSubjectPack({
         subjectId,
@@ -107,7 +109,7 @@ export function OfflineSubjectPackCard({
       });
     } catch (caught) {
       const code = caught instanceof Error ? caught.message : "";
-      setError(
+      setDownloadError(
         code === "OFFLINE_DOWNLOAD_ABORTED"
           ? "توقف التنزيل. يمكنك استكماله لاحقًا دون إعادة الملفات المكتملة."
           : "تعذّر إكمال التنزيل. احتفظنا بالملفات السليمة للمحاولة التالية.",
@@ -115,6 +117,7 @@ export function OfflineSubjectPackCard({
     } finally {
       abortRef.current = null;
       setBusy(false);
+      setProgress(null);
       await refresh();
     }
   };
@@ -122,6 +125,7 @@ export function OfflineSubjectPackCard({
   const handleDelete = async () => {
     setBusy(true);
     setError(null);
+    setDownloadError(null);
     try {
       await deleteOfflineSubjectPack(subjectId);
       setProgress(null);
@@ -129,6 +133,7 @@ export function OfflineSubjectPackCard({
       setError("تعذّر حذف الحزمة من الجهاز.");
     } finally {
       setBusy(false);
+      setProgress(null);
       await refresh();
     }
   };
@@ -194,9 +199,9 @@ export function OfflineSubjectPackCard({
         </p>
       )}
 
-      {error && (
+      {(downloadError || error) && (
         <p className="text-xs text-destructive" role="alert">
-          {error}
+          {downloadError || error}
         </p>
       )}
 
