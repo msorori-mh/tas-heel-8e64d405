@@ -44,7 +44,7 @@ export function createSchoolDirectoryApi(client: unknown) {
       if (error.message.includes("SCHOOL_LOCATION_MISMATCH"))
         throw new Error("يجب أن تكون المدرسة في المحافظة المختارة.");
       if (error.message.includes("SCHOOL_DETAILS_REQUIRED"))
-        throw new Error("أكمل اسم المدرسة والمحافظة والمديرية والحي أو القرية.");
+        throw new Error("أكمل اسم المدرسة والمحافظة والمديرية، وتحقق من الحي أو القرية إن أدخلته.");
       throw new Error("تعذّر إتمام العملية. حدّث القائمة وحاول مرة أخرى.");
     }
     return data as T;

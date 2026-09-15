@@ -16,7 +16,7 @@ import { schoolDirectoryApi as api } from "@/lib/schools/student-school-api";
 import type { ManagedSchool, SchoolReview } from "@/lib/schools/directory-api";
 import type { School } from "@/lib/schools/school-choice";
 
-const location = (school: School) => `${school.district} — ${school.locality}`;
+const location = (school: School) => [school.district, school.locality].filter(Boolean).join(" — ");
 const selectClass =
   "min-h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm";
 function useSearchText(value: string) {
@@ -443,13 +443,12 @@ function ReviewDialog({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="school-review-locality">الحي أو القرية</Label>
+                  <Label htmlFor="school-review-locality">الحي أو القرية (اختياري)</Label>
                   <Input
                     id="school-review-locality"
                     value={locality}
                     minLength={2}
                     maxLength={120}
-                    required
                     onChange={(e) => {
                       setLocality(e.target.value);
                       setConfirmed(false);
