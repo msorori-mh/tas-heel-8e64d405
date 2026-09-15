@@ -1,0 +1,17 @@
+name: Prepare school intake migration
+on:
+  pull_request:
+    paths: [".github/workflows/prepare-school-intake.yml"]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.75.0
+      - run: |
+          supabase migration new school_directory_intake
+          git ls-files --others --exclude-standard supabase/migrations
