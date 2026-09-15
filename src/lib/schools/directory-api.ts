@@ -1,3 +1,4 @@
+import type { SchoolIntakeRow, SchoolIntakeResponse } from "./intake";
 import type { School, SearchSchools } from "./school-choice";
 
 type RpcClient = {
@@ -39,6 +40,10 @@ export function createSchoolDirectoryApi(client: unknown) {
   async function call<T>(name: string, args: Record<string, unknown>): Promise<T> {
     const { data, error } = await rpcClient.rpc(name, args);
     if (error) {
+      if (error.message.includes("SCHOOL_INTAKE_LIMIT"))
+        throw new Error("الحد الأقصى ٥٠٠ مدرسة في العملية الواحدة.");
+      if (error.message.includes("SCHOOL_INTAKE_ROWS"))
+        throw new Error("بيانات المدارس غير صالحة. أعد رفع الملف.");
       if (error.message.includes("SCHOOL_REVIEW_STALE"))
         throw new Error("تغيّرت البيانات منذ فتح المراجعة. حدّث القائمة وأعد المراجعة.");
       if (error.message.includes("SCHOOL_LOCATION_MISMATCH"))
@@ -57,6 +62,8 @@ export function createSchoolDirectoryApi(client: unknown) {
     });
   return {
     search,
+    intake: (rows: SchoolIntakeRow[], commit = false) =>
+      call<SchoolIntakeResponse>("admin_intake_schools", { p_rows: rows, p_commit: commit }),
     details: (id: string) => call<ManagedSchool>("admin_school_details", { p_id: id }),
     students: (args: Record<string, unknown>) =>
       call<unknown>("admin_list_students_by_school", args),

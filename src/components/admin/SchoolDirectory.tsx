@@ -1,3 +1,4 @@
+import { SchoolIntakeDialog } from "./SchoolIntakeDialog";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ function useSearchText(value: string) {
 
 export function SchoolDirectory() {
   const qc = useQueryClient();
+  const [intake, setIntake] = useState<"single" | "excel" | null>(null);
   const [tab, setTab] = useState<"pending" | "directory">("pending");
   const [query, setQuery] = useState("");
   const [gov, setGov] = useState("");
@@ -76,6 +78,26 @@ export function SchoolDirectory() {
           راجع المدرسة وموقعها قبل اعتمادها. كل طلب يخص الملف المعروض فقط.
         </p>
       </div>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={!govs.data?.length || govs.isError} onClick={() => setIntake("single")}>
+          إضافة مدرسة
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!govs.data?.length || govs.isError}
+          onClick={() => setIntake("excel")}
+        >
+          استيراد من Excel
+        </Button>
+      </div>
+      {intake && (
+        <SchoolIntakeDialog
+          mode={intake}
+          governorates={govs.data ?? []}
+          onClose={() => setIntake(null)}
+          onSaved={changed}
+        />
+      )}
       <div className="flex flex-wrap gap-2" aria-label="عرض المدارس">
         <Button
           aria-pressed={tab === "pending"}

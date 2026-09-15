@@ -1,3 +1,4 @@
+import type { SchoolIntakeRow, SchoolIntakeResponse } from "../../../src/lib/schools/intake";
 // TEST_ONLY deterministic data. This fixture never contacts Supabase or authenticates.
 import { schoolSearchKey, type School } from "../../../src/lib/schools/school-choice";
 import type { ManagedSchool, SchoolReview } from "../../../src/lib/schools/directory-api";
@@ -51,6 +52,58 @@ export const supabase = {
   }),
 };
 export const schoolDirectoryApi = {
+  intake: async (rows: SchoolIntakeRow[], commit: boolean): Promise<SchoolIntakeResponse> => {
+    const seen = new Set<string>();
+    return {
+      committed: commit,
+      rows: rows.map((r, i) => {
+        const key = JSON.stringify([
+          r.governorate_id || r.governorate,
+          r.district,
+          r.name,
+          r.locality,
+        ]);
+        const errors: Record<string, string> = {};
+        if (!r.district || r.district.length < 2)
+          errors.district = "أدخل اسم المديرية من حرفين إلى ١٢٠ حرفًا.";
+        if (!r.governorate_id && r.governorate !== "صنعاء" && r.governorate !== "عدن")
+          errors.governorate = "اختر محافظة صحيحة";
+        if (Object.keys(errors).length)
+          return {
+            source_row: r.source_row ?? i + 1,
+            school_id: null,
+            status: "invalid" as const,
+            errors,
+          };
+        if (seen.has(key))
+          return {
+            source_row: r.source_row ?? i + 1,
+            school_id: null,
+            status: "duplicate_file" as const,
+            errors,
+          };
+        seen.add(key);
+        const existing = schoolRows.find(
+          (s) => s.name === r.name && s.district === r.district && s.locality === r.locality,
+        );
+        if (commit && !existing)
+          schoolRows.push({
+            ...r,
+            governorate_id: r.governorate_id || "g1",
+            governorate_name: r.governorate || "صنعاء",
+            id: `import-${schoolRows.length}`,
+            student_count: 0,
+            teacher_count: 0,
+          });
+        return {
+          source_row: r.source_row ?? i + 1,
+          school_id: existing?.id ?? null,
+          status: existing ? ("exists" as const) : commit ? ("added" as const) : ("new" as const),
+          errors,
+        };
+      }),
+    };
+  },
   search: async (gov: string, query: string, district: string): Promise<School[]> =>
     clone(
       schoolRows.filter(
