@@ -1,3 +1,5 @@
+import { App } from "@capacitor/app";
+import { parseNativeAuthCallback } from "@/lib/auth/native-oauth";
 import { Capacitor } from "@capacitor/core";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
@@ -30,12 +32,21 @@ export function NativeSessionResume() {
     if (!startup.current) return;
     let active = true;
     setResuming(true);
-    void readNativeSpace(ownerId).then((space) => {
+    void (async () => {
+      const launch = await App.getLaunchUrl().catch(() => undefined);
+      if (!active) return;
+      // A cold OAuth return is owned by NativeAuthDeepLinkHandler, not the old session.
+      if (launch?.url && parseNativeAuthCallback(launch.url).kind !== "ignored") {
+        startup.current = false;
+        setResuming(false);
+        return;
+      }
+      const space = await readNativeSpace(ownerId);
       if (!active) return;
       startup.current = false;
       void navigate({ to: space === "teacher" ? "/academy" : "/app", replace: true });
       setResuming(false);
-    });
+    })();
     return () => {
       active = false;
     };
