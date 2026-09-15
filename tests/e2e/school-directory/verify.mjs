@@ -44,7 +44,7 @@ try {
     await page.getByLabel("المحافظة", { exact: true }).selectOption("g2");
     await page.getByRole("button", { name: "لم أجد مدرستي", exact: true }).click();
     await page.getByLabel("اسم المدرسة المقترحة").fill("مدرسة الأمل ٢");
-    await page.getByLabel("المديرية", { exact: true }).fill("المنصورة");
+    await page.getByLabel("المديرية (اختياري)", { exact: true }).fill("المنصورة");
     await page.getByLabel("الحي أو القرية").fill("حي القاهرة");
     await page.getByRole("button", { name: "المعلم", exact: true }).click();
     await page.getByRole("button", { name: "حفظ ومتابعة" }).click();
