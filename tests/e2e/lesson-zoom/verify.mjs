@@ -13,6 +13,29 @@ try {
     const page = await context.newPage();
     await page.goto("http://127.0.0.1:4385");
     const frame = page.frameLocator("iframe");
+    await frame.locator("#counter").waitFor();
+    // The viewer resizes its iframe after its first height message. A click
+    // during that CSS transition can target stale frame coordinates.
+    await frame.locator("body").evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+    await page.locator("iframe").evaluate(async (element) => {
+      const deadline = performance.now() + 10000;
+      let previous = "";
+      let stableFrames = 0;
+      while (stableFrames < 4) {
+        if (performance.now() > deadline) throw new Error("Iframe geometry did not settle");
+        await new Promise(requestAnimationFrame);
+        const rect = element.getBoundingClientRect();
+        const current = [rect.x, rect.y, rect.width, rect.height].join(",");
+        const animating = element
+          .getAnimations()
+          .some((animation) => animation.playState === "running");
+        stableFrames = current === previous && !animating ? stableFrames + 1 : 0;
+        previous = current;
+      }
+    });
     await frame.locator("#counter").click();
     // Confirm the iframe processed the click before testing state retention.
     await frame.locator("#counter").filter({ hasText: /^1$/ }).waitFor();
