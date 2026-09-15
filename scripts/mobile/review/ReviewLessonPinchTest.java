@@ -51,6 +51,7 @@ public class ReviewLessonPinchTest {
     }
     private void tapButton(ActivityScenario<ReviewActivity> a, String label, String expected, String mode) throws Exception {
         // WebView dispatch is asynchronous; use an actual-duration tap and wait for its DOM click.
+        evaluate(a,"window.tapTrace=[];if(!window.traceInstalled){window.traceInstalled=true;['pointerdown','pointerup','pointercancel','click'].forEach(t=>document.addEventListener(t,e=>window.tapTrace.push([t,e.clientX,e.clientY,e.target.tagName,e.target.getAttribute('aria-label')]),true))}");
         JSONArray button=new JSONArray(evaluate(a,"(()=>{const e=document.querySelector('[aria-label=\""+label+"\"]');e.scrollIntoView({block:'center'});const b=e.getBoundingClientRect();return [innerWidth,b.x+b.width/2,b.y+b.height/2]})()"));
         AtomicReference<Integer> width=new AtomicReference<>(); a.onActivity(v->width.set(v.getBridge().getWebView().getWidth()));
         float ratio=width.get()/(float)button.getDouble(0);
@@ -60,7 +61,13 @@ public class ReviewLessonPinchTest {
         touch(a,down,MotionEvent.ACTION_UP,1,(float)button.getDouble(1)*ratio,(float)button.getDouble(2)*ratio,0);
         long end=System.currentTimeMillis()+3000;
         while(!evaluate(a,"document.querySelector('output').textContent").equals("\""+expected+"\"") && System.currentTimeMillis()<end) Thread.sleep(100);
-        assertEquals(mode+" native tap "+label+" bounds="+button, "\""+expected+"\"",evaluate(a,"document.querySelector('output').textContent"));
+        String actual=evaluate(a,"document.querySelector('output').textContent");
+        if (!actual.equals("\""+expected+"\"")) {
+            android.graphics.Bitmap screenshot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+            java.io.File dir=InstrumentationRegistry.getInstrumentation().getTargetContext().getExternalFilesDir("pinch-evidence");dir.mkdirs();
+            if(screenshot!=null) {try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(dir,"tap-failure.png"))) {screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}screenshot.recycle();}
+        }
+        assertEquals(mode+" native tap "+label+" bounds="+button+" elapsed="+(SystemClock.uptimeMillis()-down)+" trace="+evaluate(a,"JSON.stringify({events:tapTrace,scroll:[scrollX,scrollY],visual:[visualViewport.scale,visualViewport.offsetTop,visualViewport.offsetLeft],focus:document.activeElement?.tagName,hit:document.elementFromPoint("+button.getDouble(1)+","+button.getDouble(2)+")?.outerHTML})"), "\""+expected+"\"",actual);
     }
     @Test public void pinchInsideOpaqueLessonWithoutReloading() throws Exception {
         for (String mode : new String[]{"interactive", "static"}) {

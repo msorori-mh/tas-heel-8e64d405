@@ -17,6 +17,7 @@ public final class LessonPinchZoom {
             String target;
             float left, top, right, bottom, previousSpan;
             boolean consuming;
+            MotionEvent lastForwarded;
 
             void emit(String phase, float factor) {
                 if (target == null || !Float.isFinite(factor)) return;
@@ -53,7 +54,10 @@ public final class LessonPinchZoom {
                     && (action == MotionEvent.ACTION_POINTER_DOWN || action == MotionEvent.ACTION_MOVE)
                     && inside(e.getX(0), e.getY(0)) && inside(e.getX(1), e.getY(1))) {
                     consuming = true;
-                    MotionEvent cancel = MotionEvent.obtain(e);
+                    // Cancel the pointer stream WebView actually received. The second
+                    // finger may not have been forwarded yet; cancelling two unknown
+                    // pointers can leave Chromium's iframe touch state inconsistent.
+                    MotionEvent cancel = MotionEvent.obtain(lastForwarded != null ? lastForwarded : e);
                     cancel.setAction(MotionEvent.ACTION_CANCEL);
                     view.onTouchEvent(cancel); cancel.recycle();
                     previousSpan = span(e);
@@ -71,6 +75,10 @@ public final class LessonPinchZoom {
                     if (consuming) emit("end", 1);
                     ++generation; target = null; consuming = false;
                     view.getParent().requestDisallowInterceptTouchEvent(false);
+                }
+                if (lastForwarded != null) { lastForwarded.recycle(); lastForwarded = null; }
+                if (!handled && action != MotionEvent.ACTION_UP && action != MotionEvent.ACTION_CANCEL) {
+                    lastForwarded = MotionEvent.obtain(e);
                 }
                 return handled;
             }
