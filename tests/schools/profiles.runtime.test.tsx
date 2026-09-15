@@ -153,6 +153,9 @@ afterEach(async () => {
 
 it("actual student completion persists selected school ID and continues", async () => {
   await mount(Route.options.component as ComponentType);
+  const fields = [...document.querySelectorAll("form input, form select")];
+  expect(fields.slice(0, 5).map((field) => field.id)).toEqual(["fn", "sn", "ln", "gr", "gv"]);
+  expect(fields[5].closest("fieldset")?.className).toBe("school-picker");
   await change("fn", "طالب");
   await change("ln", "تجريبي");
   await change("gv", "gov-1");
@@ -176,6 +179,32 @@ it("actual student completion persists selected school ID and continues", async 
   expect(mocks.navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
 });
 
+it("actual completion saves a manual school without optional location and continues", async () => {
+  mocks.rpc.mockResolvedValue({ data: [], error: null });
+  await mount(Route.options.component as ComponentType);
+  await change("fn", "طالب");
+  await change("ln", "تجريبي");
+  await change("gr", "grade-1");
+  await change("gv", "gov-1");
+  await flush();
+  const label = [...document.querySelectorAll("label")].find((node) =>
+    node.textContent?.includes("ابحث باسم"),
+  )!;
+  await change(label.htmlFor, "بلقيس");
+  await click("لم أجد مدرستي");
+  await click("حفظ ومتابعة");
+  expect(mocks.upsert).toHaveBeenCalledWith(
+    expect.objectContaining({
+      school_id: null,
+      school_name: "بلقيس",
+      school_district: null,
+      school_locality: null,
+    }),
+    { onConflict: "user_id" },
+  );
+  expect(mocks.navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
+});
+
 it("actual edit dialog preserves a legacy pending school during a name-only edit", async () => {
   mocks.profile = {
     id: "p-1",
@@ -189,6 +218,11 @@ it("actual edit dialog preserves a legacy pending school during a name-only edit
   await mount(EditProfileDialog);
   await click("تعديل البيانات");
   await flush();
+  const fields = [
+    ...document.querySelectorAll('[role="dialog"] form input, [role="dialog"] form select'),
+  ];
+  expect(fields.slice(0, 3).map((field) => field.id)).toEqual(["ep-name", "ep-grade", "ep-gov"]);
+  expect(fields[3].closest("fieldset")?.className).toBe("school-picker");
   await change("ep-name", "الاسم المصحح");
   await click("حفظ التغييرات");
   expect(mocks.update).toHaveBeenCalledWith(

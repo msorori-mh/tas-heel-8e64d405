@@ -34,31 +34,39 @@ describe("school choice", () => {
         .school_id,
     ).toBeNull();
   });
-  it("requires location on new proposals", () => {
-    expect(() =>
-      schoolProfilePatch(schoolChoiceFromProfile({ school_name: "النور" }), "gov-1"),
-    ).toThrow("المديرية");
-    expect(() =>
-      schoolProfilePatch(
-        schoolChoiceFromProfile({ school_name: "النور", school_district: "معين" }),
-        "gov-1",
-      ),
-    ).toThrow("الحي");
+  it("accepts a name and governorate without optional location details", () => {
+    expect(schoolProfilePatch(schoolChoiceFromProfile({ school_name: "بلقيس" }), "gov-1")).toEqual({
+      school_id: null,
+      school_name: "بلقيس",
+      school_district: null,
+      school_locality: null,
+    });
   });
-  it("allows an unchanged legacy proposal while editing other profile fields", () => {
+  it("keeps renamed and relocated manual entries pending", () => {
     const old = { school_name: "النور", governorate_id: "gov-1" };
-    expect(schoolProfilePatch(schoolChoiceFromProfile(old), "gov-1", old).school_name).toBe(
-      "النور",
-    );
-    expect(() => schoolProfilePatch(schoolChoiceFromProfile(old), "gov-2", old)).toThrow(
-      "المديرية",
-    );
-  });
-  it("does not silently accept a renamed legacy school without location", () => {
-    const old = { school_name: "النور", governorate_id: "gov-1" };
-    expect(() =>
+    expect(schoolProfilePatch(schoolChoiceFromProfile(old), "gov-1", old).school_id).toBeNull();
+    expect(schoolProfilePatch(schoolChoiceFromProfile(old), "gov-2", old).school_id).toBeNull();
+    expect(
       schoolProfilePatch({ ...schoolChoiceFromProfile(old), school_name: "الأمل" }, "gov-1", old),
-    ).toThrow("المديرية");
+    ).toMatchObject({ school_id: null, school_name: "الأمل" });
+  });
+  it("validates optional locations when supplied and trims blank values", () => {
+    for (const field of ["school_district", "school_locality"]) {
+      for (const value of ["أ", "س".repeat(121)]) {
+        expect(() =>
+          schoolProfilePatch(
+            schoolChoiceFromProfile({ school_name: "بلقيس", [field]: value }),
+            "gov-1",
+          ),
+        ).toThrow("١٢٠");
+      }
+      expect(
+        schoolProfilePatch(
+          schoolChoiceFromProfile({ school_name: "بلقيس", [field]: "   " }),
+          "gov-1",
+        )[field as "school_district" | "school_locality"],
+      ).toBeNull();
+    }
   });
   it("normalizes Arabic search variants without dropping school numbers", () => {
     expect(schoolSearchKey(" مَدْرَسةُ   الأمل ١ ")).toBe(schoolSearchKey("مدرسة الامل 1"));

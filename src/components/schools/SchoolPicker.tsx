@@ -72,7 +72,15 @@ export function SchoolPicker({
           <span>{[value.school_district, value.school_locality].filter(Boolean).join(" — ")}</span>
           <button
             type="button"
-            onClick={() => onChange({ ...value, school_id: null, mode: "search" })}
+            onClick={() =>
+              onChange({
+                ...value,
+                school_id: null,
+                school_district: "",
+                school_locality: "",
+                mode: "search",
+              })
+            }
           >
             تغيير المدرسة
           </button>
@@ -93,7 +101,7 @@ export function SchoolPicker({
             }
           />
           <label htmlFor={`${id}-district`}>
-            المديرية{value.mode === "search" ? " (اختياري لتضييق البحث)" : ""}
+            المديرية{value.mode === "search" ? " (اختياري لتضييق البحث)" : " (اختياري)"}
           </label>
           <input
             id={`${id}-district`}
@@ -136,19 +144,27 @@ export function SchoolPicker({
                 )}
               </>
             ) : governorateId ? (
-              <p>لا توجد مدارس معتمدة مطابقة للبحث.</p>
+              <p>
+                {value.school_name.trim() || value.school_district.trim()
+                  ? "لم نجد مدرسة مطابقة في دليل المحافظة. جرّب جزءًا من الاسم أو امسح المديرية."
+                  : "لم تُضف مدارس معتمدة لهذه المحافظة إلى الدليل بعد."}{" "}
+                يمكنك الضغط على «لم أجد مدرستي» وإدخال بياناتها لإكمال النموذج.
+              </p>
             ) : null}
           </div>
           {value.mode === "proposal" ? (
             <>
-              <label htmlFor={`${id}-locality`}>الحي أو القرية</label>
+              <label htmlFor={`${id}-locality`}>الحي أو القرية (اختياري)</label>
               <input
                 id={`${id}-locality`}
                 value={value.school_locality}
                 maxLength={120}
                 onChange={(event) => onChange({ ...value, school_locality: event.target.value })}
               />
-              <p>يمكنك إكمال التسجيل الآن. ستراجع الإدارة المدرسة قبل إضافتها إلى الدليل.</p>
+              <p>
+                يمكنك إكمال التسجيل الآن باسم المدرسة والمحافظة فقط. المديرية والحي يساعداننا على
+                تمييز المدارس المتشابهة. ستراجع الإدارة المدرسة قبل إضافتها إلى الدليل.
+              </p>
               <button type="button" onClick={() => onChange({ ...value, mode: "search" })}>
                 العودة لاختيار مدرسة موجودة
               </button>

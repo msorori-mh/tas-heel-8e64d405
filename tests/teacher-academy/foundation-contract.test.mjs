@@ -43,7 +43,7 @@ test("teacher profile requires exactly the MVP professional identity fields", ()
   }
 
   assert.match(migration, /status text not null default 'ACTIVE'/);
-  assert.match(app, /جميع الحقول التالية\s*إلزامية/);
+  assert.match(app, /يمكنك\s+إدخال\s+بياناتها\s+يدويًا/);
   assert.match(app, /لا تحتاج إلى دعوة أو موافقة مسبقة/);
 });
 

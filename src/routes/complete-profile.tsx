@@ -204,6 +204,24 @@ function CompleteProfile() {
           </div>
 
           <div>
+            <Label htmlFor="gr">الصف الدراسي</Label>
+            <select
+              id="gr"
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={gradeId}
+              onChange={(e) => setGradeId(e.target.value)}
+              required
+            >
+              <option value="">-- اختر الصف --</option>
+              {grades.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <Label htmlFor="gv">المحافظة</Label>
             <select
               id="gv"
@@ -223,6 +241,14 @@ function CompleteProfile() {
               ))}
             </select>
           </div>
+
+          <SchoolPicker
+            value={school}
+            onChange={setSchool}
+            governorateId={govId}
+            searchSchools={schoolDirectoryApi.search}
+            disabled={busy}
+          />
 
           {allowedTracks.length > 1 && (
             <div>
@@ -246,32 +272,6 @@ function CompleteProfile() {
               </p>
             </div>
           )}
-
-          <SchoolPicker
-            value={school}
-            onChange={setSchool}
-            governorateId={govId}
-            searchSchools={schoolDirectoryApi.search}
-            disabled={busy}
-          />
-
-          <div>
-            <Label htmlFor="gr">الصف الدراسي</Label>
-            <select
-              id="gr"
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={gradeId}
-              onChange={(e) => setGradeId(e.target.value)}
-              required
-            >
-              <option value="">-- اختر الصف --</option>
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {err && (
             <p role="alert" className="text-sm text-destructive">

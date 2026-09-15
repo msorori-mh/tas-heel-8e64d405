@@ -1,3 +1,4 @@
+import { rememberNativeSpace } from "../../../src/lib/auth/native-last-space";
 import { AcademyOfflineLibrary } from "./offline/AcademyOfflineLibrary";
 import { activeOwner, setOwner } from "./offline/store";
 import { revokeOfflineAccess, signOutAcademy, syncAcademy } from "./offline/service";
@@ -744,7 +745,8 @@ function ProfileForm({
         <p className="eyebrow">خطوة واحدة فقط</p>
         <h1>{existing ? "تحديث الملف المهني" : "أكمل ملفك المهني"}</h1>
         <p className="muted">
-          نستخدم المادة الأساسية لعرض البرامج المناسبة لك. جميع الحقول التالية إلزامية.
+          أدخل اسمك والمادة الأساسية، ثم اختر المحافظة وابحث عن مدرستك. إذا لم تجدها، يمكنك إدخال
+          بياناتها يدويًا.
         </p>
       </section>
 
@@ -1714,8 +1716,10 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     Promise.all([loadTeacherProfile(user.id), loadCapabilities()])
       .then(([loadedProfile, loadedCapabilities]) => {
         if (!active) return;
-        if (loadedProfile?.status === "ACTIVE" && activePortal === "teacher") setOwner(user.id);
-        else if (activePortal === "teacher") revokeOfflineAccess();
+        if (loadedProfile?.status === "ACTIVE" && activePortal === "teacher") {
+          setOwner(user.id);
+          void rememberNativeSpace(user.id, "teacher").catch(() => undefined);
+        } else if (activePortal === "teacher") revokeOfflineAccess();
         setProfile(loadedProfile);
         setCapabilities(loadedCapabilities);
       })

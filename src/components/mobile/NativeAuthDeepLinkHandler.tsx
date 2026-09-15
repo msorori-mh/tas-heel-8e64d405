@@ -1,3 +1,4 @@
+import { rememberNativeSpace } from "@/lib/auth/native-last-space";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -52,6 +53,7 @@ export function NativeAuthDeepLinkHandler() {
           if (!data.user) throw new Error("لم يتم العثور على جلسة");
           if (cancelled) return;
           const destination = consumeNativeAuthDestination();
+          await rememberNativeSpace(data.user.id, destination).catch(() => undefined);
           if (destination === "teacher") {
             // Reload the academy route so its isolated Supabase client restores
             // the just-persisted native session from the shared secure adapter.

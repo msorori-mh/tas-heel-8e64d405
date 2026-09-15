@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-09-15",
+  "purpose": "Research candidates only; never feed directly into approved schools or student search.",
+  "approved_count": 0,
+  "evidence_method": "Public search excerpts; source pages may be inaccessible. User-reported names retained separately. No location inferred into approved fields.",
+  "candidates": [
+    {
+      "candidate_id": "marib-altamyz-boys",
+      "reported_name": "التميز بنين",
+      "name": "مدارس التميز الحديثة — فرع البنين",
+      "governorate": "مأرب",
+      "district": null,
+      "locality": null,
+      "status": "needs_location_verification",
+      "source_urls": [
+        "https://www.facebook.com/altamyzschool/videos/1516469363370368/",
+        "https://www.facebook.com/altamyzschool/posts/1717881920346003/"
+      ],
+      "evidence_note": "نتيجة بحث منشور المدرسة تذكر فرع البنين. منشور التسجيل يعرض موقعًا عامًا في المجمع غرب مدرسة الميثاق، ولا يثبت عنوان هذا الفرع تحديدًا."
+    },
+    {
+      "candidate_id": "marib-altamyz-girls",
+      "reported_name": "التميز بنات",
+      "name": "مدارس التميز الحديثة — فرع البنات",
+      "governorate": "مأرب",
+      "district": null,
+      "locality": null,
+      "status": "needs_branch_location_verification",
+      "source_urls": [
+        "https://www.facebook.com/altamyzschool/videos/1342579320701002/",
+        "https://www.facebook.com/altamyzschool/"
+      ],
+      "evidence_note": "المستخدم حدد فرع البنات. نتيجة بحث صفحة المدرسة تشير إلى فرعين؛ يلزم مصدر يربط فرع البنات بعنوانه قبل الاعتماد."
+    },
+    {
+      "candidate_id": "marib-balqis-girls",
+      "reported_name": "بلقيس",
+      "name": "مدرسة بلقيس للبنات",
+      "governorate": "مأرب",
+      "district": null,
+      "locality": null,
+      "location_lead": "المجمع، شارع الحديقة",
+      "status": "needs_location_verification",
+      "source_urls": [
+        "https://yemenshortlist.com/ar/tender/347",
+        "https://www.instagram.com/p/CxRC11wrnx7/"
+      ],
+      "evidence_note": "إعلان مناقصة يشير إلى مقر في المجمع جنوب مدرسة بلقيس للبنات؛ إعلان محل مجاور يذكر شارع الحديقة. هذه قرائن للمراجعة وليست توثيقًا إداريًا لعنوان المدرسة. لا تدمج مع مدرسة بلقيس للصم في الروضة."
+    },
+    {
+      "candidate_id": "marib-almithaq",
+      "reported_name": "الميثاق",
+      "name": "مدرسة الميثاق",
+      "governorate": "مأرب",
+      "district": null,
+      "locality": null,
+      "location_lead": "مدينة مأرب، المجمع",
+      "status": "needs_location_verification",
+      "source_urls": [
+        "https://mail.yemenshabab.net/program-video/7315",
+        "https://www.facebook.com/altamyzschool/posts/1717881920346003/"
+      ],
+      "evidence_note": "تقرير قناة يمن شباب يذكر مدرسة الميثاق في مأرب. صفحة التميز تستخدم المدرسة معلمًا لعنوان في المجمع؛ يلزم التحقق من الموقع الإداري الدقيق."
+    }
+  ]
+}

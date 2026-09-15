@@ -84,18 +84,16 @@ export function schoolProfilePatch(
     (clean(existing.school_locality ?? "") || null) === patch.school_locality;
   if (choice.mode === "proposal" && !unchanged) {
     if (
-      !patch.school_district ||
-      patch.school_district.length < 2 ||
-      patch.school_district.length > 120
+      patch.school_district &&
+      (patch.school_district.length < 2 || patch.school_district.length > 120)
     ) {
-      throw new Error("أدخل المديرية لتحديد موقع المدرسة.");
+      throw new Error("أدخل المديرية من حرفين إلى ١٢٠ حرفًا، أو اتركها فارغة.");
     }
     if (
-      !patch.school_locality ||
-      patch.school_locality.length < 2 ||
-      patch.school_locality.length > 120
+      patch.school_locality &&
+      (patch.school_locality.length < 2 || patch.school_locality.length > 120)
     ) {
-      throw new Error("أدخل الحي أو القرية لتمييز المدارس المتشابهة.");
+      throw new Error("أدخل الحي أو القرية من حرفين إلى ١٢٠ حرفًا، أو اتركه فارغًا.");
     }
   }
   return patch;
