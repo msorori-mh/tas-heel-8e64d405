@@ -225,10 +225,14 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
     }));
 
   let assessmentSources;
+  let unavailableQuestions = 0;
   try {
     assessmentSources = await loadOfflineAssessmentSources({
       userClient: caller.supabase,
       lessons,
+      onUnavailableQuestion: () => {
+        unavailableQuestions += 1;
+      },
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "OFFLINE_ASSESSMENT_BUILD_FAILED";
@@ -251,7 +255,11 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
       assessmentSources,
     });
     return new Response(
-      JSON.stringify({ manifest: built.manifest, omitted: built.omissions.length }),
+      JSON.stringify({
+        manifest: built.manifest,
+        omitted: built.omissions.length,
+        unavailableQuestions,
+      }),
       {
         status: 200,
         headers: {

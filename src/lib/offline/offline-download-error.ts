@@ -62,5 +62,9 @@ function errorGuidance(failure: unknown): string {
 export function offlineDownloadErrorMessage(failure: unknown): string {
   const code = failure instanceof Error ? failure.message : "";
   const diagnostic = /^OFFLINE_[A-Z0-9_]{1,72}$/.test(code) ? code : "";
-  return errorGuidance(failure) + (diagnostic ? ` رمز المشكلة: ${diagnostic}` : "");
+  const serverCode = failure instanceof OfflineDownloadError ? failure.serverCode : undefined;
+  const safeServerCode =
+    serverCode && /^[a-zA-Z][a-zA-Z0-9_]{0,79}$/.test(serverCode) ? serverCode : "";
+  const details = [diagnostic, safeServerCode].filter(Boolean).join(" / ");
+  return errorGuidance(failure) + (details ? ` رمز المشكلة: ${details}` : "");
 }
