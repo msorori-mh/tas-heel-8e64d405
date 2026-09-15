@@ -25,30 +25,26 @@ function AuthCallback() {
           throw new Error(errDesc || errCode || "OAuth error");
         }
 
-        const code = url.searchParams.get("code");
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
-          if (error) throw error;
-        }
-
-        // Web callbacks and recovery links may be completed by the client's
-        // URL detector; wait briefly for the persisted session.
-        for (let i = 0; i < 20; i++) {
-          const { data } = await supabase.auth.getSession();
-          if (data.session) break;
-          await new Promise((r) => setTimeout(r, 150));
-        }
+        // getSession waits for SDK initialization, which owns the single PKCE
+        // exchange. Re-exchanging here consumes a one-time code twice (and a
+        // full callback URL is not a valid authorization code).
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData.session) throw new Error("لم يتم العثور على جلسة");
 
         const {
           data: { user },
+          error: userError,
         } = await supabase.auth.getUser();
+        if (userError) throw userError;
         if (!user) throw new Error("لم يتم العثور على جلسة");
 
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("full_name,grade_id,grade_uuid,governorate_id,curriculum_track_id")
           .eq("user_id", user.id)
           .maybeSingle();
+        if (profileError) throw profileError;
 
         const complete =
           !!profile &&
