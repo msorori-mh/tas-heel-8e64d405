@@ -6,6 +6,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { getRestoredUser } from "@/lib/auth/restored-user";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StudentShell } from "@/components/student/StudentShell";
@@ -13,9 +14,9 @@ import { StudentShell } from "@/components/student/StudentShell";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth", search: { mode: "login" } });
-    return { user: data.user };
+    const user = await getRestoredUser(supabase.auth);
+    if (!user) throw redirect({ to: "/auth", search: { mode: "login" } });
+    return { user };
   },
   component: AuthenticatedLayout,
 });
