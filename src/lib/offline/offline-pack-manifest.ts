@@ -7,6 +7,7 @@
  */
 
 import { fingerprintOfflineText, offlineTextMetadataSchema } from "./offline-text-metadata";
+import { isOfflineTextApproved } from "./offline-text-attestation";
 
 import {
   OFFLINE_PACK_MAX_ARTIFACT_BYTES,
@@ -50,7 +51,9 @@ export type OfflineManifestLesson = {
   updatedAt: string;
   managed: boolean;
   visible: boolean;
-  readyCapabilities: Readonly<Record<string, { sha256: string; readyAt: string }>>;
+  readyCapabilities: Readonly<
+    Record<string, { sha256: string; readyAt: string; snapshot?: unknown }>
+  >;
 };
 
 export type OfflineTextSource = {
@@ -196,7 +199,18 @@ export async function buildOfflineSubjectPack(
 
     if (metadata.byteSize > HTML_MAX_BYTES) throw new Error("OFFLINE_HTML_TOO_LARGE");
     const observedSha256 = metadata.sha256;
-    if (source.attestation === "lifecycle" && ready && observedSha256 !== ready.sha256) {
+    if (
+      source.attestation === "lifecycle" &&
+      ready &&
+      !(await isOfflineTextApproved({
+        body: source.body,
+        bodySha256: observedSha256,
+        expectedSha256: ready.sha256,
+        lessonId: lesson.id,
+        capability,
+        readySnapshot: ready.snapshot,
+      }))
+    ) {
       throw new Error("OFFLINE_SOURCE_READY_HASH_MISMATCH");
     }
     if (source.attestation === "body") {

@@ -1,3 +1,4 @@
+import { LessonCapabilityTabs } from "@/components/lessons/LessonCapabilityTabs";
 import { QuestionFigure } from "@/components/lessons/QuestionFigure";
 import { parseQuestionImage, type QuestionImage } from "@/lib/lessons/question-image";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -44,7 +45,6 @@ import {
   parseLessonTitle,
   visibleLessonCapabilities,
   type LessonCapability,
-  type LessonCapabilityType,
 } from "@/lib/lessons/lesson-capabilities";
 import { orderStudentCapabilities } from "@/lib/lessons/lesson-content-contract";
 import { useLessonQuestionNotes } from "@/lib/lessons/lesson-question-notes";
@@ -62,7 +62,6 @@ import {
   XCircle,
   HelpCircle,
   Lock,
-  Sparkles,
   Video,
   FlaskConical,
   Map as MapIcon,
@@ -72,10 +71,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Lightbulb,
-  Trophy,
-  Target,
-  ScrollText,
-  Library,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
@@ -1226,161 +1221,6 @@ function QuestionLoadFailure({ onRetry }: { onRetry: () => void }) {
       </Button>
     </div>
   );
-}
-
-function LessonCapabilityTabs({
-  actions,
-  renderBody,
-  waitingForPrimary,
-}: {
-  actions: LessonCapability[];
-  renderBody: (capability: LessonCapability) => React.ReactNode;
-  waitingForPrimary: boolean;
-}) {
-  const firstType = waitingForPrimary ? null : (actions[0]?.type ?? null);
-  const [activeType, setActiveType] = useState<LessonCapabilityType | null>(firstType);
-  const [visitedTypes, setVisitedTypes] = useState<Set<LessonCapabilityType>>(
-    () => new Set(firstType ? [firstType] : []),
-  );
-  const [hasManualSelection, setHasManualSelection] = useState(false);
-
-  useEffect(() => {
-    const preferredType =
-      actions.find((capability) => capability.type === "PRIMARY_CONTENT")?.type ??
-      (waitingForPrimary ? null : actions[0]?.type) ??
-      null;
-    const activeStillAvailable =
-      activeType && actions.some((capability) => capability.type === activeType);
-    if (activeStillAvailable && (hasManualSelection || activeType === preferredType)) return;
-    const nextType = preferredType;
-    setActiveType(nextType);
-    if (nextType) {
-      setVisitedTypes((current) => new Set(current).add(nextType));
-    }
-  }, [actions, activeType, hasManualSelection, waitingForPrimary]);
-
-  const selectTab = (type: LessonCapabilityType) => {
-    setHasManualSelection(true);
-    setActiveType(type);
-    setVisitedTypes((current) => new Set(current).add(type));
-  };
-
-  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const rtlStep = event.key === "ArrowRight" ? -1 : 1;
-    const nextIndex =
-      event.key === "Home"
-        ? 0
-        : event.key === "End"
-          ? actions.length - 1
-          : (index + rtlStep + actions.length) % actions.length;
-    const nextType = actions[nextIndex]?.type;
-    if (!nextType) return;
-    selectTab(nextType);
-    document.getElementById(`lesson-tab-${nextType}`)?.focus();
-  };
-
-  return (
-    <section
-      aria-label="محتويات الدرس"
-      className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
-    >
-      <div
-        role="tablist"
-        aria-label="محتويات الدرس"
-        aria-orientation="horizontal"
-        className="flex w-full gap-1.5 overflow-x-auto border-b border-border bg-muted/20 p-2 [scrollbar-width:thin] lg:gap-2"
-      >
-        {actions.map((capability, index) => {
-          const active = capability.type === activeType;
-          return (
-            <button
-              key={capability.type}
-              id={`lesson-tab-${capability.type}`}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              aria-controls={`lesson-panel-${capability.type}`}
-              tabIndex={active ? 0 : -1}
-              onClick={() => selectTab(capability.type)}
-              onKeyDown={(event) => handleTabKeyDown(event, index)}
-              className={`flex min-w-[8.75rem] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:min-w-0 ${
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <span
-                className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
-                  active ? "bg-primary-foreground/15" : "bg-primary/10 text-primary"
-                }`}
-              >
-                <CapabilityIcon type={capability.type} />
-              </span>
-              <span className="whitespace-nowrap">{capability.label}</span>
-              <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
-                {index + 1}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {actions.map((capability) => {
-        if (!visitedTypes.has(capability.type)) return null;
-        const active = capability.type === activeType;
-        return (
-          <div
-            key={capability.type}
-            id={`lesson-panel-${capability.type}`}
-            role="tabpanel"
-            aria-labelledby={`lesson-tab-${capability.type}`}
-            hidden={!active}
-            className="bg-background/40 p-3 sm:p-4"
-          >
-            <div className="mb-4 flex items-start gap-3 border-b border-border/60 pb-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                <CapabilityIcon type={capability.type} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">{capability.label}</h2>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {capability.description}
-                </p>
-              </div>
-            </div>
-            {renderBody(capability)}
-          </div>
-        );
-      })}
-    </section>
-  );
-}
-
-/** Icon per capability — presentation only, derived from the capability type. */
-function CapabilityIcon({ type }: { type: LessonCapabilityType }) {
-  const className = "h-5 w-5";
-  switch (type) {
-    case "PRIMARY_CONTENT":
-      return <ScrollText className={className} />;
-    case "SUMMARY":
-      return <FileText className={className} />;
-    case "EXPLANATION":
-      return <Sparkles className={className} />;
-    case "MINDMAP":
-      return <MapIcon className={className} />;
-    case "PRACTICAL":
-      return <FlaskConical className={className} />;
-    case "VIDEO":
-      return <Video className={className} />;
-    case "OFFICIAL_QUESTIONS":
-      return <Target className={className} />;
-    case "SELF_TEST":
-      return <Trophy className={className} />;
-    default:
-      return <Library className={className} />;
-  }
 }
 
 /** «سجل إجاباتي» — read-only review of what the student wrote for this lesson. */

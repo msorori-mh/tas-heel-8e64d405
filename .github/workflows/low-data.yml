@@ -9,6 +9,8 @@ on:
       - "src/components/lessons/*Pdf*"
       - "src/components/lessons/CachedFileUpdateNotice.tsx"
       - "src/components/lessons/LessonExplanations.tsx"
+      - "src/components/lessons/LessonCapabilityTabs.tsx"
+      - "tests/e2e/lesson-navigation/**"
       - "src/routes/_authenticated/lessons.$lessonId.tsx"
       - "tests/low-data/**"
       - "tests/e2e/low-data/**"
@@ -33,9 +35,13 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx vite build --config tests/e2e/low-data/vite.config.ts
       - run: node tests/e2e/low-data/verify.mjs
+      - run: npx vite build --config tests/e2e/lesson-navigation/vite.config.ts
+      - run: node tests/e2e/lesson-navigation/verify.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: low-data-${{ github.sha }}
-          path: artifacts/low-data
+          path: |
+            artifacts/low-data
+            artifacts/lesson-navigation
           if-no-files-found: error
