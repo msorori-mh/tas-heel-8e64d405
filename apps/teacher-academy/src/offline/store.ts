@@ -65,6 +65,7 @@ export async function readFile(owner: string, id: string): Promise<SavedFile | u
       const request = tx.objectStore("files").get([owner, id]);
       tx.oncomplete = () => resolve(request.result);
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   } finally {
     db.close();

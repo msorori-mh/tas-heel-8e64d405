@@ -125,3 +125,12 @@ test("concurrent sync callers share a single replay", async () => {
   await Promise.all([syncAcademy("teacher-a"), syncAcademy("teacher-a")]);
   expect(state.calls).toHaveLength(1);
 });
+
+test("replay preserves creation order rather than IndexedDB operation-id order", async () => {
+  state.events = [
+    { ...event("a-note", "teacher-a", "note"), createdAt: "2026-09-15T01:01:00Z" },
+    { ...event("complete:lesson"), createdAt: "2026-09-15T01:00:00Z" },
+  ];
+  await syncAcademy("teacher-a");
+  expect(state.calls.map((c) => c.name)).toEqual(["complete_lesson", "save_offline_note"]);
+});

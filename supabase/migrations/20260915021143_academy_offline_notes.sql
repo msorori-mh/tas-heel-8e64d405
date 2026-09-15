@@ -19,13 +19,20 @@ create policy offline_notes_owner_read on academy.offline_notes for select to au
 using (user_id = (select auth.uid()) and exists (
   select 1 from academy.teacher_profiles p where p.user_id = (select auth.uid()) and p.status = 'ACTIVE'
 ));
+-- Enrollment tables are RPC-only. This narrow helper checks only the caller's access.
+create function academy.can_save_offline_note(p_lesson_id uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select auth.uid() is not null and exists (
+    select 1 from academy.enrollments e join academy.teacher_profiles p on p.user_id = e.user_id
+    where e.user_id = auth.uid() and p.status = 'ACTIVE'
+      and e.status in ('ACTIVE', 'COMPLETED')
+      and e.program_version_id = academy.program_version_for_lesson(p_lesson_id)
+  );
+$$;
+revoke all on function academy.can_save_offline_note(uuid) from public, anon;
+grant execute on function academy.can_save_offline_note(uuid) to authenticated;
 create policy offline_notes_enrolled_insert on academy.offline_notes for insert to authenticated
-with check (user_id = (select auth.uid()) and exists (
-  select 1 from academy.enrollments e join academy.teacher_profiles p on p.user_id = e.user_id
-  where e.user_id = (select auth.uid()) and p.status = 'ACTIVE'
-    and e.status in ('ACTIVE', 'COMPLETED')
-    and e.program_version_id = academy.program_version_for_lesson(lesson_id)
-));
+with check (user_id = (select auth.uid()) and academy.can_save_offline_note(lesson_id));
 create function academy.save_offline_note(p_operation_id uuid, p_lesson_id uuid, p_body text)
 returns uuid language plpgsql security invoker set search_path = pg_catalog, academy as $$
 begin
