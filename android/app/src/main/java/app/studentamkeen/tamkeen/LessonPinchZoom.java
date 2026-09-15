@@ -38,10 +38,10 @@ public final class LessonPinchZoom {
                     target = null; consuming = false; previousSpan = 0;
                     if (view.getWidth() <= 0) return false;
                     // DOM hit testing returns the iframe element in the parent document, even for opaque origins.
-                    view.evaluateJavascript("(()=>{const r=innerWidth/" + view.getWidth()
-                        + ",e=document.elementFromPoint(" + e.getX() + "*r," + e.getY()
-                        + "*r)?.closest('[data-lesson-zoom]');if(!e)return null;const b=e.getBoundingClientRect();"
-                        + "return [e.id,b.left/r,b.top/r,b.right/r,b.bottom/r]})()", value -> {
+                    view.evaluateJavascript("(()=>{const v=window.visualViewport||{scale:1,offsetLeft:0,offsetTop:0},r=innerWidth/" + view.getWidth()
+                        + "/v.scale,x=v.offsetLeft,y=v.offsetTop,e=document.elementFromPoint(" + e.getX() + "*r+x," + e.getY()
+                        + "*r+y)?.closest('[data-lesson-zoom]');if(!e)return null;const b=e.getBoundingClientRect();"
+                        + "return [e.id,(b.left-x)/r,(b.top-y)/r,(b.right-x)/r,(b.bottom-y)/r]})()", value -> {
                             if (request != generation) return;
                             try {
                                 JSONArray a = new JSONArray(value);

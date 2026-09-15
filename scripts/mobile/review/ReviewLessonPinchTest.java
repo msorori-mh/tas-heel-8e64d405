@@ -52,13 +52,13 @@ public class ReviewLessonPinchTest {
     private void tapButton(ActivityScenario<ReviewActivity> a, String label, String expected, String mode) throws Exception {
         // WebView dispatch is asynchronous; use an actual-duration tap and wait for its DOM click.
         evaluate(a,"window.tapTrace=[];if(!window.traceInstalled){window.traceInstalled=true;['pointerdown','pointerup','pointercancel','click'].forEach(t=>document.addEventListener(t,e=>window.tapTrace.push([t,e.clientX,e.clientY,e.target.tagName,e.target.getAttribute('aria-label')]),true))}");
-        JSONArray button=new JSONArray(evaluate(a,"(()=>{const e=document.querySelector('[aria-label=\""+label+"\"]');e.scrollIntoView({block:'center'});const b=e.getBoundingClientRect();return [innerWidth,b.x+b.width/2,b.y+b.height/2]})()"));
+        JSONArray button=new JSONArray(evaluate(a,"(()=>{const e=document.querySelector('[aria-label=\""+label+"\"]');e.scrollIntoView({block:'center'});const b=e.getBoundingClientRect();return [innerWidth,b.x+b.width/2,b.y+b.height/2,visualViewport.scale,visualViewport.offsetLeft,visualViewport.offsetTop]})()"));
         AtomicReference<Integer> width=new AtomicReference<>(); a.onActivity(v->width.set(v.getBridge().getWebView().getWidth()));
-        float ratio=width.get()/(float)button.getDouble(0);
+        float ratio=width.get()/(float)button.getDouble(0)*(float)button.getDouble(3);
         long down=SystemClock.uptimeMillis();
-        touch(a,down,MotionEvent.ACTION_DOWN,1,(float)button.getDouble(1)*ratio,(float)button.getDouble(2)*ratio,0);
+        touch(a,down,MotionEvent.ACTION_DOWN,1,((float)button.getDouble(1)-(float)button.getDouble(4))*ratio,((float)button.getDouble(2)-(float)button.getDouble(5))*ratio,0);
         Thread.sleep(100);
-        touch(a,down,MotionEvent.ACTION_UP,1,(float)button.getDouble(1)*ratio,(float)button.getDouble(2)*ratio,0);
+        touch(a,down,MotionEvent.ACTION_UP,1,((float)button.getDouble(1)-(float)button.getDouble(4))*ratio,((float)button.getDouble(2)-(float)button.getDouble(5))*ratio,0);
         long end=System.currentTimeMillis()+3000;
         while(!evaluate(a,"document.querySelector('output').textContent").equals("\""+expected+"\"") && System.currentTimeMillis()<end) Thread.sleep(100);
         String actual=evaluate(a,"document.querySelector('output').textContent");
@@ -98,7 +98,9 @@ public class ReviewLessonPinchTest {
             float x=((float)bounds.getDouble(1)+(float)bounds.getDouble(3)/2)*ratio;
             float y=((float)bounds.getDouble(2)+120)*ratio;
             evaluate(a,"window.pinchFrame=document.querySelector('iframe');window.pinchSrc=pinchFrame.srcdoc");
+            String pageScale=evaluate(a,"visualViewport.scale");
             pinch(a,x,y,30*ratio,85*ratio);
+            assertEquals("Pinch must scale only the lesson",pageScale,evaluate(a,"visualViewport.scale"));
             assertEquals("true",evaluate(a,"parseInt(document.querySelector('output').textContent)>150"));
             assertEquals("true",evaluate(a,"document.querySelector('iframe')===pinchFrame && pinchFrame.srcdoc===pinchSrc && !pinchFrame.sandbox.contains('allow-same-origin')"));
             pinch(a,x,y,85*ratio,20*ratio);
@@ -106,6 +108,15 @@ public class ReviewLessonPinchTest {
             pinch(a,x,2*ratio,30*ratio,85*ratio);
             assertEquals("\"100%\"",evaluate(a,"document.querySelector('output').textContent"));
             tapButton(a,"تكبير المحتوى","125%",mode);
+            tapButton(a,"إعادة الحجم الأصلي","100%",mode);
+            // Native hit testing must also work after the user zooms the surrounding page.
+            JSONArray visual=new JSONArray(evaluate(a,"(()=>{const b=document.querySelector('[data-lesson-zoom]').getBoundingClientRect(),v=visualViewport;return [innerWidth,v.scale,v.offsetTop,b.top+60]})()"));
+            float physicalRatio=width.get()/(float)visual.getDouble(0)*(float)visual.getDouble(1);
+            float visibleY=((float)visual.getDouble(3)-(float)visual.getDouble(2))*physicalRatio;
+            pageScale=evaluate(a,"visualViewport.scale");
+            pinch(a,width.get()/2f,visibleY,width.get()*0.05f,width.get()*0.13f);
+            assertEquals("true",evaluate(a,"parseInt(document.querySelector('output').textContent)>150"));
+            assertEquals("Page scale stays independent",pageScale,evaluate(a,"visualViewport.scale"));
 
         }
         }
