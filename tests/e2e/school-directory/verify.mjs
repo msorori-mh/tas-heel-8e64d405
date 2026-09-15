@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import JSZip from "jszip";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -149,10 +150,39 @@ try {
     sheet.getRow(2).values = ["صنعاء", "معين", "مدرسة إكسل", ""];
     sheet.getRow(3).values = ["صنعاء", "معين", "مدرسة إكسل", ""];
     sheet.getRow(4).values = ["غير موجودة", "ع", "مدرسة خطأ", ""];
+    // Reproduce third-party editor XML namespaces and comment part references.
+    const importZip = await JSZip.loadAsync(await workbook.xlsx.writeBuffer());
+    for (const entry of Object.values(importZip.files)) {
+      if (entry.dir) continue;
+      if (entry.name.endsWith(".xml")) {
+        let xml = await entry.async("string");
+        if (xml.includes('xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"')) {
+          xml = xml
+            .replace(
+              'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+              'xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+            )
+            .replace(/<(\/?)([A-Za-z][\w-]*)(?=[\s/>])/g, "<$1x:$2");
+          importZip.file(entry.name, xml);
+        }
+      } else if (entry.name.endsWith(".rels")) {
+        importZip.file(
+          entry.name,
+          (await entry.async("string"))
+            .replace("../comments1.xml", "/xl/comments1.xml")
+            .replace("../drawings/vmlDrawing1.vml", "/xl/drawings/vmldrawing.vml"),
+        );
+      }
+    }
+    const vml = importZip.file("xl/drawings/vmlDrawing1.vml");
+    if (vml) {
+      importZip.file("xl/drawings/vmldrawing.vml", await vml.async("uint8array"));
+      importZip.remove(vml.name);
+    }
     await page.getByLabel("ملف المدارس").setInputFiles({
       name: "schools.xlsx",
       mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+      buffer: await importZip.generateAsync({ type: "nodebuffer" }),
     });
     await page.getByText("مدارس جديدة: 1", { exact: false }).waitFor();
     const commit = page.getByRole("button", { name: "تأكيد استيراد المدارس" });
