@@ -27,17 +27,20 @@ public class ReviewLessonPinchTest {
         assertTrue(done.await(10, TimeUnit.SECONDS)); return result.get();
     }
     private void touch(ActivityScenario<ReviewActivity> activity, long down, int action, int count, float x, float y, float gap) {
-        activity.onActivity(a -> {
-            MotionEvent.PointerProperties[] props = new MotionEvent.PointerProperties[count];
-            MotionEvent.PointerCoords[] coords = new MotionEvent.PointerCoords[count];
-            for (int i=0;i<count;i++) {
-                props[i]=new MotionEvent.PointerProperties(); props[i].id=i; props[i].toolType=MotionEvent.TOOL_TYPE_FINGER;
-                coords[i]=new MotionEvent.PointerCoords(); coords[i].x=x+(i==0?-gap:gap);coords[i].y=y;coords[i].pressure=1;coords[i].size=1;
-            }
-            MotionEvent e=MotionEvent.obtain(down,SystemClock.uptimeMillis(),action,count,props,coords,0,0,1,1,0,0,InputDevice.SOURCE_TOUCHSCREEN,0);
-            a.getBridge().getWebView().dispatchTouchEvent(e);e.recycle();
-        });
+        int[] location = new int[2];
+        activity.onActivity(a -> a.getBridge().getWebView().getLocationOnScreen(location));
+        MotionEvent.PointerProperties[] props = new MotionEvent.PointerProperties[count];
+        MotionEvent.PointerCoords[] coords = new MotionEvent.PointerCoords[count];
+        for (int i=0;i<count;i++) {
+            props[i]=new MotionEvent.PointerProperties(); props[i].id=i; props[i].toolType=MotionEvent.TOOL_TYPE_FINGER;
+            coords[i]=new MotionEvent.PointerCoords(); coords[i].x=location[0]+x+(i==0?-gap:gap);coords[i].y=location[1]+y;coords[i].pressure=1;coords[i].size=1;
+        }
+        MotionEvent e=MotionEvent.obtain(down,SystemClock.uptimeMillis(),action,count,props,coords,0,0,1,1,0,0,InputDevice.SOURCE_TOUCHSCREEN,0);
+        try {
+            assertTrue("Android input injection failed", InstrumentationRegistry.getInstrumentation().getUiAutomation().injectInputEvent(e,true));
+        } finally {e.recycle();}
     }
+
     private void pinch(ActivityScenario<ReviewActivity> a, float x, float y, float from, float to) throws Exception {
         long down=SystemClock.uptimeMillis();
         touch(a,down,MotionEvent.ACTION_DOWN,1,x,y,from); Thread.sleep(150);
