@@ -331,3 +331,55 @@ it("admin merge presents both locations and counts, then sends the reviewed snap
     p_expected_target: target,
   });
 });
+
+it("admin adds a school directly with field errors and no profile mutation", async () => {
+  mocks.rpc.mockImplementation(async (name: string, args: { p_rows?: { district: string }[] }) => ({
+    error: null,
+    data:
+      name === "admin_intake_schools"
+        ? {
+            committed: true,
+            rows: [
+              {
+                source_row: 1,
+                school_id: null,
+                status: args.p_rows?.[0].district === "ع" ? "invalid" : "added",
+                errors:
+                  args.p_rows?.[0].district === "ع"
+                    ? { district: "أدخل اسم المديرية من حرفين إلى ١٢٠ حرفًا." }
+                    : {},
+              },
+            ],
+          }
+        : name === "admin_school_review_queue"
+          ? { rows: [], count: 0 }
+          : [],
+  }));
+  await mount(SchoolDirectory);
+  await click("إضافة مدرسة");
+  const fields = [
+    ...document.querySelectorAll('[role="dialog"] form input, [role="dialog"] form select'),
+  ];
+  expect(fields.map((f) => f.id)).toEqual([
+    "intake-governorate",
+    "intake-district",
+    "intake-name",
+    "intake-locality",
+  ]);
+  await change("intake-governorate", "gov-1");
+  await change("intake-name", "الميثاق");
+  await change("intake-district", "ع");
+  await click("حفظ المدرسة");
+  await flush();
+  expect(document.getElementById("intake-district-error")?.textContent).toContain("حرفين");
+  await change("intake-district", "المجمع");
+  await click("حفظ المدرسة");
+  await flush();
+  expect(mocks.rpc).toHaveBeenCalledWith("admin_intake_schools", {
+    p_commit: true,
+    p_rows: [{ governorate_id: "gov-1", district: "المجمع", name: "الميثاق", locality: "" }],
+  });
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain("تمت إضافة المدرسة");
+  expect(mocks.update).not.toHaveBeenCalled();
+  expect(mocks.upsert).not.toHaveBeenCalled();
+});

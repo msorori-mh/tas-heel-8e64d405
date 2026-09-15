@@ -1,3 +1,5 @@
+import ExcelJS from "exceljs";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -107,6 +109,69 @@ try {
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "اعتماد وربط الملف", exact: true }).click();
     await page.getByRole("dialog").waitFor({ state: "hidden" });
+    await page.getByRole("button", { name: "إضافة مدرسة", exact: true }).click();
+    await page.getByLabel("المحافظة", { exact: true }).last().selectOption("g1");
+    await page.getByLabel("المديرية", { exact: true }).fill("ع");
+    await page.getByLabel("اسم المدرسة", { exact: true }).fill("مدرسة إدخال مباشر");
+    await page.getByRole("button", { name: "حفظ المدرسة", exact: true }).click();
+    await page.locator("#intake-district-error").filter({ hasText: "حرفين" }).waitFor();
+    await page.getByLabel("المديرية", { exact: true }).fill("معين");
+    await page.getByRole("button", { name: "حفظ المدرسة", exact: true }).click();
+    await page.getByText("تمت إضافة المدرسة وأصبحت متاحة للاختيار.").waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "استيراد من Excel", exact: true }).click();
+    const templateDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "تنزيل قالب Excel" }).click();
+    const template = await templateDownload;
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await readFile(await template.path()));
+    assert.equal(workbook.getWorksheet("المدارس").getCell("A1").value, "المحافظة");
+    assert.equal(workbook.getWorksheet("المحافظات").getCell("A2").value, "صنعاء");
+    const sheet = workbook.getWorksheet("المدارس");
+    sheet.getRow(2).values = ["صنعاء", "معين", "مدرسة إكسل", ""];
+    sheet.getRow(3).values = ["صنعاء", "معين", "مدرسة إكسل", ""];
+    sheet.getRow(4).values = ["غير موجودة", "ع", "مدرسة خطأ", ""];
+    await page.getByLabel("ملف المدارس").setInputFiles({
+      name: "schools.xlsx",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+    });
+    await page.getByText("مدارس جديدة: 1", { exact: false }).waitFor();
+    const commit = page.getByRole("button", { name: "تأكيد استيراد المدارس" });
+    assert.equal(await commit.isEnabled(), false);
+    await page.getByRole("checkbox").check();
+    assert.equal(
+      await page.getByRole("dialog").evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= innerWidth;
+      }),
+      true,
+      `intake dialog bounds ${width}`,
+    );
+    assert.equal(
+      await page.getByRole("dialog").evaluate((el) => el.scrollWidth <= el.clientWidth),
+      true,
+      `intake dialog content width ${width}`,
+    );
+    await page.screenshot({
+      path: `${output}/intake-preview-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+    await commit.click();
+    await page.getByText("أُضيفت: 1", { exact: false }).waitFor();
+    const resultDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "تنزيل نتيجة الفحص" }).click();
+    const report = await resultDownload;
+    const resultBook = new ExcelJS.Workbook();
+    await resultBook.xlsx.load(await readFile(await report.path()));
+    assert.equal(resultBook.worksheets[0].getCell("F2").value, "أُضيفت");
+    assert.equal(resultBook.worksheets[0].getCell("F3").value, "مكررة داخل الملف");
+    assert.equal(resultBook.worksheets[0].getCell("F4").value, "تحتاج تصحيحًا");
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+    );
     assert.deepEqual(errors, []);
     results.push({
       width,
