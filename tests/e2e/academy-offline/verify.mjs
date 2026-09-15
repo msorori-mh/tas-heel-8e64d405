@@ -154,8 +154,16 @@ try {
   );
   failNotes = false;
   await page.getByRole("button", { name: "مزامنة الآن" }).click();
-  await page.waitForFunction(
-    async () => (await window.offlineStore.readAll("events", "teacher-a")).length === 0,
+  await page
+    .locator("p")
+    .filter({ hasText: "ملاحظتي أثناء الانقطاع" })
+    .filter({ hasText: "تمت المزامنة" })
+    .waitFor();
+  assert.equal(
+    await page.evaluate(
+      async () => (await window.offlineStore.readAll("events", "teacher-a")).length,
+    ),
+    0,
   );
   const notes = sent.filter((x) => x.url.includes("save_offline_note"));
   assert.equal(notes.length, 2);
