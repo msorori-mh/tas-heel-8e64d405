@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BookOpen, LoaderCircle } from "lucide-react";
@@ -21,8 +21,15 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "سجّل بحساب Google وابدأ التعلّم في تمكين." },
     ],
   }),
-  component: StudentAuthPage,
+  component: StudentAuthRoute,
 });
+
+function StudentAuthRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // These child routes must mount their own callback handlers. Rendering the
+  // entry form here hides the callback and may redirect before it completes.
+  return pathname.replace(/\/+$/, "") === "/auth" ? <StudentAuthPage /> : <Outlet />;
+}
 
 function GoogleMark() {
   return (
