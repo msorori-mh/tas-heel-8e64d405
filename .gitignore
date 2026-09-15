@@ -44,3 +44,10 @@ android/.gradle/
 
 # Content Factory generated bundles
 content-packages/*/dist/
+
+# Generated public academy offline shell (no account content)
+/public/academy-shell/
+/apps/teacher-academy/public/academy-shell/
+/dist-academy-shell/
+
+/supabase/.temp/

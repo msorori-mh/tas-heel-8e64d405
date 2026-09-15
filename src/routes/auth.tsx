@@ -66,6 +66,7 @@ function StudentAuthPage() {
   }, [session, loading, profileComplete, navigate]);
 
   async function continueWithGoogle() {
+    if (loading || session || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -105,11 +106,17 @@ function StudentAuthPage() {
           type="button"
           size="lg"
           className="mt-6 w-full rounded-xl py-6 text-base font-bold"
-          disabled={busy}
+          disabled={busy || loading || !!session}
           onClick={continueWithGoogle}
         >
           {busy ? <LoaderCircle className="ml-2 h-5 w-5 animate-spin" /> : <GoogleMark />}
-          <span className="mr-2">{busy ? "جارٍ فتح Google..." : "المتابعة باستخدام Google"}</span>
+          <span className="mr-2">
+            {loading || session
+              ? "جارٍ استعادة جلستك…"
+              : busy
+                ? "جارٍ فتح Google..."
+                : "المتابعة باستخدام Google"}
+          </span>
         </Button>
 
         <Link

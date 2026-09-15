@@ -1,0 +1,59 @@
+name: Offline capacity and RLS verification
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/offline/**"
+      - "src/routes/api/offline-pack*"
+      - "src/hooks/use-home-dashboard.ts"
+      - "supabase/migrations/*offline_capacity*"
+      - "tests/load/**"
+      - ".github/workflows/offline-capacity.yml"
+permissions:
+  contents: read
+concurrency:
+  group: capacity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: capacity_test_only
+          POSTGRES_DB: tamkeen_capacity_test
+        ports: ["5432:5432"]
+        options: >-
+          --cpus 2 --memory 1g
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run tests/load/offline-capacity.test.ts tests/load/offline-manifest-route.test.ts tests/offline
+      - name: Prepare isolated database driver and parity vectors
+        run: |
+          npm install --prefix /tmp/tamkeen-capacity-tools --no-package-lock --no-save pg@8.16.3
+          node --import tsx tests/load/generate-metadata-vectors.mjs
+      - name: Verify exact access, content preservation and PG17 before/after performance
+        env:
+          CAPACITY_PG_URL: postgresql://postgres:capacity_test_only@127.0.0.1:5432/tamkeen_capacity_test
+          CAPACITY_PG_MODULE: /tmp/tamkeen-capacity-tools/node_modules/pg/lib/index.js
+        run: node tests/load/capacity-migration.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-capacity-${{ github.event.pull_request.head.sha }}
+          path: artifacts/capacity/benchmark.json
+          if-no-files-found: warn

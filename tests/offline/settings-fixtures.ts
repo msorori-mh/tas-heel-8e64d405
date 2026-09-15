@@ -3,15 +3,7 @@ import {
   sha256Hex,
   type OfflinePackManifest,
 } from "../../src/lib/offline/offline-pack-contract";
-import type { OfflineSubjectPackLocalStatus } from "../../src/lib/offline/offline-pack-downloader";
-type PreparedSubject = {
-  id: string;
-  name: string;
-  manifest: OfflinePackManifest;
-  manifestSha256: string;
-  omitted: number;
-};
-type SavedSubject = { id: string; name: string; local: OfflineSubjectPackLocalStatus };
+import type { PreparedSubject, SavedSubject } from "../../src/lib/offline/offline-download-library";
 export const scope = { ownerId: "student-a", gradeId: "grade-12", trackId: "track-a" };
 export async function prepared(id = "one", name = "الرياضيات"): Promise<PreparedSubject> {
   const manifest: OfflinePackManifest = {

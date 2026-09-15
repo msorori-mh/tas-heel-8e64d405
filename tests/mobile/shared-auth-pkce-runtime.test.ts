@@ -67,6 +67,28 @@ describe("shared client runs the real SDK PKCE URL classifier", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("refreshes an expired saved session on startup without entering OAuth", async () => {
+    history.replaceState(null, "", "/");
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ ...session, expires_at: Math.floor(Date.now() / 1000) - 600 }),
+    );
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = new URL(String(input));
+      expect(url.searchParams.get("grant_type")).toBe("refresh_token");
+      expect(JSON.parse(String(init?.body)).refresh_token).toBe(session.refresh_token);
+      return new Response(JSON.stringify({ ...session, refresh_token: "TEST_ONLY_ROTATED" }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    client = (await import("../../src/integrations/supabase/client")).supabase;
+    const result = await client.auth.getSession();
+    expect(result.error).toBeNull();
+    expect(result.data.session?.user.id).toBe(session.user.id);
+    expect(JSON.parse(localStorage.getItem(storageKey)!).refresh_token).toBe("TEST_ONLY_ROTATED");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves the HTTPS mobile callback for the native app to exchange", async () => {
     history.replaceState(null, "", `/auth/mobile-callback?code=${code}`);
     localStorage.setItem(`${storageKey}-code-verifier`, JSON.stringify(verifier));

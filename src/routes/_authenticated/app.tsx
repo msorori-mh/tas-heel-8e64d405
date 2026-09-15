@@ -1,3 +1,4 @@
+import { OfflineDownloadNotice } from "@/components/home/OfflineDownloadNotice";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -49,6 +50,7 @@ function StudentHome() {
     <div className="ds-v2 space-y-4 pb-4 lg:space-y-5" dir="rtl">
       {/* 1. Greeting */}
       <HomeGreeting hint="خطوة واحدة اليوم تصنع الفرق." />
+      <OfflineDownloadNotice />
 
       {/* 2. Subjects first: Semester 1 & Semester 2 cards */}
       <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)] xl:[&>:only-child]:col-span-2">

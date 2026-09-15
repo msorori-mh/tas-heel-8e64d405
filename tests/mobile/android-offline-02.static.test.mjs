@@ -12,7 +12,7 @@ const capacitor = read("capacitor.config.ts");
 describe("OFFLINE-02 security and rollout guards", () => {
   it("uses caller RLS and explicit subject/lesson access gates", () => {
     expect(manifestRoute).toContain('rpc("can_access_subject"');
-    expect(manifestRoute).toContain('rpc("lesson_student_content_gate"');
+    expect(manifestRoute).toContain('rpc("lesson_student_content_gates"');
     expect(artifactRoute).toContain('rpc("can_access_lesson"');
     expect(artifactRoute).toContain('rpc(\n    "lesson_student_content_gate"');
     expect(manifestRoute).not.toContain("supabaseAdmin");
