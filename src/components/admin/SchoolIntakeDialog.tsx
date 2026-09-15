@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,7 +54,13 @@ export function SchoolIntakeDialog({
     const response = await api.intake(input, commit);
     setResult(response);
     setConfirmed(false);
-    if (commit && response.rows.some((r) => r.status === "added")) await onSaved();
+    if (commit && response.rows.some((r) => r.status === "added")) {
+      await onSaved();
+      if (mode === "single") {
+        toast.success("تمت إضافة المدرسة بنجاح.");
+        onClose();
+      }
+    }
   }
   async function action(task: () => Promise<void>) {
     setBusy(true);
