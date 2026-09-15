@@ -75,8 +75,11 @@ export function SchoolIntakeDialog({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent dir="rtl" className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
+      <DialogContent
+        dir="rtl"
+        className="grid-cols-1 w-[95vw] max-w-[95vw] max-h-[90dvh] overflow-y-auto overflow-x-hidden p-4 sm:max-w-3xl sm:p-6 [&>*]:min-w-0"
+      >
+        <DialogHeader className="min-w-0 pr-6 text-right sm:text-right">
           <DialogTitle>
             {mode === "single" ? "إضافة مدرسة" : "استيراد المدارس من Excel"}
           </DialogTitle>
@@ -159,7 +162,7 @@ export function SchoolIntakeDialog({
             </fieldset>
           </form>
         ) : (
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <p className="text-sm">
               ملف xlsx، حتى ٥٠٠ مدرسة و٥ ميجابايت. استخدم أسماء المحافظات من القالب. الحي أو القرية
               اختياري.
@@ -215,7 +218,27 @@ export function SchoolIntakeDialog({
                   {result.committed ? `أُضيفت: ${added}` : `مدارس جديدة: ${fresh}`} · مكررة أو
                   موجودة: {duplicates} · تحتاج تصحيحًا: {invalid}
                 </p>
-                <div className="max-h-72 overflow-auto rounded-lg border">
+                <div className="max-h-72 space-y-2 overflow-y-auto sm:hidden">
+                  {result.rows.map((r, i) => (
+                    <article key={i} className="space-y-1 rounded-lg border p-3 text-sm">
+                      <p className="font-bold">{rows[i].name || "اسم المدرسة ناقص"}</p>
+                      <p>
+                        الصف {r.source_row} · {intakeStatusLabels[r.status]}
+                      </p>
+                      <p>
+                        {rows[i].governorate || "المحافظة ناقصة"} —{" "}
+                        {rows[i].district || "المديرية ناقصة"}
+                      </p>
+                      {rows[i].locality && <p>{rows[i].locality}</p>}
+                      {Object.values(r.errors).map((message, j) => (
+                        <p key={j} className="text-destructive">
+                          {message}
+                        </p>
+                      ))}
+                    </article>
+                  ))}
+                </div>
+                <div className="hidden max-h-72 overflow-auto rounded-lg border sm:block">
                   <table className="w-full min-w-[600px] text-right text-sm">
                     <thead>
                       <tr>

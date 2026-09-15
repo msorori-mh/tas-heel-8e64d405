@@ -140,6 +140,19 @@ try {
     const commit = page.getByRole("button", { name: "تأكيد استيراد المدارس" });
     assert.equal(await commit.isEnabled(), false);
     await page.getByRole("checkbox").check();
+    assert.equal(
+      await page.getByRole("dialog").evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= innerWidth;
+      }),
+      true,
+      `intake dialog bounds ${width}`,
+    );
+    assert.equal(
+      await page.getByRole("dialog").evaluate((el) => el.scrollWidth <= el.clientWidth),
+      true,
+      `intake dialog content width ${width}`,
+    );
     await page.screenshot({
       path: `${output}/intake-preview-${width}.png`,
       fullPage: true,
