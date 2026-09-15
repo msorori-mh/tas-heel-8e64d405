@@ -27,7 +27,7 @@ export async function offlineResponseError(response: Response, prefix: string): 
   return new OfflineDownloadError(`${prefix}_${response.status}`, serverCode);
 }
 
-export function offlineDownloadErrorMessage(failure: unknown): string {
+function errorGuidance(failure: unknown): string {
   const code = failure instanceof Error ? failure.message : "";
   const serverCode = failure instanceof OfflineDownloadError ? failure.serverCode : "";
   const saved = " الملفات المكتملة محفوظة.";
@@ -56,4 +56,11 @@ export function offlineDownloadErrorMessage(failure: unknown): string {
   if (code === "OFFLINE_ARTIFACT_PERSISTENCE_FAILED" || /^OFFLINE_IDB_/.test(code))
     return "تعذّر حفظ الملف على الجهاز. أعد فتح التطبيق وتحقق من المساحة المتاحة." + saved;
   return "تعذّر إكمال التنزيل. تحقق من الاتصال ثم حاول الاستكمال." + saved;
+}
+
+/** A bounded support code helps report failures without exposing response bodies or account data. */
+export function offlineDownloadErrorMessage(failure: unknown): string {
+  const code = failure instanceof Error ? failure.message : "";
+  const diagnostic = /^OFFLINE_[A-Z0-9_]{1,72}$/.test(code) ? code : "";
+  return errorGuidance(failure) + (diagnostic ? ` رمز المشكلة: ${diagnostic}` : "");
 }
