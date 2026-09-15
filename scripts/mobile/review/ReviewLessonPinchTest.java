@@ -46,6 +46,19 @@ public class ReviewLessonPinchTest {
         touch(a,down,MotionEvent.ACTION_POINTER_UP|(1<<MotionEvent.ACTION_POINTER_INDEX_SHIFT),2,x,y,to);
         touch(a,down,MotionEvent.ACTION_UP,1,x,y,to); Thread.sleep(150);
     }
+    private void tapButton(ActivityScenario<ReviewActivity> a, String label, String expected, String mode) throws Exception {
+        // WebView dispatch is asynchronous; use an actual-duration tap and wait for its DOM click.
+        JSONArray button=new JSONArray(evaluate(a,"(()=>{const e=document.querySelector('[aria-label=\""+label+"\"]');e.scrollIntoView({block:'center'});const b=e.getBoundingClientRect();return [innerWidth,b.x+b.width/2,b.y+b.height/2]})()"));
+        AtomicReference<Integer> width=new AtomicReference<>(); a.onActivity(v->width.set(v.getBridge().getWebView().getWidth()));
+        float ratio=width.get()/(float)button.getDouble(0);
+        long down=SystemClock.uptimeMillis();
+        touch(a,down,MotionEvent.ACTION_DOWN,1,(float)button.getDouble(1)*ratio,(float)button.getDouble(2)*ratio,0);
+        Thread.sleep(100);
+        touch(a,down,MotionEvent.ACTION_UP,1,(float)button.getDouble(1)*ratio,(float)button.getDouble(2)*ratio,0);
+        long end=System.currentTimeMillis()+3000;
+        while(!evaluate(a,"document.querySelector('output').textContent").equals("\""+expected+"\"") && System.currentTimeMillis()<end) Thread.sleep(100);
+        assertEquals(mode+" native tap "+label+" bounds="+button, "\""+expected+"\"",evaluate(a,"document.querySelector('output').textContent"));
+    }
     @Test public void pinchInsideOpaqueLessonWithoutReloading() throws Exception {
         for (String mode : new String[]{"interactive", "static"}) {
         try(ActivityScenario<ReviewActivity> a=ActivityScenario.launch(ReviewActivity.class)) {
@@ -65,6 +78,10 @@ public class ReviewLessonPinchTest {
             long end=System.currentTimeMillis()+20000;
             while(!evaluate(a,"!!document.querySelector('[data-lesson-zoom]')").equals("true") && System.currentTimeMillis()<end) Thread.sleep(200);
             assertEquals("true",evaluate(a,"!!document.querySelector('[data-lesson-zoom]')"));
+            tapButton(a,"تكبير المحتوى","125%",mode+" before pinch");
+            tapButton(a,"إعادة الحجم الأصلي","100%",mode+" before pinch");
+            evaluate(a,"window.scrollTo(0,0)");
+            Thread.sleep(200);
             JSONArray bounds=new JSONArray(evaluate(a,"(()=>{const b=document.querySelector('[data-lesson-zoom]').getBoundingClientRect();return [innerWidth,b.left,b.top,b.width]})()"));
             AtomicReference<Integer> width=new AtomicReference<>(); a.onActivity(v->width.set(v.getBridge().getWebView().getWidth()));
             float ratio=width.get()/(float)bounds.getDouble(0);
@@ -78,12 +95,8 @@ public class ReviewLessonPinchTest {
             assertEquals("\"100%\"",evaluate(a,"document.querySelector('output').textContent"));
             pinch(a,x,2*ratio,30*ratio,85*ratio);
             assertEquals("\"100%\"",evaluate(a,"document.querySelector('output').textContent"));
-            JSONArray button=new JSONArray(evaluate(a,"(()=>{const b=document.querySelector('[aria-label=\"تكبير المحتوى\"]').getBoundingClientRect();return [b.x+b.width/2,b.y+b.height/2]})()"));
-            long tap=SystemClock.uptimeMillis();
-            touch(a,tap,MotionEvent.ACTION_DOWN,1,(float)button.getDouble(0)*ratio,(float)button.getDouble(1)*ratio,0);
-            touch(a,tap,MotionEvent.ACTION_UP,1,(float)button.getDouble(0)*ratio,(float)button.getDouble(1)*ratio,0);
-            Thread.sleep(250);
-            assertEquals("\"125%\"",evaluate(a,"document.querySelector('output').textContent"));
+            tapButton(a,"تكبير المحتوى","125%",mode);
+
         }
         }
     }
