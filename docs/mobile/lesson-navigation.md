@@ -13,6 +13,7 @@ Validation:
 - Eight existing interactive renderer/lesson contract tests pass after moving chooser-specific assertions to its extracted module.
 - The optional historical `lesson-question-separation.static.test.mjs` has a pre-existing assertion for `get_lesson_official_questions`; baseline already uses `get_lesson_questions_with_images`. This unrelated assertion was not changed.
 - A manual fixture is available with `npx vite --config tests/e2e/lesson-navigation/vite.config.ts`; it renders the actual chooser and long TEST_ONLY panels without authentication or production data. Check widths 360, 768, 960 and 1366, switch the last two tabs, enter an answer, switch away/back, scroll down/up and use the return button.
+- CI adds Chromium layout and interaction checks at 360, 768, 960 and 1366 pixels, with screenshots: all seven tabs fit, both final tabs accept taps, answers persist, document scroll moves down/up and the shortcut returns to the active tab. Results are recorded by the workflow; native swipes are not simulated.
 - Cloud Browser cannot open the local loopback preview. No physical Android touch-scroll acceptance is claimed. Static textbook frames keep their separate sandboxed scrolling; this patch does not change that renderer.
 
 Rollback: revert the UI commit; no migration or data rollback is needed.
