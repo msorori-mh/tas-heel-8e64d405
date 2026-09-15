@@ -254,7 +254,7 @@ it("actual completion refuses a school choice cleared by governorate change", as
   expect(document.querySelector('[role="alert"]')?.textContent).toContain("لم أجد مدرستي");
 });
 
-it("admin approval requires a verified decision and sends only the reviewed profile", async () => {
+it.each(["حي أول", "", "   "])("admin approval accepts optional locality %j and sends only the reviewed profile", async (locality) => {
   await mount(SchoolDirectory);
   await flush();
   await click("مراجعة المدرسة");
@@ -264,7 +264,9 @@ it("admin approval requires a verified decision and sends only the reviewed prof
   );
   await change("school-review-name", "مدرسة النور");
   await change("school-review-district", "مديرية أولى");
-  await change("school-review-locality", "حي أول");
+  await change("school-review-locality", locality);
+  expect(document.querySelector<HTMLInputElement>("#school-review-locality")!.required).toBe(false);
+  expect(document.querySelector("label[for=school-review-locality]")?.textContent).toContain("اختياري");
   expect(button("اعتماد وربط الملف").disabled).toBe(true);
   await act(async () =>
     document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click(),
@@ -276,7 +278,7 @@ it("admin approval requires a verified decision and sends only the reviewed prof
       p_kind: "student",
       p_user_id: "user-1",
       p_expected: expect.objectContaining({ school_name: "النور", school_id: null }),
-      p_school: expect.objectContaining({ district: "مديرية أولى", locality: "حي أول" }),
+      p_school: expect.objectContaining({ district: "مديرية أولى", locality: locality.trim() }),
     }),
   );
 });

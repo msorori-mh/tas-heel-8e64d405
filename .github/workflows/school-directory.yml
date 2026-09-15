@@ -49,7 +49,9 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f tests/schools/fixture.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260911171430_school_directory_review.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260916010000_academy_teacher_profile_save_rpc.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260916020000_school_directory_optional_locality.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/schools/directory.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/schools/optional-locality.sql
       - name: Prove simultaneous approvals cannot duplicate the directory
         run: bash tests/schools/concurrency.sh
   interface:
