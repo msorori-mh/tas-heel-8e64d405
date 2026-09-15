@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - "scripts/mobile/review/**"
+      - "apps/teacher-academy/**"
+      - "src/components/home/OfflineDownloadNotice.tsx"
       - ".github/workflows/offline-review-apk.yml"
       - "vite.config.ts"
       - "src/components/lessons/**"

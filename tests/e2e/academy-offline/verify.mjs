@@ -127,10 +127,11 @@ try {
   await page.locator("textarea").fill("ملاحظتي أثناء الانقطاع");
   await page.getByRole("button", { name: "حفظ الملاحظة", exact: true }).click();
   await page.getByText("إكمال محفوظ — بانتظار المزامنة").waitFor();
-  await page.getByText("ملاحظتي أثناء الانقطاع", { exact: false }).waitFor();
+  await page.locator("p").filter({ hasText: "ملاحظتي أثناء الانقطاع" }).waitFor();
+  assert.equal(await page.evaluate(async () => (await window.offlineStore.readAll("notes", "teacher-a")).length), 1);
   await page.reload();
   await page.getByRole("button", { name: "فتح المحتوى المحفوظ" }).click();
-  await page.getByText("ملاحظتي أثناء الانقطاع", { exact: false }).waitFor();
+  await page.locator("p").filter({ hasText: "ملاحظتي أثناء الانقطاع" }).waitFor();
   await context.setOffline(false);
   await page.getByRole("alert").filter({ hasText: "الملاحظة محفوظة" }).waitFor();
   assert.equal(
@@ -151,7 +152,7 @@ try {
   await mkdir("artifacts/academy-offline", { recursive: true });
   await page.screenshot({ path: "artifacts/academy-offline/reader-mobile.png", fullPage: true });
   console.log(
-    "PASS: verified file reuse, cold offline reload, account isolation, progress/note durability, lost-response retry, bound token, automatic reconnect sync",
+    "PASS: verified file reuse, cold offline reload, account isolation, progress/note durability, failed-request retry, bound token, automatic reconnect sync",
   );
   await context.close();
 } finally {

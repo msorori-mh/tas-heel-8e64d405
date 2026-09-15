@@ -14,7 +14,7 @@ Implementation branch: feat/academy-offline-learning, based on the unified mobil
 
 ## Backend gate
 
-Migration `20260915021143_academy_offline_notes.sql` is additive: one RLS-protected academy table and a SECURITY INVOKER RPC. No progress/certificate logic is modified. Until this migration is applied in the intended backend, local notes remain pending and the UI explains the failed sync. Production is Lovable-managed; do not claim cloud note sync is activated merely because the client was built.
+Migration `20260915021143_academy_offline_notes.sql` is additive: one RLS-protected academy table, a SECURITY INVOKER RPC, and a narrow SECURITY DEFINER enrollment predicate bound to auth.uid(). No progress/certificate logic is modified. Until this migration is applied in the intended backend, local notes remain pending and the UI explains the failed sync. Production is Lovable-managed; do not claim cloud note sync is activated merely because the client was built.
 
 Rollback before production activation: revert the client release. Retain the additive note table if it contains user notes; do not drop data as a routine rollback. Staging migration and production backup/review gates remain separate.
 
@@ -24,5 +24,7 @@ Rollback before production activation: revert the client release. Retain the add
 - Focused replay tests: immutable token binding, owner mismatch, failure retention, repeat operation IDs, no network offline and concurrent replay coalescing.
 - Chromium fixture: program/file download, reuse, service-worker cold offline reload, other-owner isolation, durable progress/notes, reconnection replay and a failed note retry using the same operation ID. This is a synthetic authenticated fixture, not production Google login.
 - Disposable PostgreSQL 17: existing academy contracts followed by replay/collision, owner/enrollment/suspension, anonymous denial and immutable notes checks.
+
+The review APK bundles the academy code and adds an owner-gated academy link to its native cold-start screen. Its production service workers stay blocked so a deployment cannot replace the reviewed APK assets. Android instrumentation rehearses this cold-start route with local fixture content after disabling the emulator network.
 
 Remaining release review: teacher-device offline cold start, file opening on the target Android WebView, Google session refresh, representative real programs, and the additive note migration on a matching test backend. Certified tests, video download, assignments, and live meetings are outside this first stage.

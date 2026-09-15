@@ -112,6 +112,27 @@ public class ReviewApkSmokeTest {
             // The original native offline entry is packaged and can open without a web deployment.
             evaluate(activity, "location.href='/review-offline.html'; 'opening'");
             until(activity, "document.title", "دون اتصال");
+            // Seed only local fixture content, then prove the actual APK cold-start route offline.
+            evaluate(activity, "window.__academySeed='pending'; const req=indexedDB.open('tamkeen-academy-offline-v1',1); req.onupgradeneeded=()=>{for(const name of ['packs','files','events','notes']) req.result.createObjectStore(name,{keyPath:['owner','id']}).createIndex('owner','owner');}; req.onsuccess=()=>{const db=req.result;const tx=db.transaction('packs','readwrite');tx.objectStore('packs').put({owner:'review-teacher',id:'review-program',program:{title:'برنامج اختبار الأكاديمية'},lessons:[{lesson_id:'review-lesson',title:'درس محفوظ للاختبار',content:'محتوى الأكاديمية يعمل دون إنترنت',sections:[],completed:false}],omitted:[],savedAt:new Date().toISOString()});tx.oncomplete=()=>{db.close();localStorage.setItem('tamkeen-academy-offline-owner','review-teacher');window.__academySeed='ready';};tx.onerror=()=>{window.__academySeed='error';};}; 'seeded'");
+            until(activity, "window.__academySeed", "ready");
+            android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+            try {
+                automation.executeShellCommand("svc wifi disable").close();
+                automation.executeShellCommand("svc data disable").close();
+                until(activity, "navigator.onLine", "false");
+                activity.recreate();
+                until(activity, "document.title", "دون اتصال");
+                until(activity, "Boolean(document.getElementById('academy-offline-entry') && !document.getElementById('academy-offline-entry').hidden)", "true");
+                evaluate(activity, "document.getElementById('academy-offline-entry').click(); 'opening'");
+                until(activity, "document.body.innerText", "برنامج اختبار الأكاديمية");
+                evaluate(activity, "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('فتح المحتوى المحفوظ')).click(); 'opening'");
+                until(activity, "document.body.innerText", "محتوى الأكاديمية يعمل دون إنترنت");
+                assertEquals("false", evaluate(activity, "navigator.onLine"));
+            } finally {
+                automation.executeShellCommand("svc wifi enable").close();
+                automation.executeShellCommand("svc data enable").close();
+            }
+
         }
     }
 }

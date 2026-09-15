@@ -19,8 +19,12 @@ for (const name of assetNames.filter((name) => /^settings-.*\.js$/.test(name))) 
 }
 assert.equal(settings.length, 1);
 assert.match(await readFile(`${assetDir}/${settings[0]}`, "utf8"), /تحميل المحتوى كاملًا/);
-// Save the existing verified cold-start entry, unchanged, alongside the review SPA.
-await cp("mobile/www/index.html", "dist/client/review-offline.html");
+// Keep the native student entry and expose the bundled academy to its cached owner.
+const offlineEntry = await readFile("mobile/www/index.html", "utf8");
+assert.ok(offlineEntry.includes('<main id="home-view">'));
+await writeFile("dist/client/review-offline.html", offlineEntry.replace('<main id="home-view">', `<main id="home-view">
+<a id="academy-offline-entry" class="card" href="/academy/" hidden>فتح تنزيلات أكاديمية المعلمين</a>
+<script>try { document.getElementById("academy-offline-entry").hidden = !localStorage.getItem("tamkeen-academy-offline-owner"); } catch {}</script>`));
 await cp("mobile/www/student-tamkeen-mark.png", "dist/client/student-tamkeen-mark.png");
 await mkdir("mobile/review-www", { recursive: true });
 await cp("dist/client", "mobile/review-www", { recursive: true });
@@ -83,6 +87,8 @@ const descriptor = {
   featureSha: "7a8c7c7dbfab7ac56b95360ebe035c2a88276074",
   capacitySha: "01310672afdb3805bceb8bd4c124bf5557718ea9",
   backendCapacityApplied: false,
+  academyOfflineStage: 1,
+  academyNotesMigrationApplied: false,
   settingsAsset: settings[0],
   settingsSha256: createHash("sha256")
     .update(await readFile(`${assetDir}/${settings[0]}`))
