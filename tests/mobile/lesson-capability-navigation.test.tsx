@@ -120,3 +120,11 @@ it("supports RTL keyboard navigation to both ends", async () => {
   );
   expect(document.activeElement).toBe(tab("PRIMARY_CONTENT"));
 });
+
+it("keeps lesson navigation usable without IntersectionObserver", async () => {
+  vi.stubGlobal("IntersectionObserver", undefined);
+  await mount();
+  await act(async () => tab("SELF_TEST").click());
+  expect(tab("SELF_TEST").getAttribute("aria-selected")).toBe("true");
+  expect(host.textContent).toContain("مكونات الدرس");
+});

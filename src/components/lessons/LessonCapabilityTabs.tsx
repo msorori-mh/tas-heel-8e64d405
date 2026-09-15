@@ -28,6 +28,11 @@ export function LessonCapabilityTabs({
   useEffect(() => {
     const tabList = tabListRef.current;
     if (!tabList) return;
+    // Keep navigation usable in runtimes without visibility observation.
+    if (typeof IntersectionObserver === "undefined") {
+      setShowReturn(true);
+      return;
+    }
     const observer = new IntersectionObserver(([entry]) => {
       setShowReturn(!entry.isIntersecting && entry.boundingClientRect.bottom < 0);
     });
