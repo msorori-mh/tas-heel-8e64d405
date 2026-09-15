@@ -100,7 +100,10 @@ try {
     await page.getByLabel("الاسم المعتمد").fill("مدرسة تجريبية");
     await page.getByLabel("المديرية", { exact: true }).fill("معين");
     await page.getByLabel("الحي أو القرية (اختياري)", { exact: true }).fill("");
-    assert.equal(await page.locator("#school-review-locality").evaluate((el) => el.required), false);
+    assert.equal(
+      await page.locator("#school-review-locality").evaluate((el) => el.required),
+      false,
+    );
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "اعتماد وربط الملف", exact: true }).click();
     await page.getByRole("dialog").waitFor({ state: "hidden" });

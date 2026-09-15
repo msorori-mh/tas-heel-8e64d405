@@ -254,34 +254,41 @@ it("actual completion refuses a school choice cleared by governorate change", as
   expect(document.querySelector('[role="alert"]')?.textContent).toContain("لم أجد مدرستي");
 });
 
-it.each(["حي أول", "", "   "])("admin approval accepts optional locality %j and sends only the reviewed profile", async (locality) => {
-  await mount(SchoolDirectory);
-  await flush();
-  await click("مراجعة المدرسة");
-  await flush();
-  await act(async () =>
-    [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')][1].click(),
-  );
-  await change("school-review-name", "مدرسة النور");
-  await change("school-review-district", "مديرية أولى");
-  await change("school-review-locality", locality);
-  expect(document.querySelector<HTMLInputElement>("#school-review-locality")!.required).toBe(false);
-  expect(document.querySelector("label[for=school-review-locality]")?.textContent).toContain("اختياري");
-  expect(button("اعتماد وربط الملف").disabled).toBe(true);
-  await act(async () =>
-    document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click(),
-  );
-  await click("اعتماد وربط الملف");
-  expect(mocks.rpc).toHaveBeenCalledWith(
-    "admin_review_school_profile",
-    expect.objectContaining({
-      p_kind: "student",
-      p_user_id: "user-1",
-      p_expected: expect.objectContaining({ school_name: "النور", school_id: null }),
-      p_school: expect.objectContaining({ district: "مديرية أولى", locality: locality.trim() }),
-    }),
-  );
-});
+it.each(["حي أول", "", "   "])(
+  "admin approval accepts optional locality %j and sends only the reviewed profile",
+  async (locality) => {
+    await mount(SchoolDirectory);
+    await flush();
+    await click("مراجعة المدرسة");
+    await flush();
+    await act(async () =>
+      [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')][1].click(),
+    );
+    await change("school-review-name", "مدرسة النور");
+    await change("school-review-district", "مديرية أولى");
+    await change("school-review-locality", locality);
+    expect(document.querySelector<HTMLInputElement>("#school-review-locality")!.required).toBe(
+      false,
+    );
+    expect(document.querySelector("label[for=school-review-locality]")?.textContent).toContain(
+      "اختياري",
+    );
+    expect(button("اعتماد وربط الملف").disabled).toBe(true);
+    await act(async () =>
+      document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click(),
+    );
+    await click("اعتماد وربط الملف");
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "admin_review_school_profile",
+      expect.objectContaining({
+        p_kind: "student",
+        p_user_id: "user-1",
+        p_expected: expect.objectContaining({ school_name: "النور", school_id: null }),
+        p_school: expect.objectContaining({ district: "مديرية أولى", locality: locality.trim() }),
+      }),
+    );
+  },
+);
 
 it("admin merge presents both locations and counts, then sends the reviewed snapshots", async () => {
   const target = {
