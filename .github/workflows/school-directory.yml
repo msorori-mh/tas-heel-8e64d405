@@ -9,6 +9,7 @@ on:
       - "src/components/schools/**"
       - "src/components/admin/SchoolDirectory.tsx"
       - "src/components/admin/SchoolIntakeDialog.tsx"
+      - "src/components/admin/SchoolEditDialog.tsx"
       - "src/routes/complete-profile.tsx"
       - "src/components/student/EditProfileDialog.tsx"
       - "apps/teacher-academy/src/**"
@@ -52,6 +53,8 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260916010000_academy_teacher_profile_save_rpc.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260916020000_school_directory_optional_locality.sql
           psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260915223359_school_directory_intake.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260915225535_school_directory_edit.sql
+          psql -X -v ON_ERROR_STOP=1 -f tests/schools/edit.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/schools/directory.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/schools/optional-locality.sql
           psql -X -v ON_ERROR_STOP=1 -f tests/schools/intake.sql

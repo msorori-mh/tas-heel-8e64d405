@@ -77,7 +77,26 @@ try {
     await approve.click();
     await page.getByRole("dialog").waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "المدارس المعتمدة", exact: true }).click();
+    await page.screenshot({ path: `${output}/directory-${width}.png`, fullPage: true });
+    await page.getByRole("button", { name: "تعديل", exact: true }).first().click();
+    assert.equal(await page.locator("#edit-school-governorate").isDisabled(), true);
+    await page.locator("#edit-school-district").fill("ع");
+    await page.getByRole("button", { name: "حفظ التعديلات", exact: true }).click();
+    await page.locator("#edit-school-district-error").filter({ hasText: "حرفين" }).waitFor();
+    await page.locator("#edit-school-district").fill("معين");
+    await page.locator("#edit-school-locality").fill("");
+    await page.locator("#edit-school-name").fill("مدرسة النور المعدلة");
+    await page.screenshot({ path: `${output}/edit-school-${width}.png`, fullPage: true });
+    await page.getByRole("button", { name: "حفظ التعديلات", exact: true }).click();
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    await page
+      .getByRole(width >= 1024 ? "rowheader" : "heading", {
+        name: "مدرسة النور المعدلة",
+        exact: true,
+      })
+      .waitFor();
     await page.getByRole("button", { name: "مراجعة تكرار ودمج", exact: true }).first().click();
+    await page.getByLabel("البحث في مدارس المحافظة المعتمدة").fill("النور");
     await page.getByLabel("المدرسة المعتمدة", { exact: true }).selectOption("s2");
     await page.getByText("السجل الذي سيبقى:", { exact: false }).waitFor();
     assert.equal(
@@ -179,6 +198,24 @@ try {
         "search/selection/proposal/governorate reset/admin approval/merge preview/touch targets/overflow",
       errors,
     });
+    await page.goto("http://127.0.0.1:4381/?large=1");
+    await page.getByRole("button", { name: "الإدارة", exact: true }).click();
+    await page.getByRole("button", { name: "المدارس المعتمدة", exact: true }).click();
+    await page.getByText("3000 مدرسة معتمدة", { exact: false }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "تعديل", exact: true }).count(), 25);
+    await page.getByLabel("انتقل إلى صفحة", { exact: true }).selectOption("119");
+    await page
+      .getByRole(width >= 1024 ? "rowheader" : "heading", { name: "مدرسة 3000", exact: true })
+      .waitFor();
+    await page.getByLabel("البحث باسم المدرسة", { exact: true }).fill("مدرسة 1500");
+    await page.getByText("1 مدرسة معتمدة", { exact: false }).waitFor();
+    assert.equal(await page.getByLabel("انتقل إلى صفحة", { exact: true }).inputValue(), "0");
+    await page.getByLabel("المحافظة", { exact: true }).selectOption("g2");
+    await page.getByText("لا توجد نتائج في هذه الصفحة.").waitFor();
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+    );
     await page.close();
   }
   await writeFile(

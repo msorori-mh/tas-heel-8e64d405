@@ -113,7 +113,29 @@ export const schoolDirectoryApi = {
           schoolSearchKey(s.district).includes(schoolSearchKey(district)),
       ),
     ),
-  list: async () => clone({ rows: schoolRows, count: schoolRows.length }),
+  list: async (query: string, gov: string, page: number) => {
+    const many = new URLSearchParams(window.location.search).has("large");
+    const rows = many
+      ? Array.from({ length: 3000 }, (_, i) => ({
+          ...schoolRows[i % 2],
+          id: `large-${i}`,
+          name: `مدرسة ${String(i + 1).padStart(4, "0")}`,
+        }))
+      : schoolRows;
+    const filtered = rows.filter(
+      (s) =>
+        (!gov || s.governorate_id === gov) &&
+        schoolSearchKey(s.name).includes(schoolSearchKey(query)),
+    );
+    return clone({ rows: filtered.slice(page * 25, page * 25 + 25), count: filtered.length });
+  },
+  edit: async (school: ManagedSchool, form: SchoolIntakeRow) => {
+    if (form.district.length < 2)
+      return { errors: { district: "أدخل اسم المديرية من حرفين إلى ١٢٠ حرفًا." } };
+    const found = schoolRows.find((s) => s.id === school.id)!;
+    Object.assign(found, form);
+    return clone({ school: found, errors: {} });
+  },
   pending: async () => clone({ rows: pending, count: pending.length }),
   details: async (id: string) => clone(schoolRows.find((s) => s.id === id)!),
   review: async (row: SchoolReview, school: School | Omit<School, "id">) => {
