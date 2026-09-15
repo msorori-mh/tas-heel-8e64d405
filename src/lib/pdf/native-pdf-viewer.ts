@@ -6,6 +6,7 @@
  */
 
 import { registerPlugin } from "@capacitor/core";
+import type { OfflinePackArtifact } from "@/lib/offline/offline-pack-contract";
 
 export type NativeOpenOptions = {
   /** Path relative to the app-private data directory (Filesystem Directory.Data). */
@@ -18,6 +19,11 @@ export type NativeOpenOptions = {
 export type NativeOpenResult = { lastPage: number; closed: boolean };
 
 type TamkeenPdfViewerPlugin = {
+  openOfflineArtifact: (options: {
+    ownerId: string;
+    artifact: OfflinePackArtifact;
+    initialPage?: number;
+  }) => Promise<NativeOpenResult>;
   isAvailable: () => Promise<{ available: boolean }>;
   open: (options: {
     localPath: string;

@@ -11,6 +11,9 @@ const stripComments = (source) =>
 const java = read(
   "android/app/src/main/java/app/studentamkeen/tamkeen/TamkeenOfflineContentPlugin.java",
 );
+const stateStore = read(
+  "android/app/src/main/java/app/studentamkeen/tamkeen/TamkeenOfflineStateStore.java",
+);
 const shell = read("mobile/www/index.html");
 
 describe("OFFLINE-05 Android assessment bridge", () => {
@@ -55,8 +58,9 @@ describe("OFFLINE-05 Android assessment bridge", () => {
     expect(java).toContain("mutationPayloadJson(");
     expect(java).toContain("jsonString(answerText)");
     expect(java).toContain("STATE_WRITE_LOCK");
-    expect(java).toContain("foundation-v1.next.json");
-    expect(java).toContain("output.getFD().sync()");
+    expect(java).toContain("TamkeenOfflineStateStore.write(getContext(), next)");
+    expect(stateStore).toContain("database.beginTransaction()");
+    expect(stateStore).toContain("database.setTransactionSuccessful()");
     expect(java).not.toContain("java.time.Instant");
     expect(java).not.toContain("String.join(");
   });

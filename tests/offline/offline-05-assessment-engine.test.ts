@@ -32,9 +32,13 @@ const LESSON_ID = "lesson-1";
 class CountingOfflineStateAdapter extends MemoryOfflineStateAdapter {
   writes = 0;
 
-  override async write(value: OfflineStateSnapshot): Promise<void> {
-    this.writes += 1;
-    await super.write(value);
+  override async compareAndSwap(
+    value: OfflineStateSnapshot,
+    expectedRevision: number,
+  ): Promise<boolean> {
+    const committed = await super.compareAndSwap(value, expectedRevision);
+    if (committed) this.writes += 1;
+    return committed;
   }
 }
 

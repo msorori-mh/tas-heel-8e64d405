@@ -84,12 +84,27 @@ describe("OFFLINE-03 verified local lesson reconstruction", () => {
 
     const read = async (_ownerId: string, artifact: { artifactId: string }) =>
       fixture.bodies.get(artifact.artifactId) ?? null;
+    const incomplete = await readOfflineLessonContent("student-a", "lesson-1", repository, read);
+    expect(incomplete.officialBook).toBeNull();
+    const last = fixture.value.artifacts[4];
+    await recordVerifiedOfflineArtifact(
+      repository,
+      {
+        ownerId: "student-a",
+        packId: fixture.value.packId,
+        manifestSha256: registered.manifestSha256,
+        artifactId: last.artifactId,
+        observedSha256: last.sha256,
+        observedBytes: last.byteSize,
+      },
+      T0,
+    );
     const local = await readOfflineLessonContent("student-a", "lesson-1", repository, read);
     expect(local.officialBook?.body).toBe("المحتوى الرسمي");
     expect(local.explanations.map((item) => item.body)).toEqual(["شرح تمكين"]);
     expect(local.summaries.map((item) => item.body)).toEqual(["ملخص الدرس"]);
     expect(local.mindMaps).toHaveLength(1);
-    expect(local.experiments).toEqual([]);
+    expect(local.experiments).toHaveLength(1);
 
     const otherOwner = await readOfflineLessonContent("student-b", "lesson-1", repository, read);
     expect(otherOwner.officialBook).toBeNull();
@@ -99,6 +114,7 @@ describe("OFFLINE-03 verified local lesson reconstruction", () => {
   it("drops corrupt local bytes even when stale metadata says verified", async () => {
     const repository = new OfflineStateRepository(new MemoryOfflineStateAdapter());
     const fixture = await manifest();
+    fixture.value.artifacts = fixture.value.artifacts.slice(0, 1);
     const registered = await registerOfflinePack(repository, "student-a", fixture.value, T0);
     const artifact = fixture.value.artifacts[0];
     await recordVerifiedOfflineArtifact(

@@ -20,12 +20,13 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   it("freezes the Play identity and offline testing release version", () => {
     expect(capacitor).toContain('appId: "app.studentamkeen.tamkeen"');
     expect(gradle).toContain('applicationId "app.studentamkeen.tamkeen"');
-    expect(gradle).toContain("versionCode 5");
-    expect(gradle).toContain('versionName "1.1.0"');
+    expect(gradle).toContain("versionCode 6");
+    expect(gradle).toContain('versionName "1.2.0"');
   });
 
-  it("loads only the production HTTPS origin and refuses cleartext", () => {
-    expect(capacitor).toContain('url: "https://studentamkeen.com"');
+  it("loads bundled release assets and refuses cleartext", () => {
+    expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
+    expect(capacitor).toContain('webDir: "dist-student-mobile"');
     expect(capacitor).toContain("cleartext: false");
     expect(capacitor).toContain("allowMixedContent: false");
     expect(manifest).toContain("android.permission.INTERNET");
@@ -70,6 +71,6 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(workflow).toContain(
       "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
     );
-    expect(workflow).toContain("tamkeen-play-testing-1.1.0-code-5-signed-aab");
+    expect(workflow).toContain("tamkeen-play-testing-1.2.0-code-6-signed-aab");
   });
 });

@@ -37,7 +37,8 @@ describe("OFFLINE-02 security and rollout guards", () => {
     expect(state).toContain("carriedArtifactIds");
   });
 
-  it("does not switch the production WebView during OFFLINE-02", () => {
-    expect(capacitor).toContain('url: "https://studentamkeen.com"');
+  it("does not embed a production remote WebView origin", () => {
+    expect(capacitor).not.toContain('url: "https://studentamkeen.com"');
+    expect(capacitor).toContain("TAMKEEN_CAPACITOR_LIVE_RELOAD_URL");
   });
 });

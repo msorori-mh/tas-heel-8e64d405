@@ -176,12 +176,14 @@ export async function markOfflineMutationDelivered(
   ownerId: string,
   operationId: string,
   now = new Date().toISOString(),
+  expectedAttempt?: number,
 ): Promise<void> {
   await repository.update((snapshot) => {
     const record = snapshot.outbox.find(
       (candidate) => candidate.ownerId === ownerId && candidate.id === operationId,
     );
     if (!record) throw new Error("OFFLINE_OUTBOX_OPERATION_NOT_FOUND");
+    if (expectedAttempt !== undefined && record.attempts !== expectedAttempt) return;
     record.status = "delivered";
     record.leaseUntil = null;
     record.nextAttemptAt = now;
@@ -197,12 +199,15 @@ export async function markOfflineMutationFailed(
   operationId: string,
   errorCode: string,
   now = new Date().toISOString(),
+  expectedAttempt?: number,
 ): Promise<void> {
   await repository.update((snapshot) => {
     const record = snapshot.outbox.find(
       (candidate) => candidate.ownerId === ownerId && candidate.id === operationId,
     );
     if (!record) throw new Error("OFFLINE_OUTBOX_OPERATION_NOT_FOUND");
+    if (record.status === "delivered") return;
+    if (expectedAttempt !== undefined && record.attempts !== expectedAttempt) return;
     const backoffMs = Math.min(1_000 * 2 ** Math.max(record.attempts - 1, 0), MAX_BACKOFF_MS);
     record.status = "failed";
     record.leaseUntil = null;
