@@ -111,7 +111,7 @@ export function OfflineSubjectPackCard({
     } catch (caught) {
       const code = caught instanceof Error ? caught.message : "";
       setDownloadError(
-        code === "OFFLINE_DOWNLOAD_ABORTED"
+        controller.signal.aborted || code === "OFFLINE_DOWNLOAD_ABORTED"
           ? "توقف التنزيل. يمكنك استكماله لاحقًا دون إعادة الملفات المكتملة."
           : offlineDownloadErrorMessage(caught),
       );

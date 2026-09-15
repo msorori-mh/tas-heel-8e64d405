@@ -61,3 +61,24 @@ it("preserves pause feedback through metadata refresh", async () => {
   await clickDownload();
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("توقف التنزيل");
 });
+
+it("reports deliberate pause when browser fetch rejects with AbortError", async () => {
+  api.download.mockImplementation(
+    ({ signal }) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), {
+          once: true,
+        });
+      }),
+  );
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="test-subject" subjectName="القراءة" />),
+  );
+  await clickDownload();
+  const pause = [...host.querySelectorAll("button")].find((button) =>
+    button.textContent?.includes("إيقاف"),
+  )!;
+  await act(async () => pause.click());
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("توقف التنزيل");
+  expect(host.textContent).not.toContain("تحقق من الاتصال");
+});
