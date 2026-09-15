@@ -27,6 +27,7 @@ import {
   type OfflinePackManifest,
 } from "@/lib/offline/offline-pack-contract";
 import { formatBytes } from "@/lib/offline/network";
+import { offlineDownloadErrorMessage } from "@/lib/offline/offline-download-error";
 
 export function OfflineSubjectPackCard({
   subjectId,
@@ -44,32 +45,35 @@ export function OfflineSubjectPackCard({
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const refresh = useCallback(async () => {
-    const localResult = await inspectOfflineSubjectPack(subjectId).catch(() => null);
-    setLocal(localResult);
-    try {
-      const latest = await fetchOfflineSubjectPackManifest(subjectId);
-      setManifest(latest);
-      if (!localResult?.record) {
-        setUpdateAvailable(false);
-      } else {
-        const latestDigest = await digestOfflinePackManifest(latest);
-        setUpdateAvailable(latestDigest !== localResult.record.manifestSha256);
+  const refresh = useCallback(
+    async (preserveError = false) => {
+      const localResult = await inspectOfflineSubjectPack(subjectId).catch(() => null);
+      setLocal(localResult);
+      try {
+        const latest = await fetchOfflineSubjectPackManifest(subjectId);
+        setManifest(latest);
+        if (!localResult?.record) {
+          setUpdateAvailable(false);
+        } else {
+          const latestDigest = await digestOfflinePackManifest(latest);
+          setUpdateAvailable(latestDigest !== localResult.record.manifestSha256);
+        }
+        if (!preserveError) setError(null);
+      } catch (caught) {
+        if (!localResult?.record) {
+          const code = caught instanceof Error ? caught.message : "";
+          setError(
+            code === "OFFLINE_MANIFEST_FETCH_422"
+              ? "لا يوجد محتوى موثّق متاح للتنزيل في هذه المادة بعد."
+              : "تعذّر التحقق من حزمة المادة الآن.",
+          );
+        }
+      } finally {
+        setLoading(false);
       }
-      setError(null);
-    } catch (caught) {
-      if (!localResult?.record) {
-        const code = caught instanceof Error ? caught.message : "";
-        setError(
-          code === "OFFLINE_MANIFEST_FETCH_422"
-            ? "لا يوجد محتوى موثّق متاح للتنزيل في هذه المادة بعد."
-            : "تعذّر التحقق من حزمة المادة الآن.",
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [subjectId]);
+    },
+    [subjectId],
+  );
 
   useEffect(() => {
     void refresh();
@@ -110,12 +114,12 @@ export function OfflineSubjectPackCard({
       setError(
         code === "OFFLINE_DOWNLOAD_ABORTED"
           ? "توقف التنزيل. يمكنك استكماله لاحقًا دون إعادة الملفات المكتملة."
-          : "تعذّر إكمال التنزيل. احتفظنا بالملفات السليمة للمحاولة التالية.",
+          : offlineDownloadErrorMessage(caught),
       );
     } finally {
       abortRef.current = null;
       setBusy(false);
-      await refresh();
+      await refresh(true);
     }
   };
 
