@@ -32,7 +32,17 @@ export async function fetchOfflineRead(input: string, init: RequestInit = {}): P
     throw new Error("OFFLINE_RETRY_READS_ONLY");
   }
   for (let attempt = 0; ; attempt += 1) {
-    const response = await fetch(input, init);
+    if (init.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    let response: Response;
+    try {
+      response = await fetch(input, init);
+    } catch (error) {
+      // Fetch rejects with TypeError on a connection reset/DNS failure. Do not
+      // retry cancellation or application errors, and never retry indefinitely.
+      if (init.signal?.aborted || !(error instanceof TypeError) || attempt >= 2) throw error;
+      await wait(offlineRetryDelay(null, attempt) + Math.floor(Math.random() * 400), init.signal);
+      continue;
+    }
     if (!TRANSIENT.has(response.status) || attempt >= 2) return response;
     const delay = offlineRetryDelay(response.headers.get("retry-after"), attempt);
     await response.body?.cancel();

@@ -21,6 +21,7 @@ import {
 } from "@/lib/offline/offline-download-library";
 import { formatBytes } from "@/lib/offline/network";
 import { DataSaverSetting } from "./DataSaverSetting";
+import { offlineDownloadErrorMessage } from "@/lib/offline/offline-download-error";
 
 export function OfflineContentSettings() {
   const { user, profile } = useAuth();
@@ -100,14 +101,7 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
       if (controller.signal.aborted) {
         setMessage("توقف الطلب. الملفات المكتملة محفوظة، ويمكنك استكمال الباقي لاحقًا.");
       } else {
-        const code = failure instanceof Error ? failure.message : "";
-        setError(
-          code === "OFFLINE_INSUFFICIENT_STORAGE"
-            ? "المساحة المتاحة لا تكفي للمادة التالية. حرّر مساحة ثم استكمل التنزيل."
-            : code === "OFFLINE_OWNER_CHANGED" || code === "OFFLINE_UNAUTHENTICATED"
-              ? "تغيّرت جلسة الحساب. أعد فتح الإعدادات قبل متابعة التنزيل."
-              : "تعذّر إكمال الطلب. تحقق من الاتصال والمساحة ثم حاول مجددًا؛ الملفات المكتملة محفوظة.",
-        );
+        setError(offlineDownloadErrorMessage(failure));
       }
     } finally {
       if (!live.aborted) {
@@ -267,7 +261,10 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
                 value={progress.totalBytes ? (100 * progress.loadedBytes) / progress.totalBytes : 0}
               />
               <p>
-                {progress.completed} / {progress.count} مواد مكتملة ·{" "}
+                {Math.round(
+                  progress.totalBytes ? (100 * progress.loadedBytes) / progress.totalBytes : 0,
+                )}
+                ٪ · {progress.completed} / {progress.count} مواد مكتملة ·{" "}
                 {formatBytes(progress.loadedBytes)} / {formatBytes(progress.totalBytes)}
               </p>
             </>
