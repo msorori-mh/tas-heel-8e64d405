@@ -36,6 +36,7 @@ export function OfflineSubjectPackCard({
   subjectId: string;
   subjectName: string;
 }) {
+  const [unavailableQuestions, setUnavailableQuestions] = useState(0);
   const [manifest, setManifest] = useState<OfflinePackManifest | null>(null);
   const [local, setLocal] = useState<OfflineSubjectPackLocalStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +51,7 @@ export function OfflineSubjectPackCard({
     const localResult = await inspectOfflineSubjectPack(subjectId).catch(() => null);
     setLocal(localResult);
     try {
-      const latest = await fetchOfflineSubjectPackManifest(subjectId);
+      const latest = await fetchOfflineSubjectPackManifest(subjectId, setUnavailableQuestions);
       setManifest(latest);
       if (!localResult?.record) {
         setUpdateAvailable(false);
@@ -200,6 +201,12 @@ export function OfflineSubjectPackCard({
         </p>
       )}
 
+      {unavailableQuestions > 0 && (
+        <p className="text-xs text-muted-foreground" role="status">
+          يوجد {unavailableQuestions} سؤالًا لم تكتمل إجابتها النموذجية بعد، ولن تُضمّن في التنزيل.
+          بقية المحتوى المتاح قابل للتنزيل والاستخدام دون إنترنت.
+        </p>
+      )}
       {(downloadError || error) && (
         <p className="text-xs text-destructive" role="alert">
           {downloadError || error}

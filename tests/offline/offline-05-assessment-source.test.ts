@@ -122,3 +122,71 @@ describe("OFFLINE-05 assessment source boundary", () => {
     ).rejects.toThrow("OFFLINE_ASSESSMENT_OPTION_BINDING_MISMATCH");
   });
 });
+
+it("omits only answerless official questions while retaining valid questions", async () => {
+  const unavailable = {
+    ...safeRows()[0],
+    id: "44444444-4444-4444-8444-444444444444",
+    revision_id: "55555555-5555-4555-8555-555555555555",
+    question_type: "EXTENDED_RESPONSE",
+    options: [],
+  };
+  const userClient = rpcClient(async () => ({ data: [...safeRows(), unavailable], error: null }));
+  const answerClient = rpcClient(async () => ({ data: answerLayer(), error: null }));
+  let missing = 0;
+  const source = await loadOfflineAssessmentSource({
+    userClient,
+    answerClient,
+    lessonId: LESSON_ID,
+    kind: "official-questions",
+    readyAt: T0,
+    onUnavailableQuestion: () => {
+      missing += 1;
+    },
+  });
+  const bundle = parseOfflineAssessmentBundle(source!.body);
+  expect(bundle.questions.map((q) => q.questionId)).toEqual([QUESTION_ID]);
+  expect(missing).toBe(1);
+});
+
+it("returns no assessment artifact when all essay answers are missing", async () => {
+  const userClient = rpcClient(async () => ({
+    data: [{ ...safeRows()[0], question_type: "EXTENDED_RESPONSE", options: [] }],
+    error: null,
+  }));
+  const answerClient = rpcClient(async () => ({
+    data: { options: [], answers: [], rationales: [] },
+    error: null,
+  }));
+  let missing = 0;
+  expect(
+    await loadOfflineAssessmentSource({
+      userClient,
+      answerClient,
+      lessonId: LESSON_ID,
+      kind: "official-questions",
+      readyAt: T0,
+      onUnavailableQuestion: () => {
+        missing += 1;
+      },
+    }),
+  ).toBeNull();
+  expect(missing).toBe(1);
+});
+
+it("still rejects invalid option binding even when an official answer is missing", async () => {
+  const userClient = rpcClient(async () => ({ data: safeRows(), error: null }));
+  const answerClient = rpcClient(async () => ({
+    data: { ...answerLayer(["a", "c"]), answers: [] },
+    error: null,
+  }));
+  await expect(
+    loadOfflineAssessmentSource({
+      userClient,
+      answerClient,
+      lessonId: LESSON_ID,
+      kind: "official-questions",
+      readyAt: T0,
+    }),
+  ).rejects.toThrow("OFFLINE_ASSESSMENT_OPTION_BINDING_MISMATCH");
+});

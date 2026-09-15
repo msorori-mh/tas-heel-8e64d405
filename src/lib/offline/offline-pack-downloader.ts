@@ -178,7 +178,13 @@ async function checkedIdentity(options: OfflineDownloadRequest) {
 async function fetchOfflineSubjectPackManifestWithIdentity(
   subjectId: string,
   options: OfflineDownloadRequest = {},
-): Promise<{ ownerId: string; token: string; manifest: OfflinePackManifest; omitted: number }> {
+): Promise<{
+  ownerId: string;
+  token: string;
+  manifest: OfflinePackManifest;
+  omitted: number;
+  unavailableQuestions: number;
+}> {
   const identity = await checkedIdentity(options);
   const response = await fetchOfflineRead(
     `/api/offline-pack/manifest/${encodeURIComponent(subjectId)}`,
@@ -188,7 +194,11 @@ async function fetchOfflineSubjectPackManifestWithIdentity(
     },
   );
   if (!response.ok) throw await offlineResponseError(response, "OFFLINE_MANIFEST_FETCH");
-  const payload = (await response.json()) as { manifest?: unknown; omitted?: unknown };
+  const payload = (await response.json()) as {
+    manifest?: unknown;
+    omitted?: unknown;
+    unavailableQuestions?: unknown;
+  };
   checkDownloadSignal(options.signal);
   const manifest = parseOfflinePackManifest(payload.manifest);
   if (manifest.scope.subjectId !== subjectId || manifest.packId !== `subject-${subjectId}`) {
@@ -197,6 +207,11 @@ async function fetchOfflineSubjectPackManifestWithIdentity(
   return {
     ...identity,
     manifest,
+    unavailableQuestions:
+      typeof payload.unavailableQuestions === "number" &&
+      Number.isSafeInteger(payload.unavailableQuestions)
+        ? Math.max(0, payload.unavailableQuestions)
+        : 0,
     omitted:
       typeof payload.omitted === "number" && Number.isSafeInteger(payload.omitted)
         ? Math.max(0, payload.omitted)
@@ -209,17 +224,18 @@ export async function prepareOfflineSubjectPack(
   subjectId: string,
   options: OfflineDownloadRequest,
 ) {
-  const { manifest, omitted } = await fetchOfflineSubjectPackManifestWithIdentity(
-    subjectId,
-    options,
-  );
-  return { manifest, omitted };
+  const { manifest, omitted, unavailableQuestions } =
+    await fetchOfflineSubjectPackManifestWithIdentity(subjectId, options);
+  return { manifest, omitted, unavailableQuestions };
 }
 
 export async function fetchOfflineSubjectPackManifest(
   subjectId: string,
+  onAvailability?: (unavailableQuestions: number) => void,
 ): Promise<OfflinePackManifest> {
-  return (await fetchOfflineSubjectPackManifestWithIdentity(subjectId)).manifest;
+  const result = await fetchOfflineSubjectPackManifestWithIdentity(subjectId);
+  onAvailability?.(result.unavailableQuestions);
+  return result.manifest;
 }
 
 export async function downloadOfflinePackManifest(params: {
