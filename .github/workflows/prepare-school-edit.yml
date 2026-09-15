@@ -1,7 +1,5 @@
 name: Prepare school edit migration
-on:
-  push:
-    branches: [feat/admin-school-edit]
+on: pull_request
 permissions:
   contents: read
 jobs:
