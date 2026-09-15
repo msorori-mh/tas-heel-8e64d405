@@ -84,6 +84,27 @@ afterEach(async () => {
 });
 
 describe("school picker runtime", () => {
+  it("explains an empty governorate directory and keeps manual entry available", async () => {
+    await act(async () => root.render(<Harness search={async () => []} save={vi.fn()} />));
+    await flush();
+    expect(host.textContent).toContain("لم تُضف مدارس معتمدة لهذه المحافظة");
+    await input("ابحث باسم", "بلقيس");
+    await flush();
+    expect(host.textContent).toContain("لم نجد مدرسة مطابقة");
+    await click("لم أجد مدرستي");
+    expect(host.querySelector<HTMLInputElement>("input")?.value).toBe("بلقيس");
+    expect(host.textContent).toContain("يمكنك إكمال التسجيل الآن");
+  });
+  it("clears the previous location filter when changing a selected school", async () => {
+    const search = vi.fn().mockResolvedValue([school]);
+    await act(async () => root.render(<Harness search={search} save={vi.fn()} />));
+    await flush();
+    await click(school.name);
+    await click("تغيير المدرسة");
+    await input("ابحث باسم", "الميثاق");
+    await flush();
+    expect(search).toHaveBeenLastCalledWith("gov-1", "الميثاق", "");
+  });
   it("selects a real result and saves the school ID", async () => {
     const save = vi.fn();
     const search = vi.fn().mockResolvedValue([school]);

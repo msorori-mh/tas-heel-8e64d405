@@ -183,13 +183,24 @@ export function EditProfileDialog() {
             />
           </div>
 
-          <SchoolPicker
-            value={school}
-            onChange={setSchool}
-            governorateId={govId}
-            searchSchools={schoolDirectoryApi.search}
-            disabled={saving}
-          />
+          <div>
+            <Label htmlFor="ep-grade">الصف الدراسي</Label>
+            <select
+              id="ep-grade"
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={gradeId}
+              onChange={(e) => setGradeId(e.target.value)}
+              disabled={saving || lookupsQ.isLoading}
+              required
+            >
+              <option value="">-- اختر الصف --</option>
+              {grades.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <Label htmlFor="ep-gov">المحافظة</Label>
@@ -212,6 +223,14 @@ export function EditProfileDialog() {
               ))}
             </select>
           </div>
+
+          <SchoolPicker
+            value={school}
+            onChange={setSchool}
+            governorateId={govId}
+            searchSchools={schoolDirectoryApi.search}
+            disabled={saving}
+          />
 
           {isMulti && (
             <div>
@@ -236,25 +255,6 @@ export function EditProfileDialog() {
               </p>
             </div>
           )}
-
-          <div>
-            <Label htmlFor="ep-grade">الصف الدراسي</Label>
-            <select
-              id="ep-grade"
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={gradeId}
-              onChange={(e) => setGradeId(e.target.value)}
-              disabled={saving || lookupsQ.isLoading}
-              required
-            >
-              <option value="">-- اختر الصف --</option>
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <DialogFooter className="gap-2 pt-2 sm:gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>

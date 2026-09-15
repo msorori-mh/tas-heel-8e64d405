@@ -153,6 +153,9 @@ afterEach(async () => {
 
 it("actual student completion persists selected school ID and continues", async () => {
   await mount(Route.options.component as ComponentType);
+  const fields = [...document.querySelectorAll("form input, form select")];
+  expect(fields.slice(0, 5).map((field) => field.id)).toEqual(["fn", "sn", "ln", "gr", "gv"]);
+  expect(fields[5].closest("fieldset")?.className).toBe("school-picker");
   await change("fn", "طالب");
   await change("ln", "تجريبي");
   await change("gv", "gov-1");
@@ -189,6 +192,11 @@ it("actual edit dialog preserves a legacy pending school during a name-only edit
   await mount(EditProfileDialog);
   await click("تعديل البيانات");
   await flush();
+  const fields = [
+    ...document.querySelectorAll('[role="dialog"] form input, [role="dialog"] form select'),
+  ];
+  expect(fields.slice(0, 3).map((field) => field.id)).toEqual(["ep-name", "ep-grade", "ep-gov"]);
+  expect(fields[3].closest("fieldset")?.className).toBe("school-picker");
   await change("ep-name", "الاسم المصحح");
   await click("حفظ التغييرات");
   expect(mocks.update).toHaveBeenCalledWith(

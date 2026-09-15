@@ -39,3 +39,13 @@ The original project was verified through Lovable project `0e731d8e-4edd-4b70-80
 ## Recovery
 
 Before application deployment, a failed SQL transaction rolls back completely. After application deployment, roll back the web version if necessary and retain the additive schema and school text fields for compatibility. Do not drop the catalog/columns after real reviews. A mistaken merge requires an administrator to inspect its audit record and restore only the recorded affected associations after checking for subsequent edits; never bulk undo by name. No automatic cleanup of real user data is part of this rollout.
+
+## 2026-09-15 school selection follow-up
+
+Read-only inspection of the original Lovable project's database found **0 total schools and 0 active schools**. Marib exists in `governorates`; its ID is `7dc445cc-2d7f-4bcb-b8c3-cfba0d12a68a`. The absent results are therefore explained by an empty catalog, not evidence of a completed school import. No production rows were written.
+
+This follow-up orders both student forms as name, grade, governorate, school, then curriculum track when needed. Teacher setup/edit already orders name, subject, governorate and school; its guidance now explains manual entry. The shared picker distinguishes an empty governorate listing from an unmatched query, retains the explicit proposal workflow, and clears inherited district/locality filters when changing a selected school.
+
+Validation: 22 school unit/runtime tests pass, including actual student form field order, preservation of existing pending school profiles, empty-directory guidance, and changing school without an inherited location filter. Student and teacher TypeScript checks pass. Real mobile/Google-login E2E and deployment are not established by these checks.
+
+Data completion remains HOLD: obtain a verified school source with governorate, district and locality before importing approved identities. The reported Marib names are التميز بنين، التميز بنات، بلقيس، الميثاق; no locations were guessed and no synthetic catalog entries were added. Source baseline: `7ae2fee6fcc460843c455393e0256f1689855c04` on `main`.
