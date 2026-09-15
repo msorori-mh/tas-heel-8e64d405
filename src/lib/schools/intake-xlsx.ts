@@ -34,11 +34,18 @@ export async function readSchoolWorkbook(bytes: ArrayBuffer): Promise<SchoolInta
       throw new Error("محتوى الملف أكبر من الحد المسموح. قسّم المدارس إلى ملفات أصغر.");
   }
   const { Workbook } = await import("exceljs");
-  const book = new Workbook();
+  let book = new Workbook();
   try {
     await book.xlsx.load(bytes);
   } catch {
-    throw new Error("ملف Excel غير صالح. استخدم القالب الجاهز.");
+    try {
+      const { schoolWorkbookCompatibilityCopy } = await import("./intake-xlsx-compat");
+      const compatible = await schoolWorkbookCompatibilityCopy(zip);
+      book = new Workbook();
+      await book.xlsx.load(compatible);
+    } catch {
+      throw new Error("تعذّرت قراءة ملف Excel. أعد حفظه بصيغة xlsx، أو أرسل الملف للدعم لفحصه.");
+    }
   }
   const sheet = book.getWorksheet("المدارس") ?? book.worksheets[0];
   if (!sheet) throw new Error("الملف لا يحتوي على ورقة مدارس.");
