@@ -14,6 +14,8 @@ try {
     await page.goto("http://127.0.0.1:4385");
     const frame = page.frameLocator("iframe");
     await frame.locator("#counter").click();
+    // Confirm the iframe processed the click before testing state retention.
+    await frame.locator("#counter").filter({ hasText: /^1$/ }).waitFor();
     const before = await frame.locator("h1").evaluate((e) => e.getBoundingClientRect().width);
     const boxBefore = await page.locator("iframe").boundingBox();
     for (let i = 0; i < 4; i++)
@@ -36,6 +38,7 @@ try {
     assert.ok(await scroll.evaluate((e) => Math.abs(e.scrollLeft) > 0 && e.scrollTop > 0));
     await page.getByRole("button", { name: "إعادة الحجم الأصلي" }).click();
     await frame.locator("#counter").click();
+    await frame.locator("#counter").filter({ hasText: /^2$/ }).waitFor();
     assert.equal(await frame.locator("#counter").textContent(), "2");
     console.log(`PASS zoom geometry, RTL scroll, retained interaction: ${width}px`);
     await context.close();
