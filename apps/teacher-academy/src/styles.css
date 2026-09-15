@@ -3025,3 +3025,14 @@ textarea:focus {
     display: none;
   }
 }
+
+.academy-offline-library {
+  display: grid;
+  gap: 1rem;
+}
+.academy-offline-library > .page-heading {
+  margin-bottom: 0;
+}
+.academy-offline-workspace {
+  margin-right: 0;
+}

@@ -6,8 +6,8 @@ import {
 import { persistentAuthStorage } from "../../../../src/integrations/supabase/nativeAuthStorage";
 import { brokeredPreviewStorage } from "../../../../src/integrations/supabase/previewAuthStorage";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || PUBLIC_SUPABASE_URL;
-const supabaseKey =
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || PUBLIC_SUPABASE_URL;
+export const supabaseKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const featureFlag = import.meta.env.VITE_ACADEMY_ENABLED?.trim().toLowerCase();
 

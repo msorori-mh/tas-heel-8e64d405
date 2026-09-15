@@ -28,7 +28,9 @@
     "format": "prettier --write .",
     "generate:import-templates": "bun run scripts/generate-import-templates.ts",
     "generate:content-templates": "bun scripts/generate-content-templates.mjs",
-    "content:preflight": "node scripts/content-import/validate-content-package.mjs"
+    "content:preflight": "node scripts/content-import/validate-content-package.mjs",
+    "prebuild": "node scripts/academy/build-offline-shell.mjs",
+    "preacademy:build": "node scripts/academy/build-offline-shell.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -85,6 +85,16 @@ function SettingsPage() {
   const queryClient = useQueryClient();
   const callDelete = useServerFn(deleteMyAccount);
 
+  const [sections, setSections] = useState<string[]>(["profile"]);
+  useEffect(() => {
+    const reveal = () => {
+      if (window.location.hash === "#offline")
+        setSections((current) => (current.includes("offline") ? current : [...current, "offline"]));
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, []);
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmText, setConfirmText] = useState("");
@@ -253,7 +263,7 @@ function SettingsPage() {
         <p className="mt-1 text-sm text-muted-foreground">إدارة حسابك ومعلوماتك في منصة تمكين.</p>
       </header>
 
-      <Accordion type="multiple" defaultValue={["profile"]} className="space-y-3">
+      <Accordion type="multiple" value={sections} onValueChange={setSections} className="space-y-3">
         {/* الملف الشخصي */}
         <SectionItem value="profile" icon={<UserIcon className="h-4 w-4" />} title="الملف الشخصي">
           <div className="flex items-start gap-3">
@@ -376,6 +386,7 @@ function SettingsPage() {
         </SectionItem>
 
         {/* 18C — المحتوى دون إنترنت */}
+        <div id="offline" className="scroll-mt-20" />
         <SectionItem
           value="offline"
           icon={<CloudDownload className="h-4 w-4" />}
