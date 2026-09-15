@@ -24,6 +24,7 @@ type ReadyRow = {
   capability: string;
   ready_hash: string | null;
   ready_at: string | null;
+  ready_snapshot?: unknown;
 };
 
 function metadataHash(metadata: unknown, key: string): string | null {
@@ -85,18 +86,25 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
   if (lessonIds.length > 0) {
     const { data, error } = await caller.supabase
       .from("lesson_capability_lifecycle")
-      .select("lesson_id,capability,ready_hash,ready_at")
+      .select("lesson_id,capability,ready_hash,ready_at,ready_snapshot")
       .in("lesson_id", lessonIds)
       .eq("status", "READY");
     if (error) return offlineApiError(500, "lifecycle_lookup_failed");
     readyRows = (data ?? []) as ReadyRow[];
   }
 
-  const readyByLesson = new Map<string, Record<string, { sha256: string; readyAt: string }>>();
+  const readyByLesson = new Map<
+    string,
+    Record<string, { sha256: string; readyAt: string; snapshot?: unknown }>
+  >();
   for (const row of readyRows) {
     if (!row.ready_hash || !row.ready_at) continue;
     const capabilities = readyByLesson.get(row.lesson_id) ?? {};
-    capabilities[row.capability] = { sha256: row.ready_hash, readyAt: row.ready_at };
+    capabilities[row.capability] = {
+      sha256: row.ready_hash,
+      readyAt: row.ready_at,
+      snapshot: row.ready_snapshot,
+    };
     readyByLesson.set(row.lesson_id, capabilities);
   }
 
