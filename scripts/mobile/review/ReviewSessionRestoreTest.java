@@ -69,7 +69,7 @@ public class ReviewSessionRestoreTest {
     private WebResourceResponse json(int status, String body) {
         HashMap<String,String> headers = new HashMap<>();
         headers.put("Access-Control-Allow-Origin", "https://studentamkeen.com");
-        headers.put("Access-Control-Allow-Headers", "*"); headers.put("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+        headers.put("Access-Control-Allow-Headers", "authorization,apikey,content-type,x-client-info,x-supabase-api-version,accept-profile,content-profile,prefer,x-supabase-client-platform,x-supabase-client-platform-version,x-supabase-client-runtime,x-supabase-client-runtime-version"); headers.put("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
         headers.put("Content-Range", "0-0/1");
         return new WebResourceResponse("application/json", "UTF-8", status, status == 200 ? "OK" : "Unauthorized", headers,
             new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
