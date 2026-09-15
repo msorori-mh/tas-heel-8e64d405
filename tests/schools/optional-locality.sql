@@ -35,6 +35,8 @@ select public.admin_review_school_profile('student','00000000-0000-0000-0000-000
  current_setting('school_test.optional_second')::jsonb,
  current_setting('school_test.optional_school')::jsonb);
 select school_test.assert((select count(*)=1 from public.schools where name='TEST_ONLY optional locality'),'null and omitted locality reuse empty identity');
+-- Fixture profile policies are owner-only; inspect stored rows as the fixture owner.
+reset role;
 select school_test.assert((select count(*)=2 from public.profiles where school_name='TEST_ONLY optional locality' and school_id is not null and school_locality=''),'student profiles link without locality');
 select school_test.assert((select count(*)=1 from academy.teacher_profiles where school_name='TEST_ONLY optional locality' and school_id is not null and school_locality=''),'teacher profile links without locality');
 select school_test.assert((select count(*)=1 from public.search_school_directory('10000000-0000-0000-0000-000000000001','TEST_ONLY optional locality','')),'school without locality remains searchable');
