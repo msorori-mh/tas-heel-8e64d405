@@ -124,7 +124,14 @@ public class ReviewSessionRestoreTest {
                     installFixture(activity, refreshes, oauth);
                     network(true); until(activity, "navigator.onLine", "true");
                     evaluate(activity, "location.href='/';'opening'");
-                    until(activity, "location.pathname", space.equals("teacher") ? "/academy" : "/app");
+                    try {
+                        until(activity, "location.pathname", space.equals("teacher") ? "/academy" : "/app");
+                    } catch (AssertionError failure) {
+                        // Fixture-only diagnostics: never print session contents or credentials.
+                        System.out.println("RESTORE_FIXTURE space="+space+" refreshRequests="+refreshes.get()+" oauthRequests="+oauth.get());
+                        System.out.println("RESTORE_UI "+evaluate(activity,"JSON.stringify({path:location.pathname,text:document.body.innerText.slice(0,350)})"));
+                        throw failure;
+                    }
                     until(activity, "document.body.innerText", space.equals("teacher") ? "البرامج المناسبة" : "مرحباً، اختبار");
                     assertEquals("0", evaluate(activity, "Array.from(document.querySelectorAll('button')).filter(b=>b.textContent.includes('المتابعة باستخدام Google')).length"));
                     assertNotNull(context.getSharedPreferences("CapacitorStorage", 0).getString(KEY, null));
