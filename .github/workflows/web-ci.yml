@@ -52,6 +52,7 @@ jobs:
         if: always()
         run: |
           npm test
+          npx vitest run tests/import/quick-review-admin-readiness-15a-a.test.ts tests/import/quick-review-dependent-filters.test.tsx
           npm run test:core-reliability
           npm run academy:test
           npm run test:load:contract

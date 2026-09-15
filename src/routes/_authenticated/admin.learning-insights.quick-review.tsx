@@ -126,7 +126,7 @@ function AdminQuickReviewReadinessPage() {
     enabled,
   });
 
-  const allLessons = data?.lessons ?? [];
+  const allLessons = useMemo(() => data?.lessons ?? [], [data]);
 
   const filtered = useMemo(
     () =>
@@ -148,17 +148,38 @@ function AdminQuickReviewReadinessPage() {
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [allLessons]);
 
+  // Each dropdown depends only on its upstream scope, never on readiness.
+  const gradeLessons = useMemo(
+    () => filterLessons(allLessons, { gradeId: gradeId === ALL ? null : gradeId }),
+    [allLessons, gradeId],
+  );
+  const subjectLessons = useMemo(
+    () => filterLessons(gradeLessons, { trackId: trackId === ALL ? null : trackId }),
+    [gradeLessons, trackId],
+  );
+
   const trackOptions = useMemo(() => {
     const map = new Map<string, string>();
-    for (const l of allLessons) l.trackIds.forEach((id, i) => map.set(id, l.trackNames[i] ?? "—"));
+    for (const l of gradeLessons)
+      l.trackIds.forEach((id, i) => map.set(id, l.trackNames[i] ?? "—"));
     return Array.from(map, ([id, name]) => ({ id, name }));
-  }, [allLessons]);
+  }, [gradeLessons]);
 
   const subjectOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const l of allLessons) map.set(l.subjectId, l.subjectName);
-    return Array.from(map, ([id, name]) => ({ id, name }));
-  }, [allLessons]);
+    const map = new Map<string, AdminReviewLessonRow>();
+    for (const lesson of subjectLessons) map.set(lesson.subjectId, lesson);
+    const nameCounts = new Map<string, number>();
+    for (const lesson of map.values()) {
+      nameCounts.set(lesson.subjectName, (nameCounts.get(lesson.subjectName) ?? 0) + 1);
+    }
+    return Array.from(map, ([id, lesson]) => ({
+      id,
+      name:
+        (nameCounts.get(lesson.subjectName) ?? 0) > 1
+          ? `${lesson.subjectName} — ${lesson.gradeName ?? "صف غير محدد"} — ${lesson.trackNames.join(" / ") || "مسار غير محدد"}`
+          : lesson.subjectName,
+    }));
+  }, [subjectLessons]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -238,15 +259,20 @@ function AdminQuickReviewReadinessPage() {
             <Card>
               <CardContent className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">
-                  <Label className="text-xs">الصف</Label>
+                  <Label htmlFor="review-grade" className="text-xs">
+                    الصف
+                  </Label>
                   <Select
                     value={gradeId}
                     onValueChange={(v) => {
                       setGradeId(v);
+                      setTrackId(ALL);
+                      setSubjectId(ALL);
+                      setOpenLesson(null);
                       resetPage();
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="review-grade" aria-label="الصف">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -260,15 +286,19 @@ function AdminQuickReviewReadinessPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">المسار</Label>
+                  <Label htmlFor="review-track" className="text-xs">
+                    المسار
+                  </Label>
                   <Select
                     value={trackId}
                     onValueChange={(v) => {
                       setTrackId(v);
+                      setSubjectId(ALL);
+                      setOpenLesson(null);
                       resetPage();
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="review-track" aria-label="المسار">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -282,7 +312,9 @@ function AdminQuickReviewReadinessPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">المادة</Label>
+                  <Label htmlFor="review-subject" className="text-xs">
+                    المادة
+                  </Label>
                   <Select
                     value={subjectId}
                     onValueChange={(v) => {
@@ -290,7 +322,7 @@ function AdminQuickReviewReadinessPage() {
                       resetPage();
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="review-subject" aria-label="المادة">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -304,7 +336,9 @@ function AdminQuickReviewReadinessPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">الجاهزية</Label>
+                  <Label htmlFor="review-readiness" className="text-xs">
+                    الجاهزية
+                  </Label>
                   <Select
                     value={readiness}
                     onValueChange={(v) => {
@@ -312,7 +346,7 @@ function AdminQuickReviewReadinessPage() {
                       resetPage();
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="review-readiness" aria-label="الجاهزية">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
