@@ -1,3 +1,6 @@
+import { AcademyOfflineLibrary } from "./offline/AcademyOfflineLibrary";
+import { activeOwner, setOwner } from "./offline/store";
+import { revokeOfflineAccess, signOutAcademy, syncAcademy } from "./offline/service";
 import { SchoolPicker } from "../../../src/components/schools/SchoolPicker";
 import {
   schoolChoiceFromProfile,
@@ -87,7 +90,7 @@ function academyUrl(path = "") {
 }
 
 type AcademyPortal = "teacher" | "admin" | "verify";
-type WorkspaceView = "catalog" | "learning" | "certificates" | "profile" | "admin";
+type WorkspaceView = "catalog" | "learning" | "certificates" | "profile" | "admin" | "downloads";
 
 function isGoogleAccount(user: User): boolean {
   const providers = Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers : [];
@@ -1500,6 +1503,20 @@ function Workspace({
 }) {
   const hasAdminAccess = portal === "admin" && capabilities.size > 0;
   const hasTeacherAccess = portal === "teacher" && profile?.status === "ACTIVE";
+  const [syncNotice, setSyncNotice] = useState("");
+  useEffect(() => {
+    if (portal !== "teacher") return;
+    const sync = () => {
+      void syncAcademy(user.id)
+        .then(() => setSyncNotice(""))
+        .catch(() =>
+          setSyncNotice("بعض التغييرات محفوظة على الجهاز وتنتظر المزامنة. راجع التنزيلات."),
+        );
+    };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [user.id, portal]);
   const [view, setView] = useState<WorkspaceView>(() => (portal === "admin" ? "admin" : "catalog"));
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -1509,6 +1526,7 @@ function Workspace({
         ? [
             { id: "catalog" as const, label: "البرامج", icon: BookOpen },
             { id: "learning" as const, label: "مساري", icon: Award },
+            { id: "downloads" as const, label: "التنزيلات", icon: BookOpen },
             { id: "certificates" as const, label: "الشهادات", icon: GraduationCap },
             { id: "profile" as const, label: "ملفي المهني", icon: UserRound },
           ]
@@ -1577,7 +1595,7 @@ function Workspace({
               <small>{displayMeta}</small>
             </div>
           </div>
-          <button className="nav-item" onClick={() => academySupabase.auth.signOut()}>
+          <button className="nav-item" onClick={() => signOutAcademy()}>
             <LogOut /> تسجيل الخروج
           </button>
         </div>
@@ -1586,6 +1604,23 @@ function Workspace({
       {menuOpen ? <button className="menu-backdrop" onClick={() => setMenuOpen(false)} /> : null}
 
       <main className="workspace-content">
+        {syncNotice && (
+          <p className="notice" role="status">
+            {syncNotice}
+          </p>
+        )}
+        {view === "catalog" && hasTeacherAccess && (
+          <div className="notice">
+            <strong>برنامجك معك دون إنترنت</strong>
+            <p>حمّل الدروس والملفات، وتابع تقدمك حتى عند انقطاع الشبكة.</p>
+            <button className="secondary-button" onClick={() => selectView("downloads")}>
+              تنزيل المحتوى
+            </button>
+          </div>
+        )}
+        {view === "downloads" && hasTeacherAccess ? (
+          <AcademyOfflineLibrary key={user.id} owner={user.id} />
+        ) : null}
         {view === "catalog" && hasTeacherAccess ? <Catalog onChanged={() => undefined} /> : null}
         {view === "learning" && hasTeacherAccess ? <Learning /> : null}
         {view === "certificates" && hasTeacherAccess ? <Certificates /> : null}
@@ -1620,7 +1655,7 @@ function PortalMismatch({
             {destinationLabel}
           </a>
         ) : null}
-        <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+        <button className="secondary-button" onClick={() => signOutAcademy()}>
           <LogOut /> تسجيل الخروج وتبديل الحساب
         </button>
       </section>
@@ -1655,6 +1690,11 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     });
 
     const { data } = academySupabase.auth.onAuthStateChange((_event, session) => {
+      if (
+        _event === "SIGNED_OUT" ||
+        (session && activeOwner() && activeOwner() !== session.user.id)
+      )
+        revokeOfflineAccess();
       setUser(session?.user ?? null);
       if (!session) {
         setProfile(null);
@@ -1674,6 +1714,8 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     Promise.all([loadTeacherProfile(user.id), loadCapabilities()])
       .then(([loadedProfile, loadedCapabilities]) => {
         if (!active) return;
+        if (loadedProfile?.status === "ACTIVE" && activePortal === "teacher") setOwner(user.id);
+        else if (activePortal === "teacher") revokeOfflineAccess();
         setProfile(loadedProfile);
         setCapabilities(loadedCapabilities);
       })
@@ -1687,7 +1729,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, activePortal]);
 
   if (!academyFeatureEnabled) return <AcademyUnavailable />;
   if (!academyBackendConfigured) return <ConfigurationRequired />;
@@ -1704,7 +1746,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
             أُغلقت الواجهة لأن مخطط الأكاديمية أو صلاحياته غير جاهزة. لا يؤثر ذلك على تطبيق الطلاب.
           </p>
           <div className="notice error-notice">{profileError}</div>
-          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+          <button className="secondary-button" onClick={() => signOutAcademy()}>
             <LogOut /> تسجيل الخروج
           </button>
         </section>
@@ -1760,7 +1802,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
           <School className="large-icon" />
           <h1>الحساب موقوف مؤقتًا</h1>
           <p className="muted">تواصل مع إدارة أكاديمية تمكين لمعرفة التفاصيل.</p>
-          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
+          <button className="secondary-button" onClick={() => signOutAcademy()}>
             <LogOut /> تسجيل الخروج
           </button>
         </section>
@@ -1780,10 +1822,36 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
 }
 
 export function App({ portal }: { portal?: AcademyPortal }) {
+  const [offlineOwner, setOfflineOwner] = useState<string | null>(null);
+  useEffect(() => {
+    const refresh = () =>
+      setOfflineOwner((current) =>
+        portal !== "admin" && portal !== "verify" && (current || !navigator.onLine)
+          ? activeOwner()
+          : null,
+      );
+    refresh();
+    window.addEventListener("online", refresh);
+    window.addEventListener("offline", refresh);
+    window.addEventListener("storage", refresh);
+    window.addEventListener("academy-offline-change", refresh);
+    return () => {
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("offline", refresh);
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("academy-offline-change", refresh);
+    };
+  }, [portal]);
   return (
     <>
       <AcademyPwaControls />
-      <AcademyContent portal={portal} />
+      {offlineOwner ? (
+        <main className="workspace-content">
+          <AcademyOfflineLibrary key={offlineOwner} owner={offlineOwner} />
+        </main>
+      ) : (
+        <AcademyContent portal={portal} />
+      )}
     </>
   );
 }
