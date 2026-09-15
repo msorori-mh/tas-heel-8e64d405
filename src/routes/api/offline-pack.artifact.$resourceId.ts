@@ -20,6 +20,7 @@ import {
   parseOfflineTextResourceId,
   type OfflineTextSourceType,
 } from "@/lib/offline/offline-pack-manifest";
+import { isOfflineTextApproved } from "@/lib/offline/offline-text-attestation";
 import { artifactResponse } from "@/lib/offline/offline-artifact-response";
 import { sha256Hex } from "@/lib/offline/offline-pack-contract";
 
@@ -259,13 +260,23 @@ async function handle(
   } else if (gate?.managed === true) {
     const { data: lifecycle, error: lifecycleError } = await caller.supabase
       .from("lesson_capability_lifecycle")
-      .select("ready_hash")
+      .select("ready_hash,ready_snapshot")
       .eq("lesson_id", loaded.lessonId)
       .eq("capability", capability)
       .eq("status", "READY")
       .maybeSingle();
     if (lifecycleError) return offlineApiError(500, "lifecycle_lookup_failed");
-    if (!lifecycle?.ready_hash || lifecycle.ready_hash !== observedSha256) {
+    if (
+      !lifecycle?.ready_hash ||
+      !(await isOfflineTextApproved({
+        body: loaded.body,
+        bodySha256: observedSha256,
+        expectedSha256: lifecycle.ready_hash,
+        lessonId: loaded.lessonId,
+        capability,
+        readySnapshot: lifecycle.ready_snapshot,
+      }))
+    ) {
       return offlineApiError(409, "OFFLINE_SOURCE_READY_HASH_MISMATCH");
     }
   }

@@ -6,6 +6,8 @@
  * answer bytes are content-addressed but never embedded in the manifest.
  */
 
+import { isOfflineTextApproved } from "./offline-text-attestation";
+
 import { ANSWER_LEAK_PATTERNS } from "@/lib/lessons/html-content-standard";
 
 import {
@@ -52,7 +54,9 @@ export type OfflineManifestLesson = {
   updatedAt: string;
   managed: boolean;
   visible: boolean;
-  readyCapabilities: Readonly<Record<string, { sha256: string; readyAt: string }>>;
+  readyCapabilities: Readonly<
+    Record<string, { sha256: string; readyAt: string; snapshot?: unknown }>
+  >;
 };
 
 export type OfflineTextSource = {
@@ -192,7 +196,18 @@ export async function buildOfflineSubjectPack(
     const bytes = new TextEncoder().encode(source.body);
     if (bytes.byteLength > HTML_MAX_BYTES) throw new Error("OFFLINE_HTML_TOO_LARGE");
     const observedSha256 = await sha256Hex(bytes);
-    if (source.attestation === "lifecycle" && ready && observedSha256 !== ready.sha256) {
+    if (
+      source.attestation === "lifecycle" &&
+      ready &&
+      !(await isOfflineTextApproved({
+        body: source.body,
+        bodySha256: observedSha256,
+        expectedSha256: ready.sha256,
+        lessonId: lesson.id,
+        capability,
+        readySnapshot: ready.snapshot,
+      }))
+    ) {
       throw new Error("OFFLINE_SOURCE_READY_HASH_MISMATCH");
     }
     if (source.attestation === "body") {
