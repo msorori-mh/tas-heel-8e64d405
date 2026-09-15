@@ -30,7 +30,7 @@ const actions = types.map((type) => ({
 })) as LessonCapability[];
 createRoot(document.getElementById("root")!).render(
   <div className="student-theme min-h-screen bg-background" dir="rtl">
-    <header className="sticky top-0 z-30 bg-card p-4">تمكين الطالب — TEST_ONLY</header>
+    <header className="sticky top-0 z-30 bg-card p-4 lg:hidden">تمكين الطالب — TEST_ONLY</header>
     <main className="mx-auto max-w-[960px] px-4 pb-28">
       <h1 className="py-8 text-xl">الدرس 3: الحديد واستخلاصه — اختبار التنقل</h1>
       <LessonCapabilityTabs
@@ -50,7 +50,7 @@ createRoot(document.getElementById("root")!).render(
         )}
       />
     </main>
-    <nav className="fixed inset-x-0 bottom-0 z-40 bg-card p-4 text-center">
+    <nav className="fixed inset-x-0 bottom-0 z-40 bg-card p-4 text-center lg:hidden">
       الرئيسية · موادي · الاختبارات · التقدم · حسابي
     </nav>
   </div>,
