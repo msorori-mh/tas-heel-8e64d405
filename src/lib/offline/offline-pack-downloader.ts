@@ -1,4 +1,5 @@
 import { fetchOfflineRead } from "./offline-fetch";
+import { offlineResponseError } from "./offline-download-error";
 /** OFFLINE-02 — differential, file-resumable subject pack downloader. */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -89,7 +90,7 @@ function artifactEndpoint(artifact: OfflinePackArtifact): string {
   return `/api/offline-pack/artifact/${encodeURIComponent(artifact.resourceId)}`;
 }
 
-function createDeviceIo(token: string): OfflinePackDownloadIo {
+function createDeviceIo(expectedOwnerId: string): OfflinePackDownloadIo {
   return {
     async read(ownerId, artifact) {
       if (artifact.kind === "textbook-pdf" || artifact.kind === "lesson-pdf") {
@@ -107,12 +108,15 @@ function createDeviceIo(token: string): OfflinePackDownloadIo {
       return readOfflineArtifactBytes(ownerId, artifact);
     },
     async fetch(artifact, signal, onProgress) {
+      // A subject can take longer than a session token's lifetime. Resolve the
+      // current (SDK-refreshed) token for each file, keeping the owner fixed.
+      const { token } = await checkedIdentity({ expectedOwnerId, signal });
       const response = await fetchOfflineRead(artifactEndpoint(artifact), {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
         signal,
       });
-      if (!response.ok) throw new Error(`OFFLINE_ARTIFACT_DOWNLOAD_${response.status}`);
+      if (!response.ok) throw await offlineResponseError(response, "OFFLINE_ARTIFACT_DOWNLOAD");
       if (!response.body || !onProgress) {
         return new Uint8Array(await response.arrayBuffer());
       }
@@ -183,7 +187,7 @@ async function fetchOfflineSubjectPackManifestWithIdentity(
       signal: options.signal,
     },
   );
-  if (!response.ok) throw new Error(`OFFLINE_MANIFEST_FETCH_${response.status}`);
+  if (!response.ok) throw await offlineResponseError(response, "OFFLINE_MANIFEST_FETCH");
   const payload = (await response.json()) as { manifest?: unknown; omitted?: unknown };
   checkDownloadSignal(options.signal);
   const manifest = parseOfflinePackManifest(payload.manifest);
@@ -352,7 +356,7 @@ export async function downloadOfflineSubjectPack(params: {
   signal?: AbortSignal;
   onProgress?: (progress: OfflinePackDownloadProgress) => void;
 }): Promise<OfflinePackRecord> {
-  const { ownerId, token, manifest } = params.manifest
+  const { ownerId, manifest } = params.manifest
     ? { ...(await checkedIdentity(params)), manifest: parseOfflinePackManifest(params.manifest) }
     : await fetchOfflineSubjectPackManifestWithIdentity(params.subjectId, params);
   if (
@@ -365,7 +369,7 @@ export async function downloadOfflineSubjectPack(params: {
     ownerId,
     manifest,
     repository: params.repository,
-    io: createDeviceIo(token),
+    io: createDeviceIo(ownerId),
     signal: params.signal,
     onProgress: params.onProgress,
   });
