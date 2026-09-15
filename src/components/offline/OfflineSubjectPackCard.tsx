@@ -27,6 +27,7 @@ import {
   type OfflinePackManifest,
 } from "@/lib/offline/offline-pack-contract";
 import { formatBytes } from "@/lib/offline/network";
+import { offlineDownloadErrorMessage } from "@/lib/offline/offline-download-error";
 
 export function OfflineSubjectPackCard({
   subjectId,
@@ -112,7 +113,7 @@ export function OfflineSubjectPackCard({
       setDownloadError(
         code === "OFFLINE_DOWNLOAD_ABORTED"
           ? "توقف التنزيل. يمكنك استكماله لاحقًا دون إعادة الملفات المكتملة."
-          : "تعذّر إكمال التنزيل. احتفظنا بالملفات السليمة للمحاولة التالية.",
+          : offlineDownloadErrorMessage(caught),
       );
     } finally {
       abortRef.current = null;

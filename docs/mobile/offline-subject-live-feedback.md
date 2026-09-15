@@ -11,3 +11,5 @@ This change separates download feedback from metadata feedback and clears transi
 Validation: two jsdom component regression tests fail on the production baseline and pass after the fix; TypeScript passes. These tests exercise the rendered component with controlled downloader outcomes. They do not prove the cause of the actual artifact failure.
 
 HOLD: live offline download and native airplane-mode use remain unproven. The browser surface does not expose a supported offline-network toggle. The actual artifact failure code was not available through the rendered UI or captured console logs. PR #246 contains separate recovery work on the Android review branch; this small UI patch does not replace it or prove the original mobile issue resolved.
+
+Integration update: main advanced to 8f6d8223 (PR #250) during this investigation. Retained its safe error translations while keeping operation feedback separate and resetting transient progress. The earlier baseline observations remain historical; current merged behavior needs a new live check.

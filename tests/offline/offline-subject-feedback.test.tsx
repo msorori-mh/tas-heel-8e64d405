@@ -39,7 +39,7 @@ async function clickDownload() {
 it("keeps download failure visible after successful metadata refresh and clears unfinished progress", async () => {
   api.download.mockImplementation(async ({ onProgress }) => {
     onProgress({ loadedBytes: 3, totalBytes: 100, status: "downloading" });
-    throw new Error("OFFLINE_ARTIFACT_HASH_MISMATCH");
+    throw new Error("TEST_ONLY_DOWNLOAD_FAILURE");
   });
   await act(async () =>
     root.render(<OfflineSubjectPackCard subjectId="test-subject" subjectName="القراءة" />),
