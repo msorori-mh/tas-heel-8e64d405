@@ -1,3 +1,4 @@
+import { SchoolEditDialog } from "./SchoolEditDialog";
 import { SchoolIntakeDialog } from "./SchoolIntakeDialog";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,6 +38,7 @@ export function SchoolDirectory() {
   const [gov, setGov] = useState("");
   const [page, setPage] = useState(0);
   const [review, setReview] = useState<SchoolReview | null>(null);
+  const [edit, setEdit] = useState<ManagedSchool | null>(null);
   const [merge, setMerge] = useState<ManagedSchool | null>(null);
   const search = useSearchText(query);
   const govs = useQuery({
@@ -61,6 +63,12 @@ export function SchoolDirectory() {
     queryFn: () => api.list(search, gov, page),
   });
   const active = tab === "pending" ? pending : directory;
+  useEffect(() => {
+    if (active.data && !active.isFetching) {
+      const lastPage = Math.max(0, Math.ceil(active.data.count / 25) - 1);
+      if (page > lastPage) setPage(lastPage);
+    }
+  }, [active.data, active.isFetching, page]);
   const changed = async () => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["schools-admin"] }),
@@ -75,7 +83,7 @@ export function SchoolDirectory() {
       <div>
         <h1 className="text-2xl font-bold">دليل المدارس</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          راجع المدرسة وموقعها قبل اعتمادها. كل طلب يخص الملف المعروض فقط.
+          ابحث عن المدارس المعتمدة وأدر بياناتها، أو راجع طلبات الطلاب والمعلمين.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -120,12 +128,13 @@ export function SchoolDirectory() {
           المدارس المعتمدة
         </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="school-admin-search">البحث باسم المدرسة</Label>
           <Input
             id="school-admin-search"
             value={query}
+            placeholder="اكتب اسم المدرسة أو جزءًا منه"
             maxLength={180}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -168,64 +177,152 @@ export function SchoolDirectory() {
           <p className="text-sm text-muted-foreground">
             {active.data?.count ?? 0}{" "}
             {tab === "pending" ? "ملفًا بانتظار المراجعة" : "مدرسة معتمدة"}
+            {!!active.data?.rows.length && (
+              <span>
+                {" "}
+                · عرض {page * 25 + 1}–{page * 25 + active.data.rows.length}
+              </span>
+            )}
           </p>
           {!active.data?.rows.length && (
             <p className="rounded-lg border p-5">لا توجد نتائج في هذه الصفحة.</p>
           )}
-          <div className="grid gap-3 lg:grid-cols-2">
-            {tab === "pending"
-              ? pending.data?.rows.map((row) => (
-                  <article
-                    key={`${row.kind}-${row.user_id}`}
-                    className="min-w-0 space-y-2 rounded-xl border bg-card p-4"
+          <div className={tab === "pending" ? "grid gap-3 lg:grid-cols-2" : "min-w-0"}>
+            {tab === "pending" ? (
+              pending.data?.rows.map((row) => (
+                <article
+                  key={`${row.kind}-${row.user_id}`}
+                  className="min-w-0 space-y-2 rounded-xl border bg-card p-4"
+                >
+                  <h2 className="break-words font-bold">{row.school_name}</h2>
+                  <p className="text-sm">
+                    {row.governorate_name ?? "المحافظة غير محددة"} —{" "}
+                    {row.school_district ?? "المديرية غير محددة"} —{" "}
+                    {row.school_locality ?? "الحي أو القرية غير محدد"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {row.kind === "student" ? "طالب" : "معلم"}: {row.full_name || "الاسم غير مكتمل"}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setReview(row)}
+                    disabled={!row.governorate_id}
                   >
-                    <h2 className="break-words font-bold">{row.school_name}</h2>
-                    <p className="text-sm">
-                      {row.governorate_name ?? "المحافظة غير محددة"} —{" "}
-                      {row.school_district ?? "المديرية غير محددة"} —{" "}
-                      {row.school_locality ?? "الحي أو القرية غير محدد"}
+                    مراجعة المدرسة
+                  </Button>
+                  {!row.governorate_id && (
+                    <p className="text-xs text-muted-foreground">
+                      يجب استكمال المحافظة في ملف صاحب الطلب قبل اعتماد المدرسة.
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {row.kind === "student" ? "طالب" : "معلم"}:{" "}
-                      {row.full_name || "الاسم غير مكتمل"}
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => setReview(row)}
-                      disabled={!row.governorate_id}
-                    >
-                      مراجعة المدرسة
-                    </Button>
-                    {!row.governorate_id && (
-                      <p className="text-xs text-muted-foreground">
-                        يجب استكمال المحافظة في ملف صاحب الطلب قبل اعتماد المدرسة.
+                  )}
+                </article>
+              ))
+            ) : (
+              <>
+                <div className="hidden overflow-x-auto rounded-xl border bg-card lg:block">
+                  <table
+                    className="w-full table-fixed text-right text-sm"
+                    aria-label="المدارس المعتمدة"
+                  >
+                    <thead className="bg-muted/60 text-muted-foreground">
+                      <tr>
+                        <th scope="col" className="w-[26%] p-3">
+                          المدرسة
+                        </th>
+                        <th scope="col" className="w-[16%] p-3">
+                          المحافظة
+                        </th>
+                        <th scope="col" className="w-[22%] p-3">
+                          المديرية / الحي
+                        </th>
+                        <th scope="col" className="w-[14%] p-3">
+                          المرتبطون
+                        </th>
+                        <th scope="col" className="w-[22%] p-3">
+                          الإجراءات
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {directory.data?.rows.map((school) => (
+                        <tr key={school.id} className="align-top hover:bg-muted/30">
+                          <th scope="row" className="break-words p-3 font-semibold">
+                            {school.name}
+                          </th>
+                          <td className="break-words p-3">{school.governorate_name}</td>
+                          <td className="break-words p-3">
+                            {school.district}
+                            {school.locality && (
+                              <span className="mt-1 block text-muted-foreground">
+                                {school.locality}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span className="block">{school.student_count} طالبًا</span>
+                            <span className="text-muted-foreground">
+                              {school.teacher_count} معلمًا
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            <div className="flex flex-wrap gap-1">
+                              <Button
+                                variant="outline"
+                                disabled={!govs.data?.length}
+                                onClick={() => setEdit(school)}
+                              >
+                                تعديل
+                              </Button>
+                              <Button variant="ghost" onClick={() => setMerge(school)}>
+                                مراجعة تكرار ودمج
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="divide-y rounded-xl border bg-card lg:hidden">
+                  {directory.data?.rows.map((school) => (
+                    <article key={school.id} className="min-w-0 space-y-2 p-3">
+                      <h2 className="break-words font-semibold">{school.name}</h2>
+                      <p className="break-words text-sm">
+                        {school.governorate_name} — {location(school)}
                       </p>
-                    )}
-                  </article>
-                ))
-              : directory.data?.rows.map((school) => (
-                  <article
-                    key={school.id}
-                    className="min-w-0 space-y-2 rounded-xl border bg-card p-4"
-                  >
-                    <h2 className="break-words font-bold">{school.name}</h2>
-                    <p className="text-sm">
-                      {school.governorate_name} — {location(school)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {school.student_count} طالبًا · {school.teacher_count} معلمًا
-                    </p>
-                    <Button variant="outline" onClick={() => setMerge(school)}>
-                      مراجعة تكرار ودمج
-                    </Button>
-                  </article>
-                ))}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          {school.student_count} طالبًا · {school.teacher_count} معلمًا
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            variant="outline"
+                            disabled={!govs.data?.length}
+                            onClick={() => setEdit(school)}
+                          >
+                            تعديل
+                          </Button>
+                          <Button variant="ghost" onClick={() => setMerge(school)}>
+                            مراجعة تكرار ودمج
+                          </Button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-          <div className="flex items-center gap-3">
+          <nav
+            aria-label="صفحات المدارس"
+            className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-3"
+          >
             <Button variant="outline" disabled={!page} onClick={() => setPage((p) => p - 1)}>
               السابق
             </Button>
-            <span>صفحة {page + 1}</span>
+            <span className="text-sm">
+              صفحة {page + 1} من {Math.max(1, Math.ceil((active.data?.count ?? 0) / 25))}
+            </span>
             <Button
               variant="outline"
               disabled={(page + 1) * 25 >= (active.data?.count ?? 0)}
@@ -233,8 +330,35 @@ export function SchoolDirectory() {
             >
               التالي
             </Button>
-          </div>
+            <label className="flex items-center gap-2 text-sm">
+              انتقل إلى صفحة
+              <select
+                aria-label="انتقل إلى صفحة"
+                className={selectClass + " !w-auto"}
+                value={page}
+                onChange={(e) => setPage(Number(e.target.value))}
+              >
+                {Array.from(
+                  { length: Math.max(1, Math.ceil((active.data?.count ?? 0) / 25)) },
+                  (_, i) => (
+                    <option key={i} value={i}>
+                      {i + 1}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          </nav>
         </>
+      )}
+      {edit && (
+        <SchoolEditDialog
+          key={edit.id}
+          school={edit}
+          governorates={govs.data ?? []}
+          onClose={() => setEdit(null)}
+          onSaved={changed}
+        />
       )}
       {review && (
         <ReviewDialog

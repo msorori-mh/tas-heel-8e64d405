@@ -64,6 +64,18 @@ export function createSchoolDirectoryApi(client: unknown) {
     search,
     intake: (rows: SchoolIntakeRow[], commit = false) =>
       call<SchoolIntakeResponse>("admin_intake_schools", { p_rows: rows, p_commit: commit }),
+    edit: (school: ManagedSchool, form: SchoolIntakeRow) =>
+      call<{ school?: ManagedSchool; errors: Record<string, string> }>("admin_edit_school", {
+        p_id: school.id,
+        p_expected: {
+          id: school.id,
+          name: school.name,
+          governorate_id: school.governorate_id,
+          district: school.district,
+          locality: school.locality,
+        },
+        p_school: form,
+      }),
     details: (id: string) => call<ManagedSchool>("admin_school_details", { p_id: id }),
     students: (args: Record<string, unknown>) =>
       call<unknown>("admin_list_students_by_school", args),
