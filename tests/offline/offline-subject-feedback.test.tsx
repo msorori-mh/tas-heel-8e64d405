@@ -82,3 +82,12 @@ it("reports deliberate pause when browser fetch rejects with AbortError", async 
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("توقف التنزيل");
   expect(host.textContent).not.toContain("تحقق من الاتصال");
 });
+
+it("shows the manifest failure code instead of a generic message", async () => {
+  api.manifest.mockRejectedValue(new Error("OFFLINE_MANIFEST_FETCH_500"));
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="test-subject" subjectName="الكيمياء" />),
+  );
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("OFFLINE_MANIFEST_FETCH_500");
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("على الخادم");
+});
