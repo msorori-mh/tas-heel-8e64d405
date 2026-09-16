@@ -73,6 +73,9 @@ export class Histogram {
 export function passes(report) {
   return report.requests > 0 && report.errorRate <= 0.005 && report.p95Ms <= 2000;
 }
+export function passesJourneyCoverage(completedByUser) {
+  return completedByUser.length > 0 && completedByUser.every((count) => count > 0);
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function runJourneyLoad(
   config,
@@ -89,6 +92,7 @@ export async function runJourneyLoad(
     peakInFlight = 0,
     abortReason = null;
   const journeyErrors = {};
+  const completedByUser = new Uint32Array(concurrency);
   const histogram = (label) => {
     if (!metrics.has(label)) metrics.set(label, new Histogram());
     return metrics.get(label);
@@ -279,6 +283,7 @@ export async function runJourneyLoad(
       try {
         await journey(s, iteration++, index);
         journeys++;
+        completedByUser[index]++;
       } catch (e) {
         failedJourneys++;
         journeyErrors[e.message] = (journeyErrors[e.message] ?? 0) + 1;
@@ -296,7 +301,10 @@ export async function runJourneyLoad(
     concurrency,
     uniqueUsers: concurrency,
     requestedDurationSeconds: duration,
+    thinkTimeBaseMs: thinkMs,
     elapsedSeconds: elapsed,
+    usersCompletingJourney: completedByUser.filter((count) => count > 0).length,
+    minimumJourneysPerUser: Math.min(...completedByUser),
     journeys,
     failedJourneys,
     journeyErrors,
@@ -318,7 +326,7 @@ export async function runJourneyLoad(
   };
   report.status =
     !abortReason &&
-    journeys >= concurrency &&
+    passesJourneyCoverage(completedByUser) &&
     failedJourneys === 0 &&
     passes(report.metrics) &&
     Object.values(report.endpoints).every(passes) &&

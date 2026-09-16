@@ -88,6 +88,13 @@ only their sessions, then remove only those exact IDs using normal FK behavior.
 Verify all 33 original users remain and test progress, attempts and replay ledger
 are removed. Do not disable constraints/triggers or touch non-test records.
 
+`cleanup-users.mjs` generates a transaction from a frozen private manifest containing
+`project`, `run`, `expectedCount`, and exact `{id,email}` pairs. It rejects changed
+scope, revokes test sessions, uses normal cascading foreign keys, checks for leftovers,
+and rolls back if any retained Auth user fingerprint changes during cleanup.
+`sql/readiness.sql` captures read-only function, policy and index fingerprints for
+environment comparison; it does not establish resource or hosting parity by itself.
+
 ## Provider references checked 2026-09-16
 
 - [Compute billing](https://supabase.com/docs/guides/platform/manage-your-usage/compute):

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   Histogram,
   passes,
+  passesJourneyCoverage,
   validateInput,
   STAGING,
 } from "../../scripts/load-test/student-journey.mjs";
@@ -35,6 +36,11 @@ test("rejects production, reused users, expired sessions and non-test identities
   assert.throws(() => validateInput(cfg, [session("u", { app_metadata: {} })], 1, 60), /TEST_ONLY/);
   assert.throws(() => validateInput(cfg, [session()], 500, 60), /DISTINCT/);
   assert.doesNotThrow(() => validateInput(cfg, [session()], 1, 60));
+});
+test("busy users cannot hide users that never completed a journey", () => {
+  assert.equal(passesJourneyCoverage(Uint32Array.from([10, 10, 0])), false);
+  assert.equal(passesJourneyCoverage(Uint32Array.from([1, 1, 1])), true);
+  assert.equal(passesJourneyCoverage(new Uint32Array()), false);
 });
 test("histogram keeps bounded memory, counts semantic failures and gates tail latency", () => {
   const h = new Histogram();
