@@ -216,8 +216,18 @@ try {
     assert.equal(resultBook.worksheets[0].getCell("F2").value, "أُضيفت");
     assert.equal(resultBook.worksheets[0].getCell("F3").value, "مكررة داخل الملف");
     assert.equal(resultBook.worksheets[0].getCell("F4").value, "تحتاج تصحيحًا");
+    const finish = page.getByRole("button", { name: "إنهاء والعودة للمدارس" });
+    const finishBounds = await finish.boundingBox();
+    assert.ok(
+      finishBounds && finishBounds.y >= 0 && finishBounds.y + finishBounds.height <= 900,
+      `visible finish ${width}`,
+    );
+    assert.equal(await page.getByLabel("ملف المدارس").count(), 0);
+    await finish.click();
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
     // Exact editor structure, school values replaced with synthetic test data.
     if (width === 320) {
+      await page.getByRole("button", { name: "استيراد من Excel", exact: true }).click();
       const editorBytes = Buffer.from(
         await readFile("tests/e2e/school-directory/editor-workbook.base64", "utf8"),
         "base64",
@@ -232,6 +242,9 @@ try {
         await page.getByRole("button", { name: "تأكيد استيراد المدارس" }).isEnabled(),
         false,
       );
+      await page.getByRole("checkbox").check();
+      await page.getByRole("button", { name: "تأكيد استيراد المدارس" }).click();
+      await page.getByRole("dialog").waitFor({ state: "hidden" });
     }
 
     assert.equal(

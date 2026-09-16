@@ -56,8 +56,12 @@ export function SchoolIntakeDialog({
     setConfirmed(false);
     if (commit && response.rows.some((r) => r.status === "added")) {
       await onSaved();
-      if (mode === "single") {
-        toast.success("تمت إضافة المدرسة بنجاح.");
+      if (mode === "single" || !response.rows.some((r) => r.status === "invalid")) {
+        toast.success(
+          mode === "single"
+            ? "تمت إضافة المدرسة بنجاح."
+            : `اكتمل الاستيراد: أُضيفت ${response.rows.filter((r) => r.status === "added").length} مدرسة.`,
+        );
         onClose();
       }
     }
@@ -84,11 +88,15 @@ export function SchoolIntakeDialog({
     >
       <DialogContent
         dir="rtl"
-        className="grid-cols-1 w-[95vw] max-w-[95vw] max-h-[90dvh] overflow-y-auto overflow-x-hidden p-4 sm:max-w-3xl sm:p-6 [&>*]:min-w-0"
+        className="flex flex-col w-[95vw] max-w-[95vw] max-h-[90dvh] overflow-hidden p-4 sm:max-w-3xl sm:p-6 [&>*]:min-w-0"
       >
-        <DialogHeader className="min-w-0 pr-6 text-right sm:text-right">
+        <DialogHeader className="min-w-0 shrink-0 pr-6 text-right sm:text-right">
           <DialogTitle>
-            {mode === "single" ? "إضافة مدرسة" : "استيراد المدارس من Excel"}
+            {mode === "single"
+              ? "إضافة مدرسة"
+              : result?.committed
+                ? "نتيجة استيراد المدارس"
+                : "استيراد المدارس من Excel"}
           </DialogTitle>
           <DialogDescription>
             تُضاف المدارس إلى الدليل لاختيار الطلاب والمعلمين. لا تتغير ارتباطات الملفات الحالية.
@@ -101,6 +109,7 @@ export function SchoolIntakeDialog({
         )}
         {mode === "single" ? (
           <form
+            className="min-h-0 overflow-y-auto"
             noValidate
             onSubmit={(e) => {
               e.preventDefault();
@@ -169,50 +178,54 @@ export function SchoolIntakeDialog({
             </fieldset>
           </form>
         ) : (
-          <div className="min-w-0 space-y-4">
-            <p className="text-sm">
-              ملف xlsx، حتى ٥٠٠ مدرسة و٥ ميجابايت. استخدم أسماء المحافظات من القالب. الحي أو القرية
-              اختياري.
-            </p>
-            <Button
-              variant="outline"
-              disabled={busy || !governorates.length}
-              onClick={() =>
-                void action(async () => {
-                  const { downloadSchoolTemplate } = await import("@/lib/schools/intake-xlsx");
-                  await downloadSchoolTemplate(governorates);
-                })
-              }
-            >
-              تنزيل قالب Excel
-            </Button>
-            <div>
-              <Label htmlFor="school-intake-file">ملف المدارس</Label>
-              <Input
-                id="school-intake-file"
-                type="file"
-                accept=".xlsx"
-                disabled={busy}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  setRows([]);
-                  setResult(null);
-                  setConfirmed(false);
-                  setError("");
-                  if (!file) return;
-                  void action(async () => {
-                    if (!file.name.toLowerCase().endsWith(".xlsx"))
-                      throw new Error("اختر ملفًا بصيغة xlsx.");
-                    if (file.size > 5 * 1024 * 1024)
-                      throw new Error("الحد الأقصى لحجم الملف ٥ ميجابايت.");
-                    const { readSchoolWorkbook } = await import("@/lib/schools/intake-xlsx");
-                    const parsed = await readSchoolWorkbook(await file.arrayBuffer());
-                    setRows(parsed);
-                    await run(parsed, false);
-                  });
-                }}
-              />
-            </div>
+          <div className="min-h-0 min-w-0 space-y-4 overflow-y-auto">
+            {!result?.committed && (
+              <>
+                <p className="text-sm">
+                  ملف xlsx، حتى ٥٠٠ مدرسة و٥ ميجابايت. استخدم أسماء المحافظات من القالب. الحي أو
+                  القرية اختياري.
+                </p>
+                <Button
+                  variant="outline"
+                  disabled={busy || !governorates.length}
+                  onClick={() =>
+                    void action(async () => {
+                      const { downloadSchoolTemplate } = await import("@/lib/schools/intake-xlsx");
+                      await downloadSchoolTemplate(governorates);
+                    })
+                  }
+                >
+                  تنزيل قالب Excel
+                </Button>
+                <div>
+                  <Label htmlFor="school-intake-file">ملف المدارس</Label>
+                  <Input
+                    id="school-intake-file"
+                    type="file"
+                    accept=".xlsx"
+                    disabled={busy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      setRows([]);
+                      setResult(null);
+                      setConfirmed(false);
+                      setError("");
+                      if (!file) return;
+                      void action(async () => {
+                        if (!file.name.toLowerCase().endsWith(".xlsx"))
+                          throw new Error("اختر ملفًا بصيغة xlsx.");
+                        if (file.size > 5 * 1024 * 1024)
+                          throw new Error("الحد الأقصى لحجم الملف ٥ ميجابايت.");
+                        const { readSchoolWorkbook } = await import("@/lib/schools/intake-xlsx");
+                        const parsed = await readSchoolWorkbook(await file.arrayBuffer());
+                        setRows(parsed);
+                        await run(parsed, false);
+                      });
+                    }}
+                  />
+                </div>
+              </>
+            )}
             {busy && <p role="status">جارٍ معالجة الملف…</p>}
             {!!rows.length && !result && !busy && (
               <Button variant="outline" onClick={() => void action(() => run(rows, false))}>
@@ -286,8 +299,9 @@ export function SchoolIntakeDialog({
                 </div>
                 {invalid > 0 && (
                   <p className="text-sm">
-                    صحّح الصفوف في Excel وأعد رفع الملف، أو استورد المدارس الجديدة الصالحة فقط.
-                    إعادة استيراد المدارس الموجودة لا تكررها.
+                    {result.committed
+                      ? `اكتمل الاستيراد، وبقي ${invalid} صفوف تحتاج تصحيحًا. نزّل النتيجة لمعرفة الأسباب، ثم صحّح الصفوف وأعد استيرادها. المدارس المضافة محفوظة ولن تتكرر.`
+                      : "صحّح الصفوف في Excel وأعد رفع الملف، أو استورد المدارس الجديدة الصالحة فقط. إعادة استيراد المدارس الموجودة لا تكررها."}
                   </p>
                 )}
                 {!result.committed && fresh > 0 && (
@@ -312,19 +326,28 @@ export function SchoolIntakeDialog({
                 {result.committed && (
                   <p className="text-sm">هذه النتيجة النهائية؛ أُعيد فحص التكرار أثناء الحفظ.</p>
                 )}
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    void action(async () => {
-                      const { downloadSchoolResults } = await import("@/lib/schools/intake-xlsx");
-                      await downloadSchoolResults(rows, result.rows);
-                    })
-                  }
-                >
-                  تنزيل نتيجة الفحص
-                </Button>
               </>
+            )}
+          </div>
+        )}
+        {mode === "excel" && result && (
+          <div className="flex shrink-0 flex-col gap-2 border-t pt-3 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                void action(async () => {
+                  const { downloadSchoolResults } = await import("@/lib/schools/intake-xlsx");
+                  await downloadSchoolResults(rows, result.rows);
+                })
+              }
+            >
+              تنزيل نتيجة الفحص
+            </Button>
+            {result.committed && (
+              <Button disabled={busy} onClick={onClose}>
+                إنهاء والعودة للمدارس
+              </Button>
             )}
           </div>
         )}
