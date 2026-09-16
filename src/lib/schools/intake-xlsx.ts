@@ -43,8 +43,10 @@ export async function readSchoolWorkbook(bytes: ArrayBuffer): Promise<SchoolInta
       const compatible = await schoolWorkbookCompatibilityCopy(zip);
       book = new Workbook();
       await book.xlsx.load(compatible);
-    } catch {
-      throw new Error("تعذّرت قراءة ملف Excel. أعد حفظه بصيغة xlsx، أو أرسل الملف للدعم لفحصه.");
+    } catch (cause) {
+      throw new Error("تعذّرت قراءة ملف Excel. أعد حفظه بصيغة xlsx، أو أرسل الملف للدعم لفحصه.", {
+        cause,
+      });
     }
   }
   const sheet = book.getWorksheet("المدارس") ?? book.worksheets[0];

@@ -230,13 +230,19 @@ try {
         await readFile("tests/e2e/school-directory/editor-workbook.base64", "utf8"),
         "base64",
       );
-      await page
-        .getByLabel("ملف المدارس")
-        .setInputFiles({
-          name: "editor.xlsx",
-          mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          buffer: editorBytes,
-        });
+      await page.getByLabel("ملف المدارس").setInputFiles({
+        name: "editor.xlsx",
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: editorBytes,
+      });
+      console.log(
+        "Exact editor diagnostic:",
+        await page.evaluate(
+          async (b) => await window.testSchoolWorkbook(b),
+          editorBytes.toString("base64"),
+        ),
+      );
+      console.log("Import dialog:", await page.getByRole("dialog").textContent());
       await page.getByText("مدارس جديدة: 53", { exact: false }).waitFor();
       assert.equal(
         await page.getByRole("button", { name: "تأكيد استيراد المدارس" }).isEnabled(),

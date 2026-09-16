@@ -1,3 +1,18 @@
+import { readSchoolWorkbook } from "../../../src/lib/schools/intake-xlsx";
+Object.assign(window, {
+  testSchoolWorkbook: async (base64: string) => {
+    try {
+      return {
+        rows: (
+          await readSchoolWorkbook(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)).buffer)
+        ).length,
+      };
+    } catch (error) {
+      const e = error as Error & { cause?: Error };
+      return { message: e.message, cause: e.cause?.stack, stack: e.stack };
+    }
+  },
+});
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
