@@ -69,9 +69,10 @@ CPU, memory, disk I/O and compute tier require provider metrics; SQL connection
 counts alone cannot justify a resource upgrade. Alert at sustained 60% and 80%
 resource usage, rising p95/5xx/429, oldest pending sync age and answer-save failures.
 
-Do not infer production capacity from staging. The available connector exposes
-staging only. Production compute, hosting quotas and storage/CDN telemetry still
-need an authorized provider control-plane view before sizing or changing plans.
+Do not infer production capacity from staging. The Supabase connector exposes staging
+only; production SQL is accessible through Lovable after a successful follow-up probe.
+Production compute, hosting quotas and storage/CDN telemetry still need an authorized
+provider control-plane view before sizing or changing plans.
 
 Lesson-file and textbook delivery routes currently authorize each request and
 use private cache-control. Do not make them public-cacheable merely to improve
