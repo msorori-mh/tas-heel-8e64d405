@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { Workbook } from "exceljs";
 import JSZip from "jszip";
 import { describe, it, expect } from "vitest";
@@ -44,6 +45,20 @@ export async function prefixedWorkbook(value: unknown = "مدرسة تجريبي
 }
 
 describe("school workbook compatibility", () => {
+  it("reads all 53 rows from the sanitized editor workbook", async () => {
+    const bytes = Buffer.from(
+      readFileSync("tests/e2e/school-directory/editor-workbook.base64", "utf8"),
+      "base64",
+    );
+    const rows = await readSchoolWorkbook(new Uint8Array(bytes).buffer);
+    expect(rows).toHaveLength(53);
+    for (const row of rows) {
+      expect(row.governorate).toBe("صنعاء");
+      expect(row.district).toBe("معين");
+      expect(row.name).toBe(`مدرسة تجريبية ${row.source_row}`);
+      expect(["", "حي تجريبي"]).toContain(row.locality);
+    }
+  });
   it("reads qualified SpreadsheetML and comment metadata without altering text", async () => {
     const bytes = await prefixedWorkbook();
     await expect(new Workbook().xlsx.load(bytes)).rejects.toThrow();

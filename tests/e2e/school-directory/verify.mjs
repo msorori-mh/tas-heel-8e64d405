@@ -218,14 +218,6 @@ try {
     assert.equal(resultBook.worksheets[0].getCell("F4").value, "تحتاج تصحيحًا");
     // Exact editor structure, school values replaced with synthetic test data.
     if (width === 320) {
-      console.log(
-        "Chromium BOM parser:",
-        await page.evaluate(
-          () =>
-            new DOMParser().parseFromString('\ufeff<?xml version="1.0"?><root/>', "application/xml")
-              .documentElement.textContent,
-        ),
-      );
       const editorBytes = Buffer.from(
         await readFile("tests/e2e/school-directory/editor-workbook.base64", "utf8"),
         "base64",
@@ -235,14 +227,6 @@ try {
         mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         buffer: editorBytes,
       });
-      console.log(
-        "Exact editor diagnostic:",
-        await page.evaluate(
-          async (b) => await window.testSchoolWorkbook(b),
-          editorBytes.toString("base64"),
-        ),
-      );
-      console.log("Import dialog:", await page.getByRole("dialog").textContent());
       await page.getByText("مدارس جديدة: 53", { exact: false }).waitFor();
       assert.equal(
         await page.getByRole("button", { name: "تأكيد استيراد المدارس" }).isEnabled(),
