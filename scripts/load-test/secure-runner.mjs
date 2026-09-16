@@ -4,6 +4,10 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { runJourneyLoad, STAGING } from "./student-journey.mjs";
 const mode = process.argv[2],
   dir = process.env.RUNNER_TEMP + "/capacity";
+const shard = process.env.CAPACITY_SHARD === undefined ? null : Number(process.env.CAPACITY_SHARD);
+if (shard !== null && (!Number.isInteger(shard) || shard < 0 || shard > 99))
+  throw Error("INVALID_SHARD");
+const transportId = process.env.GITHUB_RUN_ID + (shard === null ? "" : "-" + shard);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 if (mode === "key") {
   await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -18,7 +22,7 @@ if (mode === "key") {
   let envelope;
   for (let i = 0; i < 90; i++) {
     const response = await fetch(
-      `https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/contents/scripts/load-test/transfer/${process.env.GITHUB_RUN_ID}.json?ref=${encodeURIComponent(process.env.GITHUB_REF_NAME)}`,
+      `https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/contents/scripts/load-test/transfer/${transportId}.json?ref=${encodeURIComponent(process.env.GITHUB_REF_NAME)}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.GH_TOKEN}`,
@@ -51,31 +55,60 @@ if (mode === "key") {
   if (
     payload.runId !== process.env.GITHUB_RUN_ID ||
     payload.expiresAt < Date.now() ||
-    payload.config.project !== STAGING
+    payload.config.project !== STAGING ||
+    (shard !== null && payload.shard !== shard)
   )
     throw Error("HANDOFF_BINDING_INVALID");
   const { config } = payload;
+  const accountOffset = payload.accountOffset ?? 0;
+  if (
+    !Number.isInteger(accountOffset) ||
+    accountOffset < 0 ||
+    !Array.isArray(payload.stages) ||
+    !/^[a-z0-9]{8,32}$/.test(config.run) ||
+    !Number.isInteger(config.count) ||
+    config.count > 10000 ||
+    !Number.isFinite(payload.duration) ||
+    payload.duration < 10 ||
+    payload.duration > 7200
+  )
+    throw Error("INVALID_HANDOFF_SCOPE");
+  if (
+    shard !== null &&
+    (!Number.isInteger(payload.totalShards) ||
+      shard >= payload.totalShards ||
+      !Number.isInteger(payload.totalConcurrency) ||
+      !Number.isFinite(payload.startAt))
+  )
+    throw Error("INVALID_DISTRIBUTED_SCOPE");
   // Mask credentials before any downstream operation. Reports only contain aggregate metrics.
   console.log("::add-mask::" + config.password);
   const sessions = [];
   const reports = [];
   await mkdir("artifacts/capacity", { recursive: true });
   for (const concurrency of payload.stages) {
-    if (!Number.isInteger(concurrency) || concurrency > config.count || concurrency > 10000)
+    if (
+      !Number.isInteger(concurrency) ||
+      concurrency < 1 ||
+      concurrency + accountOffset > config.count ||
+      concurrency > 10000
+    )
       throw Error("INVALID_STAGE");
     while (sessions.length < concurrency) {
-      const i = sessions.length + 1;
+      const i = accountOffset + sessions.length + 1;
+      const email = `${config.run}.${i}@load.test.invalid`;
       const r = await fetch(`https://${STAGING}.supabase.co/auth/v1/token?grant_type=password`, {
         method: "POST",
         headers: { apikey: config.key, "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: `${config.run}.${i}@load.test.invalid`,
+          email,
           password: config.password,
         }),
         signal: AbortSignal.timeout(15000),
       });
       const b = await r.json();
       if (!r.ok) throw Error("AUTH_SETUP_FAILED:" + r.status + ":" + (b.error_code ?? ""));
+      if (b.user.email !== email) throw Error("AUTH_IDENTITY_MISMATCH");
       console.log("::add-mask::" + b.access_token);
       console.log("::add-mask::" + b.refresh_token);
       sessions.push({
@@ -89,7 +122,16 @@ if (mode === "key") {
       concurrency,
       duration: payload.duration,
       exam: payload.exam,
+      startAt: payload.startAt,
     });
+    if (shard !== null)
+      report.partition = {
+        shard,
+        accountOffset,
+        totalShards: payload.totalShards,
+        totalConcurrency: payload.totalConcurrency,
+        scheduledStartAt: payload.startAt,
+      };
     reports.push(report);
     await writeFile(
       `artifacts/capacity/stage-${concurrency}.json`,

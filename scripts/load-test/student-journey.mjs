@@ -80,9 +80,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function runJourneyLoad(
   config,
   sessions,
-  { concurrency = 5, duration = 60, thinkMs = 2000, exam = false } = {},
+  { concurrency = 5, duration = 60, thinkMs = 2000, exam = false, startAt } = {},
 ) {
-  validateInput(config, sessions, concurrency, duration);
+  if (startAt !== undefined && (!Number.isFinite(startAt) || startAt > Date.now() + 900000))
+    throw Error("INVALID_START_BARRIER");
+  validateInput(
+    config,
+    sessions,
+    concurrency,
+    duration + Math.max(0, ((startAt ?? 0) - Date.now()) / 1000),
+  );
   const base = `https://${config.project}.supabase.co/rest/v1/`;
   const metrics = new Map(),
     all = new Histogram();
@@ -281,6 +288,12 @@ export async function runJourneyLoad(
     undefined,
     (d) => d.length === 1,
   );
+  if (startAt !== undefined) {
+    if (Date.now() > startAt + 1000) throw Error("MISSED_START_BARRIER");
+    await sleep(Math.max(0, startAt - Date.now()));
+  }
+  const measurementStartedAt = new Date().toISOString();
+  lag.reset();
   started = performance.now();
   deadline = started + duration * 1000;
   const workers = sessions.slice(0, concurrency).map(async (s, index) => {
@@ -308,6 +321,8 @@ export async function runJourneyLoad(
     concurrency,
     uniqueUsers: concurrency,
     requestedDurationSeconds: duration,
+    measurementStartedAt,
+    measurementEndedAt: new Date().toISOString(),
     thinkTimeBaseMs: thinkMs,
     elapsedSeconds: elapsed,
     usersCompletingJourney: completedByUser.filter((count) => count > 0).length,

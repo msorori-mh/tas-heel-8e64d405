@@ -1,0 +1,43 @@
+name: Distributed authenticated student capacity
+on:
+  push:
+    branches: [feat/capacity-db-lookup]
+permissions:
+  contents: read
+jobs:
+  measure:
+    if: startsWith(github.event.head_commit.message, 'capacity-distributed:')
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CAPACITY_SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate per-worker ephemeral public key
+        run: node scripts/load-test/secure-runner.mjs key
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capacity-public-key-${{ github.run_id }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/capacity/public.pem
+          retention-days: 1
+      - name: Authenticate independent users and wait for the common start
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/load-test/secure-runner.mjs run
+      - name: Delete ephemeral key material
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/capacity"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capacity-report-${{ github.run_id }}-${{ matrix.shard }}
+          path: artifacts/capacity
+          retention-days: 14
+          if-no-files-found: warn
