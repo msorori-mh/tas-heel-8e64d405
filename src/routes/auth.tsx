@@ -7,6 +7,7 @@ import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
 import { useAuth } from "@/hooks/use-auth";
 import { translateAuthError } from "@/lib/auth-helpers";
 import { startGoogleSignIn } from "@/lib/auth/google-sign-in";
+import { NATIVE_AUTH_BROWSER_FINISHED_EVENT } from "@/lib/auth/native-oauth";
 
 // Keep old bookmarked links compatible while exposing one Google-only entry.
 const searchSchema = z.object({
@@ -59,6 +60,18 @@ function StudentAuthPage() {
   const { session, profileComplete, loading } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleNativeBrowserFinished = (event: Event) => {
+      const completed = (event as CustomEvent<{ completed?: boolean }>).detail?.completed === true;
+      if (completed) return;
+      setBusy(false);
+      setError("لم يكتمل تسجيل الدخول بسبب انقطاع مؤقت في الاتصال. حاول مرة أخرى.");
+    };
+    window.addEventListener(NATIVE_AUTH_BROWSER_FINISHED_EVENT, handleNativeBrowserFinished);
+    return () =>
+      window.removeEventListener(NATIVE_AUTH_BROWSER_FINISHED_EVENT, handleNativeBrowserFinished);
+  }, []);
 
   useEffect(() => {
     if (loading) return;

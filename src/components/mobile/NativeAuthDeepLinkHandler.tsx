@@ -5,6 +5,7 @@ import {
   closeNativeAuthBrowser,
   consumeNativeAuthDestination,
   isCallbackConsumed,
+  markNativeAuthCallbackReceived,
   markCallbackConsumed,
   parseNativeAuthCallback,
   unmarkCallbackConsumed,
@@ -33,6 +34,7 @@ export function NativeAuthDeepLinkHandler() {
       const handleUrl = async (rawUrl: string) => {
         const parsed = parseNativeAuthCallback(rawUrl);
         if (parsed.kind === "ignored") return; // fail closed, silently
+        markNativeAuthCallbackReceived();
         await closeNativeAuthBrowser();
 
         if (parsed.kind === "error") {
