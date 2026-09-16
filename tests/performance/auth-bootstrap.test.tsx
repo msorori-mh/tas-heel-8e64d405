@@ -224,3 +224,40 @@ it("fails role checks closed while retaining a successfully loaded profile", asy
   expect(state.isAdmin).toBe(false);
   expect(state.isContentStaff).toBe(false);
 });
+
+it("returns the refreshed persisted profile and retains content-staff roles", async () => {
+  await emit("INITIAL_SESSION", session("student"));
+  await finish("student");
+  const refreshed = state.refreshProfile();
+  let result;
+  await act(async () => {
+    for (const p of pending.slice(3))
+      p.request.resolve({
+        data:
+          p.kind === "profile"
+            ? { user_id: "student", full_name: "saved" }
+            : p.kind === "content_manager",
+        error: null,
+      });
+    result = await refreshed;
+  });
+  expect(result).toEqual({ user_id: "student", full_name: "saved" });
+  expect(state.isContentStaff).toBe(true);
+});
+
+it("rejects an explicit refresh when the persisted profile cannot be read", async () => {
+  await emit("INITIAL_SESSION", session("student"));
+  await finish("student");
+  const refreshed = state.refreshProfile().catch((error) => error);
+  let result;
+  await act(async () => {
+    for (const p of pending.slice(3))
+      p.request.resolve({
+        data: null,
+        error: p.kind === "profile" ? { message: "read denied" } : null,
+      });
+    result = await refreshed;
+  });
+  expect(result).toEqual({ message: "read denied" });
+  expect(state.profile).toBeNull();
+});

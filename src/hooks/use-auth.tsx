@@ -1,3 +1,4 @@
+import { isStudentProfileComplete } from "@/lib/profile-completion";
 import {
   createContext,
   useContext,
@@ -38,20 +39,11 @@ type AuthCtx = {
   isContentManager: boolean;
   isContentStaff: boolean;
   profileComplete: boolean;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<Profile | null>;
   signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthCtx | undefined>(undefined);
-
-function computeComplete(p: Profile | null): boolean {
-  if (!p) return false;
-  if (!p.full_name || !p.full_name.trim()) return false;
-  if (!p.grade_id && !p.grade_uuid) return false;
-  if (!p.governorate_id) return false;
-  if (!p.curriculum_track_id) return false;
-  return true;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -62,10 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isContentStaff, setIsContentStaff] = useState(false);
   const owner = useRef<string | null>(null);
   const generation = useRef(0);
-  const inFlight = useRef<{ generation: number; promise: Promise<void> } | null>(null);
+  const inFlight = useRef<{ generation: number; promise: Promise<Profile | null> } | null>(null);
 
-  const loadProfile = useCallback((userId: string, force = false): Promise<void> => {
-    if (owner.current !== userId) return Promise.resolve();
+  const loadProfile = useCallback((userId: string, force = false): Promise<Profile | null> => {
+    if (owner.current !== userId) return Promise.resolve(null);
     // An explicit refresh after editing a profile must supersede older reads.
     if (force) generation.current += 1;
     const currentGeneration = generation.current;
@@ -85,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
         supabase.rpc("has_role", { _user_id: userId, _role: "content_manager" }),
       ]);
-      if (generation.current !== currentGeneration || owner.current !== userId) return;
+      if (generation.current !== currentGeneration || owner.current !== userId) return null;
       setProfile(profileResult.error ? null : ((profileResult.data as Profile | null) ?? null));
       const roles = deriveAuthRoles({
         hasAdmin: !adminResult.error && adminResult.data === true,
@@ -94,6 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(roles.isAdmin);
       setIsContentManager(roles.isContentManager);
       setIsContentStaff(roles.isContentStaff);
+      if (force && profileResult.error) throw profileResult.error;
+      return profileResult.error ? null : ((profileResult.data as Profile | null) ?? null);
     })().finally(() => {
       if (generation.current === currentGeneration) {
         inFlight.current = null;
@@ -106,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     const uid = session?.user?.id;
-    if (uid) await loadProfile(uid, true);
+    return uid ? await loadProfile(uid, true) : null;
   }, [session?.user?.id, loadProfile]);
 
   useEffect(() => {
@@ -189,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isContentManager,
         isContentStaff,
-        profileComplete: computeComplete(profile),
+        profileComplete: isStudentProfileComplete(profile),
         refreshProfile,
         signOut,
       }}

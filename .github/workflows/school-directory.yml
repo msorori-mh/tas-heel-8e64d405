@@ -16,6 +16,10 @@ on:
       - "supabase/migrations/*school_directory*"
       - "tests/schools/**"
       - "tests/e2e/school-directory/**"
+      - "tests/e2e/profile-completion/**"
+      - "src/lib/profile-completion.ts"
+      - "src/lib/curriculum-tracks.ts"
+      - "src/hooks/use-auth.tsx"
       - ".github/workflows/school-directory.yml"
 permissions:
   contents: read
@@ -83,10 +87,16 @@ jobs:
         run: npx vite build --config tests/e2e/school-directory/vite.config.ts
       - name: Verify mobile and desktop school workflows
         run: node tests/e2e/school-directory/verify.mjs
+      - name: Build actual profile completion fixture
+        run: npx vite build --config tests/e2e/profile-completion/vite.config.ts
+      - name: Verify completion, retries and persisted re-entry on mobile and desktop
+        run: node tests/e2e/profile-completion/verify.mjs
       - name: Upload screenshots and results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: school-directory-${{ github.sha }}
-          path: artifacts/school-directory
+          path: |
+            artifacts/school-directory
+            artifacts/profile-completion
           if-no-files-found: error
