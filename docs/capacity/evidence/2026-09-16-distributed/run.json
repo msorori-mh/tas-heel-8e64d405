@@ -1,0 +1,11 @@
+{
+  "runId": "35051904725",
+  "sourceSha": "4e1ff71a8675837799ccf261148c2d57fce392be",
+  "requestedUsers": 500,
+  "shards": 10,
+  "durationSeconds": 90,
+  "migration": "20260916031703_capacity_answer_lookup_and_uid_initplans",
+  "fixtureRun": "cap20260916b",
+  "fixtureUsersRemoved": 500,
+  "retainedUsersVerified": 33
+}

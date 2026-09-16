@@ -1,0 +1,289 @@
+{
+  "schema": 1,
+  "run": "cap20260916b",
+  "target": "qwfvlppsffcmmbjpznkw",
+  "concurrency": 50,
+  "uniqueUsers": 50,
+  "requestedDurationSeconds": 90,
+  "measurementStartedAt": "2026-09-16T03:34:51.265Z",
+  "measurementEndedAt": "2026-09-16T03:35:29.080Z",
+  "thinkTimeBaseMs": 2000,
+  "elapsedSeconds": 37.814890075999955,
+  "usersCompletingJourney": 17,
+  "minimumJourneysPerUser": 0,
+  "journeys": 17,
+  "failedJourneys": 33,
+  "journeyErrors": {
+    "The operation was aborted due to timeout": 33
+  },
+  "peakRequestsInFlight": 50,
+  "requestsPerSecond": 9.837394720766303,
+  "metrics": {
+    "requests": 372,
+    "failures": 33,
+    "errorRate": 0.08870967741935484,
+    "p95Ms": 15001,
+    "p99Ms": 15002,
+    "maxMs": 15001,
+    "bytes": 826480,
+    "codes": {
+      "200": 339,
+      "network_error": 33
+    }
+  },
+  "endpoints": {
+    "profile": {
+      "requests": 50,
+      "failures": 23,
+      "errorRate": 0.46,
+      "p95Ms": 15002,
+      "p99Ms": 15002,
+      "maxMs": 15001,
+      "bytes": 4455,
+      "codes": {
+        "200": 27,
+        "network_error": 23
+      }
+    },
+    "get_student_unified_performance": {
+      "requests": 27,
+      "failures": 7,
+      "errorRate": 0.25925925925925924,
+      "p95Ms": 15001,
+      "p99Ms": 15001,
+      "maxMs": 15001,
+      "bytes": 112120,
+      "codes": {
+        "200": 20,
+        "network_error": 7
+      }
+    },
+    "subject": {
+      "requests": 20,
+      "failures": 2,
+      "errorRate": 0.1,
+      "p95Ms": 15001,
+      "p99Ms": 15001,
+      "maxMs": 15000,
+      "bytes": 2664,
+      "codes": {
+        "200": 18,
+        "network_error": 2
+      }
+    },
+    "units": {
+      "requests": 18,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 3703,
+      "p99Ms": 3703,
+      "maxMs": 3702,
+      "bytes": 26190,
+      "codes": {
+        "200": 18
+      }
+    },
+    "lesson-list": {
+      "requests": 18,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 4483,
+      "p99Ms": 4483,
+      "maxMs": 4483,
+      "bytes": 167706,
+      "codes": {
+        "200": 18
+      }
+    },
+    "lessons_student_visible": {
+      "requests": 18,
+      "failures": 1,
+      "errorRate": 0.05555555555555555,
+      "p95Ms": 15000,
+      "p99Ms": 15000,
+      "maxMs": 15000,
+      "bytes": 69173,
+      "codes": {
+        "200": 17,
+        "network_error": 1
+      }
+    },
+    "lesson": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 3695,
+      "p99Ms": 3695,
+      "maxMs": 3695,
+      "bytes": 4182,
+      "codes": {
+        "200": 17
+      }
+    },
+    "lesson_student_content_gate": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 5200,
+      "p99Ms": 5200,
+      "maxMs": 5200,
+      "bytes": 2193,
+      "codes": {
+        "200": 17
+      }
+    },
+    "lesson-resources": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 4256,
+      "p99Ms": 4256,
+      "maxMs": 4255,
+      "bytes": 34,
+      "codes": {
+        "200": 17
+      }
+    },
+    "apply_offline_learning_mutation": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 3873,
+      "p99Ms": 3873,
+      "maxMs": 3873,
+      "bytes": 612,
+      "codes": {
+        "200": 17
+      }
+    },
+    "offline-replay": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 10036,
+      "p99Ms": 10036,
+      "maxMs": 10035,
+      "bytes": 595,
+      "codes": {
+        "200": 17
+      }
+    },
+    "progress-verify": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 2617,
+      "p99Ms": 2617,
+      "maxMs": 2616,
+      "bytes": 2125,
+      "codes": {
+        "200": 17
+      }
+    },
+    "cross-profile-denial": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 1374,
+      "p99Ms": 1374,
+      "maxMs": 1374,
+      "bytes": 34,
+      "codes": {
+        "200": 17
+      }
+    },
+    "cross-account-denial": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 1765,
+      "p99Ms": 1765,
+      "maxMs": 1765,
+      "bytes": 34,
+      "codes": {
+        "200": 17
+      }
+    },
+    "create_ministerial_exam_session": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 1303,
+      "p99Ms": 1303,
+      "maxMs": 1302,
+      "bytes": 646,
+      "codes": {
+        "200": 17
+      }
+    },
+    "get_ministerial_session_state": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 1147,
+      "p99Ms": 1147,
+      "maxMs": 1147,
+      "bytes": 213212,
+      "codes": {
+        "200": 17
+      }
+    },
+    "answer_ministerial_text_question": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 1134,
+      "p99Ms": 1134,
+      "maxMs": 1134,
+      "bytes": 510,
+      "codes": {
+        "200": 17
+      }
+    },
+    "submit_ministerial_exam_session": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 372,
+      "p99Ms": 372,
+      "maxMs": 372,
+      "bytes": 5967,
+      "codes": {
+        "200": 17
+      }
+    },
+    "exam-verify": {
+      "requests": 17,
+      "failures": 0,
+      "errorRate": 0,
+      "p95Ms": 390,
+      "p99Ms": 390,
+      "maxMs": 390,
+      "bytes": 214028,
+      "codes": {
+        "200": 17
+      }
+    }
+  },
+  "generator": {
+    "eventLoopP99Ms": 21.020671,
+    "rssBytes": 105054208
+  },
+  "abortReason": "ERROR_RATE_OVER_5_PERCENT",
+  "coverage": {
+    "authenticated": true,
+    "googleOAuth": false,
+    "uiRendering": false,
+    "cdnDownloads": false,
+    "exam": true,
+    "offlineReplay": true
+  },
+  "status": "HOLD",
+  "partition": {
+    "shard": 4,
+    "accountOffset": 200,
+    "totalShards": 10,
+    "totalConcurrency": 500,
+    "scheduledStartAt": 1789529691265
+  }
+}
