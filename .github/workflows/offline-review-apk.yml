@@ -1,7 +1,7 @@
 name: Offline Settings review APK
 on:
   pull_request:
-    branches: [main, test/unified-offline-capacity, feat/academy-offline-learning, fix/review-session-restore]
+    branches: [main, test/unified-offline-capacity, test/review-september15-complete, feat/academy-offline-learning, fix/review-session-restore]
     paths:
       - "scripts/mobile/review/**"
       - "android/app/src/main/java/**"
@@ -9,6 +9,9 @@ on:
       - "src/components/home/OfflineDownloadNotice.tsx"
       - "src/components/mobile/NativeSessionResume.tsx"
       - "src/lib/auth/native-last-space.ts"
+      - "src/lib/offline/**"
+      - "src/components/offline/**"
+      - "tests/offline/**"
       - "tests/mobile/session-restore/**"
       - ".github/workflows/offline-review-apk.yml"
       - "vite.config.ts"
