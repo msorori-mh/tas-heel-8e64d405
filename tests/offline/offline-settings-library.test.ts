@@ -85,17 +85,17 @@ it("stops on transport failure instead of claiming a partial catalog is the full
   await expect(prepareStudentDownloads(scope, new AbortController().signal)).rejects.toThrow(
     "network down",
   );
-  expect(api.metadata).toHaveBeenCalledTimes(1);
+  expect(api.metadata).toHaveBeenCalledTimes(2);
 });
-it("cancels stalled metadata immediately and does not request subsequent subjects", async () => {
+it("cancels stalled metadata immediately and does not request a subsequent batch", async () => {
   const controller = new AbortController();
   api.metadata.mockImplementation(() => new Promise(() => {}));
   const pending = prepareStudentDownloads(scope, controller.signal);
   const result = expect(pending).rejects.toThrow("OFFLINE_DOWNLOAD_ABORTED");
-  await vi.waitFor(() => expect(api.metadata).toHaveBeenCalledTimes(1));
+  await vi.waitFor(() => expect(api.metadata).toHaveBeenCalledTimes(2));
   controller.abort();
   await result;
-  expect(api.metadata.mock.calls[0][1].signal.aborted).toBe(true);
+  expect(api.metadata.mock.calls.every((call) => call[1].signal.aborted)).toBe(true);
   expect(hasForegroundTransfers()).toBe(false);
 });
 it("bounds metadata waiting on an unresponsive network", async () => {
@@ -104,9 +104,36 @@ it("bounds metadata waiting on an unresponsive network", async () => {
   const result = expect(
     prepareStudentDownloads(scope, new AbortController().signal),
   ).rejects.toThrow("OFFLINE_METADATA_TIMEOUT");
-  await vi.advanceTimersByTimeAsync(30_000);
+  await vi.advanceTimersByTimeAsync(45_000);
   await result;
   expect(api.metadata).not.toHaveBeenCalled();
+});
+it("allows a slow subject manifest to finish on a mobile connection", async () => {
+  vi.useFakeTimers();
+  api.metadata.mockImplementation(
+    (id) => new Promise((resolve) => setTimeout(async () => resolve(await prepared(id)), 60_000)),
+  );
+  const pending = prepareStudentDownloads(scope, new AbortController().signal);
+  await vi.advanceTimersByTimeAsync(60_000);
+  const result = await pending;
+  expect(result.subjects.map((subject) => subject.id)).toEqual(["one", "two"]);
+});
+it("prepares at most two subject manifests concurrently", async () => {
+  let active = 0;
+  let maximum = 0;
+  const releases: Array<() => void> = [];
+  api.metadata.mockImplementation(async (id) => {
+    active += 1;
+    maximum = Math.max(maximum, active);
+    await new Promise<void>((resolve) => releases.push(resolve));
+    active -= 1;
+    return prepared(id);
+  });
+  const pending = prepareStudentDownloads(scope, new AbortController().signal);
+  await vi.waitFor(() => expect(api.metadata).toHaveBeenCalledTimes(2));
+  expect(maximum).toBe(2);
+  releases.splice(0).forEach((release) => release());
+  await pending;
 });
 it("downloads sequentially with aggregate progress and reuses the reviewed manifests", async () => {
   const subjects = [await prepared(), await prepared("two")];
