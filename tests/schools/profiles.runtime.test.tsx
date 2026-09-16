@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   rpc: vi.fn(),
   toast: vi.fn(),
+  options: vi.fn(),
+  tracks: vi.fn(),
+  loading: false,
   profile: null as Record<string, unknown> | null,
 }));
 vi.mock("@tanstack/react-router", () => ({
@@ -21,7 +24,7 @@ vi.mock("@/hooks/use-auth", () => ({
   useAuth: () => ({
     user: { id: "user-1" },
     profile: mocks.profile,
-    loading: false,
+    loading: mocks.loading,
     profileComplete: false,
     refreshProfile: mocks.refresh,
     signOut: vi.fn(),
@@ -29,9 +32,7 @@ vi.mock("@/hooks/use-auth", () => ({
 }));
 vi.mock("sonner", () => ({ toast: { error: mocks.toast, success: mocks.toast } }));
 vi.mock("@/lib/curriculum-tracks", () => ({
-  fetchTracksForGovernorate: async () => [
-    { id: "track-1", track_name: "المسار", track_code: "TEST" },
-  ],
+  fetchTracksForGovernorate: mocks.tracks,
   translateTrackError: () => "خطأ",
 }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -39,18 +40,15 @@ vi.mock("@/integrations/supabase/client", () => ({
     rpc: mocks.rpc,
     from: (table: string) => ({
       select: () => ({
-        order: async () => ({
-          data:
-            table === "grades"
-              ? [{ id: "grade-1", name: "الثالث الثانوي" }]
-              : [
-                  { id: "gov-1", name: "محافظة أولى" },
-                  { id: "gov-2", name: "محافظة ثانية" },
-                ],
-          error: null,
-        }),
+        order: () => {
+          const request = Promise.resolve().then(() => mocks.options(table));
+          return Object.assign(request, { abortSignal: () => request });
+        },
       }),
-      upsert: mocks.upsert,
+      upsert: (...args: unknown[]) => {
+        const request = Promise.resolve().then(() => mocks.upsert(...args));
+        return Object.assign(request, { abortSignal: () => request });
+      },
       update: (payload: unknown) => ({
         eq: async (...args: unknown[]) => {
           mocks.update(payload, ...args);
@@ -122,9 +120,21 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   mocks.profile = null;
+  mocks.loading = false;
   vi.clearAllMocks();
+  mocks.options.mockImplementation(async (table: string) => ({
+    data:
+      table === "grades"
+        ? [{ id: "grade-1", name: "الثالث الثانوي" }]
+        : [
+            { id: "gov-1", name: "محافظة أولى" },
+            { id: "gov-2", name: "محافظة ثانية" },
+          ],
+    error: null,
+  }));
+  mocks.tracks.mockResolvedValue([{ id: "track-1", track_name: "المسار", track_code: "TEST" }]);
   mocks.upsert.mockResolvedValue({ error: null });
-  mocks.refresh.mockResolvedValue(undefined);
+  mocks.refresh.mockImplementation(async () => ({ ...mocks.upsert.mock.lastCall?.[0] }));
   mocks.rpc.mockImplementation(async (name: string) => ({
     error: null,
     data:
@@ -420,4 +430,135 @@ it("pages through a large school directory without resetting the requested page"
     p_page: 119,
   });
   expect(document.body.textContent).toContain("مدرسة 3000");
+});
+
+async function fillManualProfile() {
+  await change("fn", "طالب");
+  await change("ln", "تجريبي");
+  await change("gr", "grade-1");
+  await change("gv", "gov-1");
+  await flush();
+  const label = [...document.querySelectorAll("label")].find((n) =>
+    n.textContent?.includes("ابحث باسم"),
+  )!;
+  await change(label.htmlFor, "بلقيس");
+  await click("لم أجد مدرستي");
+}
+
+it("waits for auth bootstrap before requesting profile options", async () => {
+  mocks.loading = true;
+  await mount(Route.options.component as ComponentType);
+  expect(mocks.options).not.toHaveBeenCalled();
+  mocks.loading = false;
+  await mount(Route.options.component as ComponentType);
+  expect(mocks.options).toHaveBeenCalledTimes(2);
+  expect(document.querySelectorAll("#gr option")).toHaveLength(2);
+});
+
+it.each(["error", "empty", "reject"])(
+  "recovers %s options without losing entered names",
+  async (failure) => {
+    mocks.options.mockImplementationOnce(async () => {
+      if (failure === "reject") throw new Error("network");
+      return { data: [], error: failure === "error" ? { message: "denied" } : null };
+    });
+    await mount(Route.options.component as ComponentType);
+    await change("fn", "طالب");
+    expect(document.body.textContent).toContain("تعذّر تحميل الصفوف");
+    expect(button("حفظ ومتابعة").disabled).toBe(true);
+    await click("إعادة تحميل الصفوف والمحافظات");
+    expect(document.querySelectorAll("#gr option")).toHaveLength(2);
+    expect((document.getElementById("fn") as HTMLInputElement).value).toBe("طالب");
+  },
+);
+
+it("times out stuck lookup requests and ignores late results", async () => {
+  let resolve!: (value: unknown) => void;
+  mocks.options.mockImplementationOnce(
+    () =>
+      new Promise((r) => {
+        resolve = r;
+      }),
+  );
+  await mount(Route.options.component as ComponentType);
+  expect(document.body.textContent).toContain("جارٍ تحميل الصفوف");
+  await act(async () => vi.advanceTimersByTimeAsync(15000));
+  expect(document.body.textContent).toContain("تعذّر تحميل الصفوف");
+  await act(async () => resolve({ data: [{ id: "late", name: "late" }], error: null }));
+  expect(document.querySelectorAll("#gr option")).toHaveLength(1);
+  await click("إعادة تحميل الصفوف والمحافظات");
+  expect(document.querySelectorAll("#gr option")).toHaveLength(2);
+});
+
+it.each(["error", "empty"])("blocks save for %s tracks and permits retry", async (failure) => {
+  if (failure === "error") mocks.tracks.mockRejectedValueOnce(new Error("offline"));
+  else mocks.tracks.mockResolvedValueOnce([]);
+  await mount(Route.options.component as ComponentType);
+  await change("gv", "gov-1");
+  expect(document.body.textContent).toContain("تعذّر تحميل المناهج");
+  expect(button("حفظ ومتابعة").disabled).toBe(true);
+  await click("إعادة تحميل المناهج");
+  expect(button("حفظ ومتابعة").disabled).toBe(false);
+});
+
+it("requires a choice for multi-track governorates and persists the selected track", async () => {
+  mocks.tracks.mockResolvedValue([
+    { id: "track-1", track_name: "صنعاء" },
+    { id: "track-2", track_name: "عدن" },
+  ]);
+  await mount(Route.options.component as ComponentType);
+  await fillManualProfile();
+  await click("حفظ ومتابعة");
+  expect(mocks.upsert).not.toHaveBeenCalled();
+  await change("tr", "track-2");
+  await click("حفظ ومتابعة");
+  expect(mocks.upsert.mock.lastCall?.[0].curriculum_track_id).toBe("track-2");
+  expect(mocks.navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
+});
+
+it("discards a stale track response after changing governorate", async () => {
+  let resolve!: (value: unknown) => void;
+  mocks.tracks.mockImplementationOnce(
+    () =>
+      new Promise((r) => {
+        resolve = r;
+      }),
+  );
+  await mount(Route.options.component as ComponentType);
+  await change("gv", "gov-1");
+  await change("gv", "gov-2");
+  await act(async () => resolve([{ id: "stale", track_name: "stale" }]));
+  expect(document.body.textContent).not.toContain("stale");
+  expect(button("حفظ ومتابعة").disabled).toBe(false);
+});
+
+it.each(["missing", "incomplete", "wrong-school", "error"])(
+  "does not navigate after %s readback",
+  async (failure) => {
+    mocks.refresh.mockImplementation(async () => {
+      if (failure === "error") throw new Error("read failed");
+      if (failure === "missing") return null;
+      return {
+        ...mocks.upsert.mock.lastCall?.[0],
+        ...(failure === "incomplete" ? { curriculum_track_id: null } : { school_name: "wrong" }),
+      };
+    });
+    await mount(Route.options.component as ComponentType);
+    await fillManualProfile();
+    await click("حفظ ومتابعة");
+    expect(mocks.upsert).toHaveBeenCalledTimes(1);
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alert"]')).not.toBeNull();
+    expect((document.getElementById("fn") as HTMLInputElement).value).toBe("طالب");
+  },
+);
+
+it("retains form after failed save and successfully retries", async () => {
+  mocks.upsert.mockResolvedValueOnce({ error: new Error("save failed") });
+  await mount(Route.options.component as ComponentType);
+  await fillManualProfile();
+  await click("حفظ ومتابعة");
+  expect(mocks.navigate).not.toHaveBeenCalled();
+  await click("حفظ ومتابعة");
+  expect(mocks.navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
 });

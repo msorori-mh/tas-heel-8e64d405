@@ -10,13 +10,17 @@ export type CurriculumTrack = {
  * Fetch curriculum tracks allowed for a governorate via governorate_curriculum_map.
  * Source of truth — no hard-coding of (governorate → tracks).
  */
-export async function fetchTracksForGovernorate(govId: string): Promise<CurriculumTrack[]> {
-  const { data, error } = await supabase
+export async function fetchTracksForGovernorate(
+  govId: string,
+  signal?: AbortSignal,
+): Promise<CurriculumTrack[]> {
+  const query = supabase
     .from("governorate_curriculum_map")
     .select(
       "curriculum_track:curriculum_tracks!governorate_curriculum_map_curriculum_track_id_fkey(id,track_code,track_name)",
     )
     .eq("governorate_id", govId);
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
   if (error) throw error;
   const rows = (data ?? []) as unknown as Array<{ curriculum_track: CurriculumTrack | null }>;
   return rows
