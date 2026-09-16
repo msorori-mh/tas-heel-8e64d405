@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AddStudentDialog } from "@/components/admin/AddStudentDialog";
 import { Users, Loader2, Search, FilterX } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
@@ -129,8 +130,11 @@ function AdminStudentsPage() {
               <Users className="h-6 w-6 text-primary" />
               الطلاب
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">قائمة الطلاب المسجلين — قراءة فقط.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              إضافة الطلاب ومتابعة بياناتهم الدراسية.
+            </p>
           </div>
+          <AddStudentDialog />
         </div>
 
         <div className="grid gap-3 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-4">
