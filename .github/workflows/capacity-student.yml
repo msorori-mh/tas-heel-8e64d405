@@ -1,0 +1,50 @@
+name: Authenticated student capacity
+on:
+  push:
+    branches: [feat/capacity-10k]
+  pull_request:
+    paths:
+      - "scripts/load-test/**"
+      - "tests/load/**"
+      - ".github/workflows/capacity-student.yml"
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/load/*.test.mjs
+  measure:
+    if: startsWith(github.event.head_commit.message, 'capacity-run:')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate ephemeral transport public key
+        run: node scripts/load-test/secure-runner.mjs key
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capacity-public-key-${{ github.run_id }}
+          path: ${{ runner.temp }}/capacity/public.pem
+          retention-days: 1
+      - name: Receive encrypted TEST_ONLY credentials and run gated stages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/load-test/secure-runner.mjs run
+      - name: Remove ephemeral private key
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/capacity"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capacity-report-${{ github.run_id }}
+          path: artifacts/capacity
+          retention-days: 14
+          if-no-files-found: warn
