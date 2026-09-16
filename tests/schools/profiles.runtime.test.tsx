@@ -189,6 +189,34 @@ it("actual student completion persists selected school ID and continues", async 
   expect(mocks.navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
 });
 
+it.each(["", "حي مختلف"])(
+  "verifies directory locality returned as %j after saving",
+  async (locality) => {
+    mocks.rpc.mockResolvedValue({ data: [{ ...school, locality: "" }], error: null });
+    mocks.refresh.mockImplementation(async () => ({
+      ...mocks.upsert.mock.lastCall?.[0],
+      school_locality: locality,
+    }));
+    await mount(Route.options.component as ComponentType);
+    await change("fn", "طالب");
+    await change("ln", "تجريبي");
+    await change("gr", "grade-1");
+    await change("gv", "gov-1");
+    await flush();
+    const target = [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) =>
+      b.textContent?.includes(school.name),
+    )!;
+    await act(async () => target.click());
+    await click("حفظ ومتابعة");
+    expect(mocks.upsert.mock.lastCall?.[0].school_locality).toBeNull();
+    if (locality === "") expect(mocks.navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
+    else {
+      expect(mocks.navigate).not.toHaveBeenCalled();
+      expect(document.querySelector('[role="alert"]')?.textContent).toContain("تعذّر التأكد");
+    }
+  },
+);
+
 it("actual completion saves a manual school without optional location and continues", async () => {
   mocks.rpc.mockResolvedValue({ data: [], error: null });
   await mount(Route.options.component as ComponentType);
