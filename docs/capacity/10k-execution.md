@@ -2,6 +2,8 @@
 
 Current decision: **HOLD at 500**. See [measured results](2026-09-16-results.md).
 The 10,000-user production target has not been certified.
+Both the initial single-generator run and the post-index ten-generator repeat stopped
+at 500. The latest repeat had 10.93% request timeouts; do not advance the load gate.
 
 ## Baseline and authority
 

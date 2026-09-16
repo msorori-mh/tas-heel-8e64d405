@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "run": "cap20260916b",
+  "target": "qwfvlppsffcmmbjpznkw",
+  "concurrency": 500,
+  "partitions": 10,
+  "requestedDurationSeconds": 90,
+  "startSkewMs": 2,
+  "commonMeasurementSeconds": 36.996,
+  "requests": 3413,
+  "failures": 373,
+  "errorRate": 0.10928801640785232,
+  "completedJourneys": 156,
+  "usersCompletingJourney": 156,
+  "endpoints": {
+    "profile": {
+      "requests": 529,
+      "failures": 277,
+      "worstShardP95Ms": 15002,
+      "worstShardP99Ms": 15003
+    },
+    "get_student_unified_performance": {
+      "requests": 252,
+      "failures": 67,
+      "worstShardP95Ms": 15001,
+      "worstShardP99Ms": 15002
+    },
+    "subject": {
+      "requests": 185,
+      "failures": 23,
+      "worstShardP95Ms": 15001,
+      "worstShardP99Ms": 15001
+    },
+    "units": {
+      "requests": 162,
+      "failures": 4,
+      "worstShardP95Ms": 15001,
+      "worstShardP99Ms": 15001
+    },
+    "lesson-list": {
+      "requests": 158,
+      "failures": 1,
+      "worstShardP95Ms": 15001,
+      "worstShardP99Ms": 15001
+    },
+    "lessons_student_visible": {
+      "requests": 157,
+      "failures": 1,
+      "worstShardP95Ms": 15000,
+      "worstShardP99Ms": 15000
+    },
+    "lesson": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 6332,
+      "worstShardP99Ms": 6332
+    },
+    "lesson_student_content_gate": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 9556,
+      "worstShardP99Ms": 14774
+    },
+    "lesson-resources": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 7053,
+      "worstShardP99Ms": 7053
+    },
+    "apply_offline_learning_mutation": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 7784,
+      "worstShardP99Ms": 7784
+    },
+    "offline-replay": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 10036,
+      "worstShardP99Ms": 10036
+    },
+    "progress-verify": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 7001,
+      "worstShardP99Ms": 7001
+    },
+    "cross-profile-denial": {
+      "requests": 127,
+      "failures": 0,
+      "worstShardP95Ms": 4229,
+      "worstShardP99Ms": 4229
+    },
+    "cross-account-denial": {
+      "requests": 127,
+      "failures": 0,
+      "worstShardP95Ms": 5370,
+      "worstShardP99Ms": 5370
+    },
+    "create_ministerial_exam_session": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 5184,
+      "worstShardP99Ms": 5184
+    },
+    "get_ministerial_session_state": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 1896,
+      "worstShardP99Ms": 1896
+    },
+    "answer_ministerial_text_question": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 1910,
+      "worstShardP99Ms": 1910
+    },
+    "submit_ministerial_exam_session": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 2213,
+      "worstShardP99Ms": 2213
+    },
+    "exam-verify": {
+      "requests": 156,
+      "failures": 0,
+      "worstShardP95Ms": 1405,
+      "worstShardP99Ms": 1405
+    }
+  },
+  "percentileMethod": "Worst per-shard percentile; global percentiles are not reconstructed from summaries.",
+  "status": "HOLD",
+  "scope": "Distributed authenticated API stress only; no production 10k certification."
+}

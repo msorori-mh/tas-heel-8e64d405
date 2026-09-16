@@ -41,3 +41,28 @@ jobs:
           path: artifacts/capacity
           retention-days: 14
           if-no-files-found: warn
+  aggregate:
+    needs: measure
+    if: always() && startsWith(github.event.head_commit.message, 'capacity-distributed:')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: capacity-report-${{ github.run_id }}-*
+          path: artifacts/partitions
+      - name: Require complete non-overlapping synchronized partitions
+        shell: bash
+        run: |
+          shopt -s nullglob globstar
+          reports=(artifacts/partitions/**/stage-*.json)
+          node scripts/load-test/aggregate-distributed.mjs artifacts/capacity-distributed-summary.json "${reports[@]}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capacity-distributed-summary-${{ github.run_id }}
+          path: artifacts/capacity-distributed-summary.json
+          retention-days: 14
