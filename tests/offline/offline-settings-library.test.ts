@@ -71,6 +71,17 @@ it("continues past a subject with no downloadable content and reports its exclus
   expect(result.unavailable.map((s) => s.id)).toEqual(["one"]);
   expect(result.subjects.map((s) => s.id)).toEqual(["two"]);
 });
+it("continues with ready subjects when one manifest remains temporarily unavailable", async () => {
+  api.metadata.mockRejectedValueOnce(new Error("OFFLINE_MANIFEST_FETCH_500"));
+  const result = await prepareStudentDownloads(scope, new AbortController().signal);
+  expect(result.unavailable).toEqual([
+    expect.objectContaining({
+      id: "one",
+      reason: "تعذّر تجهيزها مؤقتًا؛ حدّث القائمة لاستكمالها",
+    }),
+  ]);
+  expect(result.subjects.map((subject) => subject.id)).toEqual(["two"]);
+});
 it("rejects a server manifest for a different grade instead of including it in the full download", async () => {
   const other = await prepared();
   other.manifest.scope.gradeId = "other-grade";

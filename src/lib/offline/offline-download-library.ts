@@ -132,7 +132,7 @@ export async function prepareStudentDownloads(
             } catch (error) {
               check(signal);
               const code = error instanceof Error ? error.message : "";
-              if (!/^OFFLINE_MANIFEST_FETCH_(403|404|409|422)$/.test(code)) {
+              if (!/^OFFLINE_MANIFEST_FETCH_(403|404|409|422|500|502|503|504)$/.test(code)) {
                 batchController.abort();
                 throw error;
               }
@@ -143,7 +143,9 @@ export async function prepareStudentDownloads(
                   name: subject.name,
                   reason: code.endsWith("403")
                     ? "غير متاحة للتنزيل بحسابك"
-                    : "لم يتوفر محتوى قابل للتنزيل بعد",
+                    : /_(500|502|503|504)$/.test(code)
+                      ? "تعذّر تجهيزها مؤقتًا؛ حدّث القائمة لاستكمالها"
+                      : "لم يتوفر محتوى قابل للتنزيل بعد",
                 },
               };
             }
