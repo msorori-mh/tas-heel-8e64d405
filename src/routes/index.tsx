@@ -20,18 +20,26 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل الاختبارات، والتدرب على نماذج تناسب الصف والمنهج والمحافظة.",
+          "منصة تعليمية متكاملة للطالب والمعلم؛ تجمع الشرح المبسّط، والخرائط الذهنية، ومحاكاة التجارب المعملية، والاختبارات التفاعلية والوزارية التي تؤهل الطالب للفهم والتفوّق، وتعمل دون إنترنت.",
       },
       {
         property: "og:title",
-        content: "تمكين الطالب",
+        content: "تمكين الطالب | للطلاب والمعلمين",
       },
       {
         property: "og:description",
         content:
-          "منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية — محتوى منظم، تدريب، ومتابعة تقدم.",
+          "منصة تعليمية متكاملة للطالب والمعلم؛ تجمع الشرح المبسّط، والخرائط الذهنية، ومحاكاة التجارب المعملية، والاختبارات التفاعلية والوزارية التي تؤهل الطالب للفهم والتفوّق، وتعمل دون إنترنت.",
       },
       { property: "og:url", content: "https://studentamkeen.com/" },
+      {
+        property: "og:image",
+        content: "https://studentamkeen.com/brand/social-preview-2026.png",
+      },
+      {
+        name: "twitter:image",
+        content: "https://studentamkeen.com/brand/social-preview-2026.png",
+      },
     ],
     links: [{ rel: "canonical", href: "https://studentamkeen.com/" }],
   }),

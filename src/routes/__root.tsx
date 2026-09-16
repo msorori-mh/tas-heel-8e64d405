@@ -91,27 +91,46 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "منصة تعليمية تساعد طلاب الثانوية على المذاكرة، مراجعة الدروس، حل الاختبارات، والتدرب على نماذج وزارية تناسب الصف والمنهج والمحافظة.",
+          "منصة تعليمية متكاملة للطالب والمعلم؛ تجمع الشرح المبسّط، والخرائط الذهنية، ومحاكاة التجارب المعملية، والاختبارات التفاعلية والوزارية التي تؤهل الطالب للفهم والتفوّق، وتعمل دون إنترنت.",
       },
       { property: "og:site_name", content: "تمكين الطالب" },
-      { property: "og:title", content: "تمكين الطالب" },
+      { property: "og:title", content: "تمكين الطالب | للطلاب والمعلمين" },
       {
         property: "og:description",
         content:
-          "منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية، مع محتوى منظم ونماذج تدريبية تراعي اختلاف المناهج والمحافظات.",
+          "منصة تعليمية متكاملة للطالب والمعلم؛ تجمع الشرح المبسّط، والخرائط الذهنية، ومحاكاة التجارب المعملية، والاختبارات التفاعلية والوزارية التي تؤهل الطالب للفهم والتفوّق، وتعمل دون إنترنت.",
       },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "ar_YE" },
       { property: "og:url", content: "https://studentamkeen.com/" },
+      {
+        property: "og:image",
+        content: "https://studentamkeen.com/brand/social-preview-2026.png",
+      },
+      {
+        property: "og:image:secure_url",
+        content: "https://studentamkeen.com/brand/social-preview-2026.png",
+      },
+      { property: "og:image:type", content: "image/png" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      {
+        property: "og:image:alt",
+        content: "تمكين الطالب — منصة تعليمية متكاملة للطلاب والمعلمين",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
-        content: "تمكين الطالب",
+        content: "تمكين الطالب | للطلاب والمعلمين",
       },
       {
         name: "twitter:description",
         content:
-          "منصتك الذكية للاستعداد للثانوية والاختبارات الوزارية، مع محتوى منظم ونماذج تدريبية تراعي اختلاف المناهج والمحافظات.",
+          "منصة تعليمية متكاملة للطالب والمعلم؛ تجمع الشرح المبسّط، والخرائط الذهنية، ومحاكاة التجارب المعملية، والاختبارات التفاعلية والوزارية التي تؤهل الطالب للفهم والتفوّق، وتعمل دون إنترنت.",
+      },
+      {
+        name: "twitter:image",
+        content: "https://studentamkeen.com/brand/social-preview-2026.png",
       },
       { name: "theme-color", content: "#1E2A78" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
