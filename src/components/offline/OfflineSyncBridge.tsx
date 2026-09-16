@@ -1,5 +1,6 @@
 /** OFFLINE-05 — resumes queued student activity on launch, focus and reconnect. */
 
+import { offlineReconnectDelay } from "@/lib/offline/sync-backoff";
 import { useEffect } from "react";
 
 import { syncOfflineOutboxForCurrentSession } from "@/lib/offline/offline-sync";
@@ -19,15 +20,24 @@ export function OfflineSyncBridge() {
         running = false;
       }
     };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") void sync();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (disposed || running || timer !== undefined) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        void sync();
+      }, offlineReconnectDelay());
     };
-    window.addEventListener("online", sync);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") schedule();
+    };
+    window.addEventListener("online", schedule);
     document.addEventListener("visibilitychange", onVisibility);
-    void sync();
+    schedule();
     return () => {
       disposed = true;
-      window.removeEventListener("online", sync);
+      if (timer !== undefined) clearTimeout(timer);
+      window.removeEventListener("online", schedule);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);

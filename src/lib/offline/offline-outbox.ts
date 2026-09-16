@@ -1,5 +1,6 @@
 /** OFFLINE-01 — durable at-least-once queue with idempotent operation keys. */
 
+import { offlineRetryDelay } from "./sync-backoff";
 import { sha256Hex } from "./offline-pack-contract";
 import {
   OfflineStateRepository,
@@ -18,7 +19,6 @@ export type OfflineMutationInput = {
   answerText?: string | null;
 };
 
-const MAX_BACKOFF_MS = 6 * 60 * 60 * 1_000;
 const DEFAULT_LEASE_MS = 60_000;
 
 function normalizedMutation(input: OfflineMutationInput) {
@@ -203,7 +203,7 @@ export async function markOfflineMutationFailed(
       (candidate) => candidate.ownerId === ownerId && candidate.id === operationId,
     );
     if (!record) throw new Error("OFFLINE_OUTBOX_OPERATION_NOT_FOUND");
-    const backoffMs = Math.min(1_000 * 2 ** Math.max(record.attempts - 1, 0), MAX_BACKOFF_MS);
+    const backoffMs = offlineRetryDelay(record.attempts);
     record.status = "failed";
     record.leaseUntil = null;
     record.nextAttemptAt = new Date(Date.parse(now) + backoffMs).toISOString();
