@@ -1,5 +1,20 @@
 const TRANSIENT = new Set([429, 502, 503, 504]);
 
+async function isTransientReadFailure(input: string, response: Response): Promise<boolean> {
+  // A manifest 500 means one of the read-only Supabase lookups failed. These
+  // are observed during short database/API-gateway stalls and are safe to
+  // retry. Never extend the same rule to artifact bytes or other endpoints.
+  if (TRANSIENT.has(response.status)) return true;
+  if (response.status !== 500 || !input.startsWith("/api/offline-pack/manifest/")) return false;
+  if (!response.headers.get("content-type")?.includes("application/json")) return false;
+  try {
+    const payload = await response.clone().json();
+    return typeof payload?.error === "string" && /^[a-z_]+_lookup_failed$/.test(payload.error);
+  } catch {
+    return false;
+  }
+}
+
 export function offlineRetryDelay(value: string | null, attempt: number, now = Date.now()): number {
   const seconds = value == null ? NaN : Number(value);
   const specified = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(value ?? "") - now;
@@ -43,7 +58,7 @@ export async function fetchOfflineRead(input: string, init: RequestInit = {}): P
       await wait(offlineRetryDelay(null, attempt) + Math.floor(Math.random() * 400), init.signal);
       continue;
     }
-    if (!TRANSIENT.has(response.status) || attempt >= 2) return response;
+    if (!(await isTransientReadFailure(input, response)) || attempt >= 2) return response;
     const delay = offlineRetryDelay(response.headers.get("retry-after"), attempt);
     await response.body?.cancel();
     await wait(delay + Math.floor(Math.random() * 400), init.signal);

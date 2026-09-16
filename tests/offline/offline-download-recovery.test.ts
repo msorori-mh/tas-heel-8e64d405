@@ -43,11 +43,28 @@ it("cancels network retry promptly without another request", async () => {
   await vi.runAllTimersAsync();
   expect(request).toHaveBeenCalledTimes(1);
 });
-it.each([401, 403, 404, 409, 500])("does not retry non-transient HTTP %s", async (status) => {
-  const request = vi.fn().mockResolvedValue(new Response("error", { status }));
+it.each([401, 403, 404, 409, 500])(
+  "does not retry non-transient artifact HTTP %s",
+  async (status) => {
+    const request = vi.fn().mockResolvedValue(new Response("error", { status }));
+    vi.stubGlobal("fetch", request);
+    expect((await fetchOfflineRead("/api/offline-pack/artifact/test")).status).toBe(status);
+    expect(request).toHaveBeenCalledTimes(1);
+  },
+);
+it("retries a manifest 500 without retrying unrelated server errors", async () => {
+  vi.useFakeTimers();
+  const request = vi
+    .fn()
+    .mockImplementationOnce(async () =>
+      Response.json({ error: "content_lookup_failed" }, { status: 500 }),
+    )
+    .mockImplementationOnce(async () => new Response("ok"));
   vi.stubGlobal("fetch", request);
-  expect((await fetchOfflineRead("/api/offline-pack/artifact/test")).status).toBe(status);
-  expect(request).toHaveBeenCalledTimes(1);
+  const pending = fetchOfflineRead("/api/offline-pack/manifest/test");
+  await vi.runAllTimersAsync();
+  expect(await (await pending).text()).toBe("ok");
+  expect(request).toHaveBeenCalledTimes(2);
 });
 it("does not expose arbitrary server bodies or secrets in diagnostics", async () => {
   const error = await offlineResponseError(
