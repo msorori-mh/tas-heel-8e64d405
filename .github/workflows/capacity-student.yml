@@ -2,9 +2,22 @@ name: Authenticated student capacity
 on:
   push:
     branches: [feat/capacity-10k]
+  pull_request:
+    paths:
+      - "scripts/load-test/**"
+      - "tests/load/**"
+      - ".github/workflows/capacity-student.yml"
 permissions:
   contents: read
 jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/load/*.test.mjs
   measure:
     if: startsWith(github.event.head_commit.message, 'capacity-run:')
     runs-on: ubuntu-latest
