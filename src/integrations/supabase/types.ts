@@ -5225,6 +5225,10 @@ export type Database = {
         Args: { _capability: string; _lesson_id: string; _reason?: string }
         Returns: Json
       }
+      admin_edit_school: {
+        Args: { p_expected: Json; p_id: string; p_school: Json }
+        Returns: Json
+      }
       admin_get_lesson_media_urls: {
         Args: { _lesson_id: string }
         Returns: {
@@ -5235,6 +5239,10 @@ export type Database = {
       admin_grade12_subject_catalog_status: { Args: never; Returns: Json }
       admin_initialize_grade12_subject_catalog: {
         Args: { _expected_preview_sha256: string }
+        Returns: Json
+      }
+      admin_intake_schools: {
+        Args: { p_commit?: boolean; p_rows: Json }
         Returns: Json
       }
       admin_list_students_by_school: {
