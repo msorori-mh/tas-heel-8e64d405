@@ -245,8 +245,10 @@ function CompleteProfile() {
         saved.curriculum_track_id !== effectiveTrackId ||
         (saved.school_id ?? null) !== payload.school_id ||
         saved.school_name !== payload.school_name ||
-        (saved.school_district ?? null) !== payload.school_district ||
-        (saved.school_locality ?? null) !== payload.school_locality
+        // Directory-backed schools store missing optional locations as empty strings;
+        // manual-school payloads use null. Both represent the same absent value.
+        (saved.school_district || null) !== payload.school_district ||
+        (saved.school_locality || null) !== payload.school_locality
       ) {
         throw new Error(
           "تعذّر التأكد من اكتمال حفظ بياناتك. بيانات النموذج محفوظة هنا؛ حاول الحفظ مجددًا.",
