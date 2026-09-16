@@ -12,7 +12,9 @@ export async function schoolWorkbookCompatibilityCopy(zip: JSZip): Promise<Array
   let changed = false;
   for (const entry of Object.values(zip.files)) {
     if (entry.dir || !/\.(xml|rels)$/.test(entry.name)) continue;
-    const text = await entry.async("string");
+    // DOMParser in Chromium rejects a string BOM before the XML declaration.
+    // ZIP readers return it as a character, unlike an XML byte-stream reader.
+    const text = (await entry.async("string")).replace(/^\uFEFF/, "");
     if (/<!DOCTYPE/i.test(text)) throw new Error("Unsupported XML declaration");
     const doc = new DOMParser().parseFromString(text, "application/xml");
     if (doc.getElementsByTagName("parsererror").length) throw new Error("Invalid workbook XML");
