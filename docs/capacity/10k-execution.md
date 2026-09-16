@@ -1,5 +1,8 @@
 # Authenticated capacity program — 16 September 2026
 
+Current decision: **HOLD at 500**. See [measured results](2026-09-16-results.md).
+The 10,000-user production target has not been certified.
+
 ## Baseline and authority
 
 Repository baseline: `9a566791c7cfd821b84b5a54c44cad614e8ac677` (main).

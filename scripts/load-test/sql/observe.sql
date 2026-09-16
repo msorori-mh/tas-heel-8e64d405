@@ -9,7 +9,8 @@ FROM pg_stat_activity;
 SELECT now() AS observed_at, datname, numbackends, xact_commit, xact_rollback,
        blks_read, blks_hit, temp_bytes, deadlocks
 FROM pg_stat_database WHERE datname=current_database();
-SELECT now() AS observed_at, queryid, calls, total_exec_time, mean_exec_time,
+SELECT now() AS observed_at, substring(query from '"public"\."([^"]+)"') AS operation,
+       queryid, calls, total_exec_time, mean_exec_time,
        max_exec_time, rows, shared_blks_hit, shared_blks_read, temp_blks_written
 FROM extensions.pg_stat_statements
 WHERE query LIKE '%"public"."get_student_unified_performance"%'

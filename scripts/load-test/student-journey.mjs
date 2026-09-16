@@ -216,6 +216,13 @@ export async function runJourneyLoad(
     // Each account checks a different account; an empty RLS-filtered result is required.
     if (concurrency > 1 && iteration === 0) {
       const other = sessions[(index + 1) % concurrency];
+      // Profiles already exist before the run, so denial cannot pass merely
+      // because the other worker has not written its progress yet.
+      await get(
+        "cross-profile-denial",
+        `profiles?select=user_id&user_id=eq.${other.id}`,
+        (d) => Array.isArray(d) && d.length === 0,
+      );
       await get(
         "cross-account-denial",
         `user_progress?select=user_id&user_id=eq.${other.id}`,
