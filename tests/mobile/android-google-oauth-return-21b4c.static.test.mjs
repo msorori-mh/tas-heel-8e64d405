@@ -187,6 +187,14 @@ describe("21B4-C — Android Google OAuth return-to-app", () => {
     expect(handler).toMatch(/if \(parsed\.kind === "ignored"\) return;/);
   });
 
+  it("11b. closing a failed Custom Tab unlocks an immediate retry", () => {
+    expect(nativeOauth).toMatch(/Browser\.addListener\("browserFinished"/);
+    expect(nativeOauth).toMatch(/NATIVE_AUTH_BROWSER_FINISHED_EVENT/);
+    expect(handler).toMatch(/markNativeAuthCallbackReceived\(\)/);
+    expect(authRoute).toMatch(/setBusy\(false\)/);
+    expect(authRoute).toMatch(/انقطاع مؤقت في الاتصال/);
+  });
+
   it("12. 21B4-B offline behaviour is unchanged", () => {
     const cap = read("capacitor.config.ts");
     expect(cap).toMatch(/errorPath: "index\.html"/);

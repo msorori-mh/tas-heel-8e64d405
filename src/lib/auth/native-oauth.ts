@@ -28,6 +28,7 @@ export const NATIVE_BRIDGE_URL = `${NATIVE_APP_SCHEME}://${NATIVE_BRIDGE_HOST}${
  * App Link. Supabase Auth must allow this exact URL (no wildcard required).
  */
 export const NATIVE_OAUTH_REDIRECT_URL = NATIVE_BRIDGE_URL;
+export const NATIVE_AUTH_BROWSER_FINISHED_EVENT = "tamkeen:native-auth-browser-finished";
 
 export type NativeAuthDestination = "student" | "teacher";
 
@@ -111,6 +112,13 @@ export function parseNativeAuthCallback(rawUrl: unknown): NativeAuthCallback {
 
 /** Codes already exchanged in this WebView session — duplicate links are no-ops. */
 const consumedCodes = new Set<string>();
+let nativeAuthCallbackReceived = false;
+let nativeAuthBrowserListener: { remove: () => Promise<void> } | undefined;
+
+/** Mark a validated provider callback before closing the Custom Tab. */
+export function markNativeAuthCallbackReceived(): void {
+  nativeAuthCallbackReceived = true;
+}
 
 export function isCallbackConsumed(code: string): boolean {
   return consumedCodes.has(code);
@@ -155,5 +163,22 @@ export async function closeNativeAuthBrowser(): Promise<void> {
 /** Open the provider consent URL in an in-app Custom Tab. */
 export async function openNativeAuthBrowser(url: string): Promise<void> {
   const { Browser } = await import("@capacitor/browser");
-  await Browser.open({ url, presentationStyle: "fullscreen" });
+  nativeAuthCallbackReceived = false;
+  await nativeAuthBrowserListener?.remove().catch(() => undefined);
+  nativeAuthBrowserListener = await Browser.addListener("browserFinished", () => {
+    const completed = nativeAuthCallbackReceived;
+    nativeAuthCallbackReceived = false;
+    window.dispatchEvent(
+      new CustomEvent(NATIVE_AUTH_BROWSER_FINISHED_EVENT, { detail: { completed } }),
+    );
+    void nativeAuthBrowserListener?.remove().catch(() => undefined);
+    nativeAuthBrowserListener = undefined;
+  });
+  try {
+    await Browser.open({ url, presentationStyle: "fullscreen" });
+  } catch (error) {
+    await nativeAuthBrowserListener?.remove().catch(() => undefined);
+    nativeAuthBrowserListener = undefined;
+    throw error;
+  }
 }
