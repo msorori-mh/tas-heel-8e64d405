@@ -40,12 +40,13 @@ function check(signal: AbortSignal) {
 async function metadataRequest<T>(
   parent: AbortSignal,
   work: (signal: AbortSignal) => PromiseLike<T>,
+  timeoutMs = 120_000,
 ): Promise<T> {
   check(parent);
   const controller = new AbortController();
   const abort = () => controller.abort();
   parent.addEventListener("abort", abort, { once: true });
-  const timer = setTimeout(abort, 30_000);
+  const timer = setTimeout(abort, timeoutMs);
   try {
     return await Promise.race([
       Promise.resolve(work(controller.signal)),
@@ -77,51 +78,83 @@ export async function prepareStudentDownloads(
   onSubject?: (name: string) => void,
 ): Promise<DownloadPlan> {
   return withForegroundTransfer(async () => {
-    const { data, error } = await metadataRequest(signal, (requestSignal) =>
-      supabase
-        .from("subjects")
-        .select("id,name,curriculum_track_id")
-        .eq("grade_id", scope.gradeId)
-        .order("sort_order")
-        .abortSignal(requestSignal),
+    const { data, error } = await metadataRequest(
+      signal,
+      (requestSignal) =>
+        supabase
+          .from("subjects")
+          .select("id,name,curriculum_track_id")
+          .eq("grade_id", scope.gradeId)
+          .order("sort_order")
+          .abortSignal(requestSignal),
+      45_000,
     );
     if (error) throw error;
     const subjects = (data ?? []).filter(
       (row) => row.curriculum_track_id === null || row.curriculum_track_id === scope.trackId,
     );
     const plan: DownloadPlan = { subjects: [], unavailable: [] };
-    for (const subject of subjects) {
-      check(signal);
-      onSubject?.(subject.name);
+    // The server deliberately accepts two manifest builders at a time. Match that
+    // capacity here instead of serialising every subject (slow) or bursting all of
+    // them together (503s under normal mobile traffic).
+    for (let offset = 0; offset < subjects.length; offset += 2) {
+      const batch = subjects.slice(offset, offset + 2);
+      const batchController = new AbortController();
+      const abortBatch = () => batchController.abort();
+      signal.addEventListener("abort", abortBatch, { once: true });
+      let results;
       try {
-        const prepared = await metadataRequest(signal, (requestSignal) =>
-          prepareOfflineSubjectPack(subject.id, {
-            expectedOwnerId: scope.ownerId,
-            signal: requestSignal,
+        results = await Promise.all(
+          batch.map(async (subject) => {
+            check(signal);
+            onSubject?.(subject.name);
+            try {
+              const prepared = await metadataRequest(batchController.signal, (requestSignal) =>
+                prepareOfflineSubjectPack(subject.id, {
+                  expectedOwnerId: scope.ownerId,
+                  signal: requestSignal,
+                }),
+              );
+              check(signal);
+              if (
+                prepared.manifest.scope.gradeId !== scope.gradeId ||
+                (prepared.manifest.scope.curriculumTrackId !== null &&
+                  prepared.manifest.scope.curriculumTrackId !== scope.trackId)
+              ) {
+                throw new Error("OFFLINE_MANIFEST_SCOPE_MISMATCH");
+              }
+              const manifestSha256 = await digestOfflinePackManifest(prepared.manifest);
+              check(signal);
+              return {
+                kind: "prepared" as const,
+                value: { id: subject.id, name: subject.name, ...prepared, manifestSha256 },
+              };
+            } catch (error) {
+              check(signal);
+              const code = error instanceof Error ? error.message : "";
+              if (!/^OFFLINE_MANIFEST_FETCH_(403|404|409|422)$/.test(code)) {
+                batchController.abort();
+                throw error;
+              }
+              return {
+                kind: "unavailable" as const,
+                value: {
+                  id: subject.id,
+                  name: subject.name,
+                  reason: code.endsWith("403")
+                    ? "غير متاحة للتنزيل بحسابك"
+                    : "لم يتوفر محتوى قابل للتنزيل بعد",
+                },
+              };
+            }
           }),
         );
-        check(signal);
-        if (
-          prepared.manifest.scope.gradeId !== scope.gradeId ||
-          (prepared.manifest.scope.curriculumTrackId !== null &&
-            prepared.manifest.scope.curriculumTrackId !== scope.trackId)
-        ) {
-          throw new Error("OFFLINE_MANIFEST_SCOPE_MISMATCH");
-        }
-        const manifestSha256 = await digestOfflinePackManifest(prepared.manifest);
-        check(signal);
-        plan.subjects.push({ id: subject.id, name: subject.name, ...prepared, manifestSha256 });
-      } catch (error) {
-        check(signal);
-        const code = error instanceof Error ? error.message : "";
-        if (!/^OFFLINE_MANIFEST_FETCH_(403|404|409|422)$/.test(code)) throw error;
-        plan.unavailable.push({
-          id: subject.id,
-          name: subject.name,
-          reason: code.endsWith("403")
-            ? "غير متاحة للتنزيل بحسابك"
-            : "لم يتوفر محتوى قابل للتنزيل بعد",
-        });
+      } finally {
+        signal.removeEventListener("abort", abortBatch);
+      }
+      for (const result of results) {
+        if (result.kind === "prepared") plan.subjects.push(result.value);
+        else plan.unavailable.push(result.value);
       }
     }
     return plan;
