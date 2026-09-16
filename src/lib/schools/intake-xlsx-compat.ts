@@ -4,7 +4,28 @@ import type { SchoolIntakeRow } from "./intake";
 
 const list = <T>(value: T | T[] | undefined): T[] =>
   value === undefined ? [] : Array.isArray(value) ? value : [value];
-type Xml = Record<string, any>;
+interface Xml {
+  [attribute: `@_${string}`]: string | undefined;
+  "#text"?: unknown;
+  workbook?: Xml;
+  sheets?: Xml;
+  sheet?: Xml | Xml[];
+  Relationships?: Xml;
+  Relationship?: Xml | Xml[];
+  worksheet?: Xml;
+  sst?: Xml;
+  si?: Xml | Xml[];
+  hyperlinks?: Xml;
+  hyperlink?: Xml | Xml[];
+  sheetData?: Xml;
+  row?: Xml | Xml[];
+  c?: Xml | Xml[];
+  t?: unknown;
+  v?: unknown;
+  is?: Xml;
+  f?: unknown;
+  r?: unknown;
+}
 const plain = (value: unknown): string => {
   if (typeof value === "string") return value;
   if (
@@ -35,7 +56,8 @@ export async function readCompatibleSchoolWorkbook(zip: JSZip): Promise<SchoolIn
       throw new Error("تعذّرت قراءة بنية XML في ملف Excel.");
     return parser.parse(text);
   }
-  function target(value: string): string {
+  function target(value: string | undefined): string {
+    if (!value) throw new Error("مسار ملف Excel غير صالح.");
     const parts: string[] = value.startsWith("/") ? [] : ["xl"];
     for (const p of value.split("/")) {
       if (!p || p === ".") continue;
@@ -66,7 +88,8 @@ export async function readCompatibleSchoolWorkbook(zip: JSZip): Promise<SchoolIn
       ? list<Xml>((await xml(target(stringsRelation["@_Target"]))).sst?.si)
       : [];
   const links = list<Xml>(sheet.hyperlinks?.hyperlink);
-  const address = (ref: string): [number, number] => {
+  const address = (ref: string | undefined): [number, number] => {
+    if (!ref) throw new Error("عنوان خلية غير صالح في ملف Excel.");
     const m = /^([A-Z]+)([1-9][0-9]*)$/.exec(ref);
     if (!m) throw new Error("عنوان خلية غير صالح في ملف Excel.");
     return [Number(m[2]), [...m[1]].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0)];
