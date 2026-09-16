@@ -562,3 +562,17 @@ it("retains form after failed save and successfully retries", async () => {
   await click("حفظ ومتابعة");
   expect(mocks.navigate).toHaveBeenCalledWith({ to: "/app", replace: true });
 });
+
+it("preserves a new student's draft when a late profile refresh arrives", async () => {
+  await mount(Route.options.component as ComponentType);
+  await change("fn", "الاسم المدخل");
+  mocks.profile = {
+    user_id: "user-1",
+    full_name: "اسم قديم",
+    grade_uuid: "grade-1",
+    governorate_id: "gov-2",
+  };
+  await mount(Route.options.component as ComponentType);
+  expect((document.getElementById("fn") as HTMLInputElement).value).toBe("الاسم المدخل");
+  expect((document.getElementById("gv") as HTMLSelectElement).value).toBe("");
+});

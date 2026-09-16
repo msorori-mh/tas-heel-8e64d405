@@ -72,18 +72,18 @@ function CompleteProfile() {
   }, [loading, profileComplete, navigate]);
 
   useEffect(() => {
-    if (profile && user && initializedFor.current !== user.id) {
+    if (!loading && user && initializedFor.current !== user.id) {
       initializedFor.current = user.id;
-      const [f, s, l] = splitName(profile.full_name);
+      attemptedSave.current = false;
+      const [f, s, l] = splitName(profile?.full_name);
       setFirstName(f);
       setSecondName(s);
       setLastName(l);
-      if (profile.grade_uuid) setGradeId(profile.grade_uuid);
-      else if (profile.grade_id) setGradeId(String(profile.grade_id));
-      if (profile.governorate_id) setGovId(profile.governorate_id);
+      setGradeId(profile?.grade_uuid || (profile?.grade_id ? String(profile.grade_id) : ""));
+      setGovId(profile?.governorate_id ?? "");
       setSchool(schoolChoiceFromProfile(profile));
     }
-  }, [profile, user]);
+  }, [loading, profile, user]);
 
   useEffect(() => {
     if (loading || !userId) return;
