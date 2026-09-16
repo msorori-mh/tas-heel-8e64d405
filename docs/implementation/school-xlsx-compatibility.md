@@ -1,25 +1,25 @@
 # School XLSX reader compatibility
 
-Baseline e1dbbc4b496326abb13f21aeae08e6eb2410e5be. Supplied file reproduced
-ExcelJS 4.4.0 failure before row validation: qualified SpreadsheetML tags
-(x:workbook etc.) are not recognized. After namespace correction, absolute
-comment targets and a VML part named vmldrawing.vml fail reconciliation.
+Baseline 3b27ae5532f90017843cb195b314625c0638664c. The uploaded editor workbook
+uses qualified SpreadsheetML tags and absolute comment/VML references that
+ExcelJS cannot reconcile. The previous metadata-normalization fallback did not
+resolve the reported production failure. A BOM alone was not proven causal.
 
-Keep the normal ExcelJS path. On load failure, use the already bounded ZIP to
-make an in-memory compatibility copy. DOMParser resolves namespaces; replace
-only qualified SpreadsheetML elements by equivalent default-namespace elements.
-Preserve cell values, formulas, XML escaping, sheet relationship IDs and hyperlink
-relationships. Remove comment/VML relationships from this read-only copy because
-notes/shapes are not imported school data. Never overwrite the uploaded file.
-Reject malformed XML and DTDs in this fallback; unknown load failures remain errors.
-Existing byte/expanded-size/entry/row limits and field validation remain in force.
+Keep normal ExcelJS loading. On load failure, read school cell data directly
+from the already bounded ZIP with fast-xml-parser. Resolve the selected sheet
+through workbook relationship IDs and support plain shared, inline and string
+cells. Ignore styles, drawings and comments because these are not school data.
+Preserve source rows and text; never modify the upload. Reject DTDs, malformed
+XML, external sheet references, formulas, hyperlinks, rich text, non-text values,
+duplicate addresses, excess populated columns and excessive rows. Existing ZIP
+limits and downstream field/duplicate validation remain in force.
 
-The original attachment parsed to 53 rows and every school field/source-row was
-compared with an independent extraction from the original XML. No user file or
-school list is committed. Synthetic tests reproduce namespaces and comment/VML
-references, including escaped text and rejection of formulas/links/numeric cells.
-Browser tests upload this format and complete preview/confirmation/result export
-at 320/390/768/1280. No production school import or database migration is needed.
+Verification includes the original attachment against an independent extraction
+of every field in its 53 rows. No original school data is committed. The browser
+fixture preserves the editor ZIP structure but substitutes synthetic field values;
+a unit assertion checks every sanitized row to prevent fixture corruption.
+Browser verification exercises import preview and confirmation controls at
+320/390/768/1280 widths, including this 53-row fixture at 320px.
+No production school import or database migration is performed by this change.
 
-Recovery: revert the three reader changes to the previous normal load behavior;
-there are no data changes to roll back.
+Recovery: revert the reader changes. No data rollback is needed.

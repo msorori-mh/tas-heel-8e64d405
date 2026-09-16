@@ -216,6 +216,24 @@ try {
     assert.equal(resultBook.worksheets[0].getCell("F2").value, "أُضيفت");
     assert.equal(resultBook.worksheets[0].getCell("F3").value, "مكررة داخل الملف");
     assert.equal(resultBook.worksheets[0].getCell("F4").value, "تحتاج تصحيحًا");
+    // Exact editor structure, school values replaced with synthetic test data.
+    if (width === 320) {
+      const editorBytes = Buffer.from(
+        await readFile("tests/e2e/school-directory/editor-workbook.base64", "utf8"),
+        "base64",
+      );
+      await page.getByLabel("ملف المدارس").setInputFiles({
+        name: "editor.xlsx",
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: editorBytes,
+      });
+      await page.getByText("مدارس جديدة: 53", { exact: false }).waitFor();
+      assert.equal(
+        await page.getByRole("button", { name: "تأكيد استيراد المدارس" }).isEnabled(),
+        false,
+      );
+    }
+
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,
