@@ -60,7 +60,10 @@ export function createOfflineCapacityLimit(
       }
     }
     const workUntil = Date.now() + workMs;
-    active.set(ticket, workUntil);
+    // A healthy invocation renews its own short lease. If Workers abandons the
+    // invocation and its timers, admission recovers within the 15s queue window.
+    const leaseMs = Math.min(10_000, workMs);
+    active.set(ticket, Math.min(workUntil, Date.now() + leaseMs));
     const controller = new AbortController();
     let stop!: (response: Response) => void;
     const cancelled = new Promise<Response>((resolve) => {
@@ -74,6 +77,17 @@ export function createOfflineCapacityLimit(
       controller.abort();
       stop(refusal(504, "offline_preparation_timeout"));
     }, workMs);
+    const heartbeat = setInterval(
+      () => {
+        if (!active.has(ticket) || Date.now() >= workUntil) {
+          controller.abort();
+          stop(refusal(504, "offline_preparation_timeout"));
+          return;
+        }
+        active.set(ticket, Math.min(workUntil, Date.now() + leaseMs));
+      },
+      Math.max(1, Math.min(1000, Math.floor(leaseMs / 3))),
+    );
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
     try {
@@ -81,7 +95,7 @@ export function createOfflineCapacityLimit(
         Promise.resolve().then(async () => {
           controller.signal.throwIfAborted();
           const response = await work(controller.signal);
-          if (Date.now() >= workUntil) {
+          if (Date.now() >= workUntil || !active.has(ticket)) {
             controller.abort();
             return refusal(504, "offline_preparation_timeout");
           }
@@ -91,6 +105,7 @@ export function createOfflineCapacityLimit(
       ]);
     } finally {
       clearTimeout(timer);
+      clearInterval(heartbeat);
       signal?.removeEventListener("abort", abort);
       // An expired ticket may already be gone. Never decrement another request.
       active.delete(ticket);

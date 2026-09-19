@@ -9,6 +9,8 @@ vi.mock("@/lib/offline/offline-pack-downloader", () => ({
   downloadOfflineSubjectPack: api.download,
   deleteOfflineSubjectPack: vi.fn(),
 }));
+import { prepared } from "./settings-fixtures";
+import { digestOfflinePackManifest } from "../../src/lib/offline/offline-pack-contract";
 import { OfflineSubjectPackCard } from "../../src/components/offline/OfflineSubjectPackCard";
 let host: HTMLDivElement, root: Root;
 beforeEach(() => {
@@ -181,4 +183,54 @@ it("does not show the old download's cancellation on a newly selected subject", 
   );
   expect(host.querySelector('[role="alert"]')).toBeNull();
   expect(host.textContent).toContain("الثانية");
+});
+
+it("opens a saved pack without preparing it again and checks updates only when requested", async () => {
+  const { manifest } = await prepared();
+  api.inspect.mockResolvedValue({
+    ownerId: "TEST_ONLY_OWNER",
+    record: { manifest, manifestSha256: await digestOfflinePackManifest(manifest) },
+    presentArtifactIds: new Set(manifest.artifacts.map((a) => a.artifactId)),
+    presentBytes: 3,
+    totalBytes: 3,
+    ready: true,
+  });
+  api.manifest.mockResolvedValue(manifest);
+  await act(async () =>
+    root.render(
+      <OfflineSubjectPackCard subjectId={manifest.scope.subjectId} subjectName="المحفوظة" />,
+    ),
+  );
+  expect(api.manifest).not.toHaveBeenCalled();
+  expect(host.textContent).toContain("متاح دون إنترنت");
+  const check = [...host.querySelectorAll("button")].find((b) =>
+    b.textContent?.includes("فحص التحديثات"),
+  )!;
+  await act(async () => check.click());
+  expect(api.manifest).toHaveBeenCalledTimes(1);
+  expect(host.textContent).toContain("متاح دون إنترنت");
+});
+
+it("keeps a saved pack ready and reports a failed manual update check", async () => {
+  const { manifest } = await prepared();
+  api.inspect.mockResolvedValue({
+    ownerId: "TEST_ONLY_OWNER",
+    record: { manifest, manifestSha256: await digestOfflinePackManifest(manifest) },
+    presentArtifactIds: new Set(manifest.artifacts.map((a) => a.artifactId)),
+    presentBytes: 3,
+    totalBytes: 3,
+    ready: true,
+  });
+  api.manifest.mockRejectedValue(new Error("OFFLINE_MANIFEST_FETCH_503"));
+  await act(async () =>
+    root.render(
+      <OfflineSubjectPackCard subjectId={manifest.scope.subjectId} subjectName="المحفوظة" />,
+    ),
+  );
+  const check = [...host.querySelectorAll("button")].find((b) =>
+    b.textContent?.includes("فحص التحديثات"),
+  )!;
+  await act(async () => check.click());
+  expect(host.textContent).toContain("متاح دون إنترنت");
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("OFFLINE_MANIFEST_FETCH_503");
 });

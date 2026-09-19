@@ -51,7 +51,7 @@ export function OfflineSubjectPackCard({
   const mountedRef = useRef(false);
 
   const refresh = useCallback(
-    async (readRemote = true) => {
+    async (readRemote: boolean | "if-missing" = true) => {
       if (!mountedRef.current) return;
       preparationRef.current?.abort();
       const controller = new AbortController();
@@ -62,16 +62,16 @@ export function OfflineSubjectPackCard({
         localResult = await inspectOfflineSubjectPack(subjectId, undefined, controller.signal);
         if (controller.signal.aborted) return;
         setLocal(localResult);
-        let latest = manifestRef.current;
-        if (readRemote) {
+        let latest = manifestRef.current ?? localResult.record?.manifest ?? null;
+        if (readRemote === true || (readRemote === "if-missing" && !localResult.record)) {
           latest = await fetchOfflineSubjectPackManifest(subjectId, setUnavailableQuestions, {
             signal: controller.signal,
             expectedOwnerId: localResult.ownerId,
           });
           if (controller.signal.aborted) return;
-          manifestRef.current = latest;
-          setManifest(latest);
         }
+        manifestRef.current = latest;
+        setManifest(latest);
         const latestDigest =
           latest && localResult.record ? await digestOfflinePackManifest(latest) : null;
         if (controller.signal.aborted) return;
@@ -85,7 +85,7 @@ export function OfflineSubjectPackCard({
         setError(null);
       } catch (caught) {
         if (controller.signal.aborted) return;
-        if (!localResult?.record) {
+        if (!localResult?.record || readRemote === true) {
           const code = caught instanceof Error ? caught.message : "";
           setError(
             code === "OFFLINE_MANIFEST_FETCH_422"
@@ -114,7 +114,7 @@ export function OfflineSubjectPackCard({
     setDownloadError(null);
     setProgress(null);
     setBusy(false);
-    void refresh();
+    void refresh("if-missing");
     return () => {
       mountedRef.current = false;
       preparationRef.current?.abort();
@@ -287,6 +287,12 @@ export function OfflineSubjectPackCard({
         {busy && (
           <Button size="sm" variant="outline" onClick={() => abortRef.current?.abort()}>
             <X className="ms-2 h-4 w-4" /> إيقاف
+          </Button>
+        )}
+        {local?.record && !busy && (
+          <Button size="sm" variant="outline" disabled={loading} onClick={() => void refresh()}>
+            <RefreshCw className="ms-2 h-4 w-4" />
+            {loading ? "جارٍ فحص التحديثات…" : "فحص التحديثات"}
           </Button>
         )}
         {local?.record && !busy && (
