@@ -23,8 +23,8 @@ BEGIN
         (SELECT intake_id FROM lcpv2_proof_intakes i WHERE i.label=v_label),v_label||':publish');
     EXCEPTION WHEN unique_violation THEN
       GET STACKED DIAGNOSTICS constraint_name=CONSTRAINT_NAME;
-      IF constraint_name IS DISTINCT FROM CASE v_label WHEN 'republish-explanation'
-          THEN 'lesson_explanations_code_lesson_uniq' ELSE 'idx_lesson_resources_code_per_lesson' END THEN
+      IF constraint_name IS DISTINCT FROM (CASE v_label WHEN 'republish-explanation'
+          THEN 'lesson_explanations_code_lesson_uniq' ELSE 'idx_lesson_resources_code_per_lesson' END) THEN
         RAISE;
       END IF;
       failed:=true;
