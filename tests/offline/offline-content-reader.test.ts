@@ -18,16 +18,19 @@ it("bounds lesson batches and paginates full pages without losing rows", async (
 });
 
 it("falls back only for a missing metadata column and retains the legacy mode", async () => {
-  const read = vi.fn(async (_ids, _from, _to, legacy) =>
+  const read = vi.fn(async (_ids, from, _to, legacy) =>
     legacy
-      ? { data: [{ content: "verified through existing attestation" }], error: null }
+      ? {
+          data: from === 0 ? [{ content: "verified through existing attestation" }] : [],
+          error: null,
+        }
       : {
           data: null,
           error: { code: "42703", message: "column offline_metadata_v1 does not exist" },
         },
   );
   expect(await readOfflineContent("books", Array(9).fill("lesson"), read)).toHaveLength(2);
-  expect(read.mock.calls.map((call) => call[3])).toEqual([false, true, true]);
+  expect(read.mock.calls.map((call) => call[3])).toEqual([false, true, true, true, true]);
 });
 
 it.each(["42501", "57014", "PGRST204"])(
@@ -76,7 +79,7 @@ it("does not accept null data as an empty successful content list", async () => 
   ).rejects.toThrow("content_books_NODATA_lookup_failed");
 });
 it.each(["42703", "PGRST204"])(
-  "paginates legacy bodies after %s in pages of at most eight rows",
+  "paginates legacy bodies after %s one body at a time",
   async (code) => {
     const read = vi.fn(async (_ids, from, to, legacy) =>
       legacy
@@ -88,12 +91,61 @@ it.each(["42703", "PGRST204"])(
     );
     expect(read.mock.calls.map((call) => [call[1], call[2]])).toEqual([
       [0, 63],
-      [0, 7],
-      [8, 15],
-      [16, 23],
+      ...Array.from({ length: 20 }, (_, i) => [i, i]),
     ]);
   },
 );
+
+it("retries only the failed legacy page once without duplicating earlier rows", async () => {
+  let failed = false;
+  const read = vi.fn(async (_ids, from, to, legacy) => {
+    if (!legacy)
+      return { data: null, error: { code: "42703", message: "offline_metadata_v1 missing" } };
+    if (from === 1 && !failed) {
+      failed = true;
+      return { data: null, error: { code: "57014", message: "private timeout detail" } };
+    }
+    return { data: ["first", "second", "third"].slice(from, to + 1), error: null };
+  });
+  expect(await readOfflineContent("books", ["lesson"], read)).toEqual(["first", "second", "third"]);
+  expect(read.mock.calls.map((call) => [call[1], call[2]])).toEqual([
+    [0, 63],
+    [0, 0],
+    [1, 1],
+    [1, 1],
+    [2, 2],
+    [3, 3],
+  ]);
+});
+
+it.each(["57014", "42501"])(
+  "rejects an incomplete legacy subject after persistent %s",
+  async (code) => {
+    const read = vi.fn(async (_ids, from, _to, legacy) => {
+      if (!legacy)
+        return { data: null, error: { code: "42703", message: "offline_metadata_v1 missing" } };
+      return from === 0
+        ? { data: ["saved only if the whole read succeeds"], error: null }
+        : { data: null, error: { code, message: "private database detail" } };
+    });
+    await expect(readOfflineContent("books", ["lesson"], read)).rejects.toThrow(
+      `content_books_${code}_lookup_failed`,
+    );
+    expect(read).toHaveBeenCalledTimes(code === "57014" ? 4 : 3);
+  },
+);
+
+it("does not retry a legacy timeout after the caller cancels", async () => {
+  const controller = new AbortController();
+  const read = vi.fn(async (_ids, _from, _to, legacy) => {
+    if (!legacy)
+      return { data: null, error: { code: "42703", message: "offline_metadata_v1 missing" } };
+    controller.abort();
+    return { data: null, error: { code: "57014" } };
+  });
+  await expect(readOfflineContent("books", ["lesson"], read, controller.signal)).rejects.toThrow();
+  expect(read).toHaveBeenCalledTimes(2);
+});
 it.each(["42501", "57014", "PGRST202"])(
   "does not substitute single-lesson reads for unrelated %s gate failures",
   async (code) => {

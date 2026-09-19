@@ -18,6 +18,7 @@ async function setup(
     legacy?: boolean;
     contentError?: { table: string; code: string; message: string };
     copies?: number;
+    maxLegacyRows?: number;
   } = {},
 ) {
   const metadata = await fingerprintOfflineText("<html>درس</html>");
@@ -107,6 +108,12 @@ async function setup(
           data: null,
           error: { code: "42703", message: "column offline_metadata_v1 does not exist" },
         };
+      if (
+        options.maxLegacyRows &&
+        fields.split(",").some((field) => ["content", "summary", "description"].includes(field)) &&
+        end - start + 1 > options.maxLegacyRows
+      )
+        return { data: null, error: { code: "57014", message: "large legacy response cancelled" } };
       const source = tables[table];
       const data = Array.isArray(source)
         ? (source as Record<string, unknown>[])
@@ -224,8 +231,16 @@ it("an unmigrated database produces the same complete artifact list through boun
     reads
       .filter((r) => r.table === "lesson_book_contents")
       .slice(1)
-      .every((r) => r.to - r.from === 7),
+      .every((r) => r.to === r.from),
   ).toBe(true);
+});
+it("prepares the complete identical manifest when multi-body legacy responses exceed the database deadline", async () => {
+  await setup(19);
+  const expected = await (await call()).json();
+  await setup(19, false, { legacy: true, maxLegacyRows: 1 });
+  const response = await call();
+  expect(response.status).toBe(200);
+  expect((await response.json()).manifest.artifacts).toEqual(expected.manifest.artifacts);
 });
 it.each([false, true])("paginates multiple content rows per lesson (legacy=%s)", async (legacy) => {
   await setup(1, false, { legacy, copies: 70 });
