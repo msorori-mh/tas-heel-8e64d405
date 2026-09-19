@@ -24,6 +24,8 @@ const seen = new Map<string, RateLimitEntry>();
 let sessionId: string | null = null;
 let installed = false;
 let sending = false;
+/** Session state is pushed in by the app; telemetry never queries auth itself. */
+let authenticated = false;
 
 function randomSessionId(): string {
   try {
@@ -106,13 +108,13 @@ async function insert(events: SanitizedDiagnosticEvent[]): Promise<boolean> {
   }
 }
 
-async function hasSession(): Promise<boolean> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    return !!data.session;
-  } catch {
-    return false;
-  }
+function hasSession(): boolean {
+  return authenticated;
+}
+
+/** Called by DiagnosticsBridge whenever the auth session changes. */
+export function setDiagnosticsAuthenticated(value: boolean): void {
+  authenticated = value;
 }
 
 /** Best-effort capture. Always resolves; never rejects. */
@@ -126,7 +128,7 @@ export async function captureDiagnostic(input: DiagnosticInput): Promise<void> {
     });
     if (!shouldSendEvent(seen, event.fingerprint, Date.now())) return;
 
-    if (!(await hasSession())) {
+    if (!hasSession()) {
       queue(event);
       return;
     }
@@ -148,7 +150,7 @@ export async function flushPendingDiagnostics(): Promise<void> {
   try {
     const pending = readPending();
     if (pending.length === 0) return;
-    if (!(await hasSession())) return;
+    if (!hasSession()) return;
     if (await insert(pending)) writePending([]);
   } catch {
     /* ignore */

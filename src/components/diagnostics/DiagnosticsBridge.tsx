@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   flushPendingDiagnostics,
   installDiagnosticsListeners,
+  setDiagnosticsAuthenticated,
 } from "@/lib/diagnostics/telemetry";
 
 /**
@@ -15,6 +16,7 @@ export function DiagnosticsBridge() {
   useEffect(() => installDiagnosticsListeners(), []);
 
   useEffect(() => {
+    setDiagnosticsAuthenticated(!!session?.user?.id);
     if (!session?.user?.id) return;
     void flushPendingDiagnostics();
   }, [session?.user?.id]);

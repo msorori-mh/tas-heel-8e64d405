@@ -51,6 +51,7 @@ describe("diagnostics telemetry privacy guards", () => {
 
   it("never inserts without a session", () => {
     expect(telemetry).toContain("hasSession");
+    expect(telemetry).toContain("setDiagnosticsAuthenticated");
     expect(telemetry).toContain("queue(event)");
   });
 
