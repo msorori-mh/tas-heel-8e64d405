@@ -104,3 +104,28 @@ it("never renders arbitrary server bodies as diagnostic text", () => {
   expect(offlineDownloadErrorMessage(failure)).not.toContain("email@example.test");
   expect(offlineDownloadErrorMessage(failure)).toContain("OFFLINE_MANIFEST_FETCH_500");
 });
+it.each(["content_books_57014_lookup_failed", "content_resources_PGRST003_lookup_failed"])(
+  "retries the transient diagnostic %s with the bounded read policy",
+  async (error) => {
+    vi.useFakeTimers();
+    const request = vi
+      .fn()
+      .mockImplementationOnce(async () => Response.json({ error }, { status: 500 }))
+      .mockResolvedValueOnce(new Response("ok"));
+    vi.stubGlobal("fetch", request);
+    const pending = fetchOfflineRead("/api/offline-pack/manifest/test");
+    await vi.runAllTimersAsync();
+    expect((await pending).status).toBe(200);
+    expect(request).toHaveBeenCalledTimes(2);
+  },
+);
+it.each([
+  "content_books_42501_lookup_failed",
+  "content_books_42703_lookup_failed",
+  "content_gates_PGRST202_lookup_failed",
+])("never retries permanent diagnostic %s", async (error) => {
+  const request = vi.fn().mockImplementation(async () => Response.json({ error }, { status: 500 }));
+  vi.stubGlobal("fetch", request);
+  expect((await fetchOfflineRead("/api/offline-pack/manifest/test")).status).toBe(500);
+  expect(request).toHaveBeenCalledTimes(1);
+});

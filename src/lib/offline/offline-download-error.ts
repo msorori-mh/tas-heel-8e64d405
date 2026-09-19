@@ -1,3 +1,12 @@
+export class OfflineLibraryPartialError extends Error {
+  constructor(readonly failures: ReadonlyArray<{ id: string; name: string; reason: string }>) {
+    super(
+      `تعذّر إكمال تنزيل ${failures.length} من المواد: ${failures.map((item) => item.name).join("، ")}. الملفات المكتملة محفوظة. ${failures.map((item) => `${item.name}: ${item.reason}`).join(" ")}`,
+    );
+    this.name = "OfflineLibraryPartialError";
+  }
+}
+
 /** Keep server diagnostics bounded and separate from private response bodies. */
 export class OfflineDownloadError extends Error {
   constructor(
@@ -28,6 +37,7 @@ export async function offlineResponseError(response: Response, prefix: string): 
 }
 
 function errorGuidance(failure: unknown): string {
+  if (failure instanceof OfflineLibraryPartialError) return failure.message;
   const code = failure instanceof Error ? failure.message : "";
   const serverCode = failure instanceof OfflineDownloadError ? failure.serverCode : "";
   const saved = " الملفات المكتملة محفوظة.";

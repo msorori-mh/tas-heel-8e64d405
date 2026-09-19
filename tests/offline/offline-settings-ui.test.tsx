@@ -179,3 +179,14 @@ it("shows an available update while keeping the saved version usable", async () 
   expect(host.textContent).toContain("متاح دون إنترنت");
   expect(host.textContent).toContain("يتوفر تحديث");
 });
+it("does not claim the grade has no content when every manifest failed", async () => {
+  api.prepare.mockResolvedValue({
+    subjects: [],
+    unavailable: [{ id: "one", name: "رياضيات", reason: "content_books_57014_lookup_failed" }],
+  });
+  await mount();
+  await click("عرض المحتوى");
+  expect(host.textContent).toContain("تعذّر تجهيز المواد");
+  expect(host.textContent).toContain("content_books_57014_lookup_failed");
+  expect(host.textContent).not.toContain("لا يوجد محتوى قابل للتنزيل");
+});

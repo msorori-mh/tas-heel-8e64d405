@@ -1,5 +1,5 @@
 import { fetchOfflineRead } from "./offline-fetch";
-import { offlineResponseError } from "./offline-download-error";
+import { OfflineDownloadError, offlineResponseError } from "./offline-download-error";
 /** OFFLINE-02 — differential, file-resumable subject pack downloader. */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -90,6 +90,18 @@ function artifactEndpoint(artifact: OfflinePackArtifact): string {
   return `/api/offline-pack/artifact/${encodeURIComponent(artifact.resourceId)}`;
 }
 
+async function artifactNetworkRead<T>(work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    // Classify errors only at the HTTP/stream boundary, never around storage or callbacks.
+    if (!signal?.aborted && error instanceof TypeError) {
+      throw new OfflineDownloadError("OFFLINE_ARTIFACT_NETWORK_FAILED");
+    }
+    throw error;
+  }
+}
+
 function createDeviceIo(expectedOwnerId: string): OfflinePackDownloadIo {
   return {
     async read(ownerId, artifact) {
@@ -111,26 +123,34 @@ function createDeviceIo(expectedOwnerId: string): OfflinePackDownloadIo {
       // A subject can take longer than a session token's lifetime. Resolve the
       // current (SDK-refreshed) token for each file, keeping the owner fixed.
       const { token } = await checkedIdentity({ expectedOwnerId, signal });
-      const response = await fetchOfflineRead(artifactEndpoint(artifact), {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await artifactNetworkRead(
+        () =>
+          fetchOfflineRead(artifactEndpoint(artifact), {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+            signal,
+          }),
         signal,
-      });
+      );
       if (!response.ok) throw await offlineResponseError(response, "OFFLINE_ARTIFACT_DOWNLOAD");
       if (!response.body || !onProgress) {
-        return new Uint8Array(await response.arrayBuffer());
+        return new Uint8Array(await artifactNetworkRead(() => response.arrayBuffer(), signal));
       }
       const reader = response.body.getReader();
       const chunks: Uint8Array[] = [];
       let loaded = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          chunks.push(value);
-          loaded += value.byteLength;
-          onProgress(loaded);
+      try {
+        for (;;) {
+          const { done, value } = await artifactNetworkRead(() => reader.read(), signal);
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            loaded += value.byteLength;
+            onProgress(loaded);
+          }
         }
+      } finally {
+        reader.releaseLock();
       }
       const bytes = new Uint8Array(loaded);
       let offset = 0;
