@@ -23,7 +23,7 @@ function canonicalSnapshot(value: unknown): string {
 /** Verify either an exact-body publication or the approved legacy V3 snapshot.
  * Never replace approval with a hash computed from unapproved current content. */
 export async function isOfflineTextApproved(params: {
-  body: string;
+  body?: string;
   bodySha256: string;
   expectedSha256: string;
   lessonId: string;
@@ -55,11 +55,17 @@ export async function isOfflineTextApproved(params: {
     return false;
   }
   if (snapshotHash !== params.expectedSha256) return false;
-  return record.payload.some(
-    (item) =>
-      item &&
-      typeof item === "object" &&
-      !Array.isArray(item) &&
-      (item as Record<string, unknown>)[field] === params.body,
-  );
+  for (const item of record.payload) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const approvedBody = (item as Record<string, unknown>)[field];
+    if (typeof approvedBody !== "string") continue;
+    if (typeof params.body === "string") {
+      if (approvedBody === params.body) return true;
+    } else if ((await sha256Hex(new TextEncoder().encode(approvedBody))) === params.bodySha256) {
+      // The manifest may receive only database-generated body metadata.
+      // Compare that exact body hash to content in the verified snapshot.
+      return true;
+    }
+  }
+  return false;
 }
