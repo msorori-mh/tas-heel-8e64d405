@@ -99,3 +99,25 @@ it("builds an exact-body manifest from legacy approved text without changing the
   expect(result.manifest.artifacts[0].sha256).toBe((await input()).bodySha256);
   expect(JSON.stringify(result.manifest)).not.toContain("readySnapshot");
 });
+
+it("verifies bodyless database metadata only against exact content in an approved snapshot", async () => {
+  const value = await input();
+  expect(await isOfflineTextApproved({ ...value, body: undefined })).toBe(true);
+  expect(
+    await isOfflineTextApproved({
+      ...value,
+      body: undefined,
+      bodySha256: await sha256Hex(new TextEncoder().encode("changed")),
+    }),
+  ).toBe(false);
+  expect(
+    await isOfflineTextApproved({
+      ...value,
+      body: undefined,
+      readySnapshot: { ...snapshot, payload: [{ content: "changed" }] },
+    }),
+  ).toBe(false);
+  expect(
+    await isOfflineTextApproved({ ...value, body: undefined, lessonId: "another-lesson" }),
+  ).toBe(false);
+});

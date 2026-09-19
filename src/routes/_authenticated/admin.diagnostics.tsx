@@ -23,12 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -175,7 +170,9 @@ function AdminDiagnosticsPage() {
         setIssues((prev) =>
           prev.map((issue) => (issue.fingerprint === fingerprint ? { ...issue, status } : issue)),
         );
-        setOpenIssue((prev) => (prev && prev.fingerprint === fingerprint ? { ...prev, status } : prev));
+        setOpenIssue((prev) =>
+          prev && prev.fingerprint === fingerprint ? { ...prev, status } : prev,
+        );
         toast.success("تم تحديث حالة المشكلة");
       } catch {
         toast.error("تعذّر تحديث حالة المشكلة");
@@ -226,7 +223,11 @@ function AdminDiagnosticsPage() {
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard title="إجمالي الأحداث" value={summary?.total_events ?? 0} icon={Activity} />
-          <StatCard title="المستخدمون المتأثرون" value={summary?.affected_users ?? 0} icon={Users} />
+          <StatCard
+            title="المستخدمون المتأثرون"
+            value={summary?.affected_users ?? 0}
+            icon={Users}
+          />
           <StatCard
             title="الأحداث الحرجة"
             value={summary?.critical_events ?? 0}
