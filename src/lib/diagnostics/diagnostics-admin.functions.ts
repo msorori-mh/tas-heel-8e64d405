@@ -66,7 +66,7 @@ export type DiagnosticsEvent = {
   network_type: string | null;
   online: boolean | null;
   session_id: string | null;
-  metadata: Record<string, unknown> | null;
+  metadata: Record<string, string | number | boolean> | null;
 };
 
 export const adminDiagnosticsOverview = createServerFn({ method: "POST" })
