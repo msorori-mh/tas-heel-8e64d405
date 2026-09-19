@@ -4,7 +4,8 @@ SELECT set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000003'
 SELECT pg_temp.lcpv2_verified_intake('republish-explanation','tamkeenExplanationHtml',
   '<html dir="rtl"><body>EXPLANATION</body></html>');
 SELECT pg_temp.lcpv2_verified_intake('republish-mindmap','mindMapHtml',
-  '<html dir="rtl"><body><button onclick="window.opened=true">MIND</button><script>window.ready=true</script></body></html>');
+  format($html$<html dir="rtl"><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; script-src 'sha256-%s';"></head><body>MIND<script>window.ready=true</script></body></html>$html$,
+    public.cf11_script_csp_hash('window.ready=true')));
 CREATE TEMP TABLE republish_original_rows AS
 SELECT 'tamkeenExplanationHtml'::text AS capability,id FROM public.lesson_explanations
  WHERE lesson_id='43000000-0000-0000-0000-0000000000b2'
