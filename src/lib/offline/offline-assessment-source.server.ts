@@ -1,3 +1,4 @@
+import { offlineRequestFetch } from "./offline-request-fetch.server";
 import { parseQuestionImage } from "../lessons/question-image";
 /**
  * OFFLINE-05 — build private, student-scoped question payloads for offline use.
@@ -70,11 +71,12 @@ const answerLayerSchema = z
   })
   .strict();
 
-function serviceClient(): SupabaseClient<Database> {
+function serviceClient(signal?: AbortSignal): SupabaseClient<Database> {
   const url = process.env["SUPABASE_URL"];
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!url || !key) throw new Error("OFFLINE_ASSESSMENT_SERVER_MISCONFIGURED");
   return createClient<Database>(url, key, {
+    ...(signal ? { global: { fetch: offlineRequestFetch(signal) } } : {}),
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
   });
 }
@@ -150,6 +152,7 @@ function latestIso(values: Array<string | null | undefined>, fallback: string): 
 }
 
 export async function loadOfflineAssessmentSource(params: {
+  signal?: AbortSignal;
   userClient: SupabaseClient<Database>;
   answerClient?: SupabaseClient<Database>;
   lessonId: string;
@@ -157,11 +160,12 @@ export async function loadOfflineAssessmentSource(params: {
   readyAt: string;
   onUnavailableQuestion?: () => void;
 }): Promise<OfflineAssessmentSource | null> {
+  params.signal?.throwIfAborted();
   const rows = await loadStudentRows(params.userClient, params.lessonId, params.kind);
   if (rows.length === 0) return null;
 
   const revisionIds = [...new Set(rows.map((row) => row.revision_id))];
-  const admin = params.answerClient ?? serviceClient();
+  const admin = params.answerClient ?? serviceClient(params.signal);
   const rpc = admin.rpc.bind(admin) as unknown as (
     name: string,
     args: Record<string, unknown>,
@@ -300,6 +304,7 @@ export async function loadOfflineAssessmentSource(params: {
 }
 
 export async function loadOfflineAssessmentSources(params: {
+  signal?: AbortSignal;
   onUnavailableQuestion?: () => void;
   userClient: SupabaseClient<Database>;
   lessons: ReadonlyArray<{
@@ -333,13 +338,15 @@ export async function loadOfflineAssessmentSources(params: {
   if (tasks.length === 0) return [];
 
   const sources: OfflineAssessmentSource[] = [];
-  const answerClient = serviceClient();
+  const answerClient = serviceClient(params.signal);
   const concurrency = 6;
   for (let offset = 0; offset < tasks.length; offset += concurrency) {
+    params.signal?.throwIfAborted();
     const batch = await Promise.all(
       tasks.slice(offset, offset + concurrency).map((task) =>
         loadOfflineAssessmentSource({
           userClient: params.userClient,
+          signal: params.signal,
           answerClient,
           onUnavailableQuestion: params.onUnavailableQuestion,
           ...task,

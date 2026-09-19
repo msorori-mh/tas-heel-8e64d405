@@ -46,37 +46,81 @@ export function OfflineSubjectPackCard({
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const preparationRef = useRef<AbortController | null>(null);
+  const manifestRef = useRef<OfflinePackManifest | null>(null);
+  const mountedRef = useRef(false);
 
-  const refresh = useCallback(async () => {
-    const localResult = await inspectOfflineSubjectPack(subjectId).catch(() => null);
-    setLocal(localResult);
-    try {
-      const latest = await fetchOfflineSubjectPackManifest(subjectId, setUnavailableQuestions);
-      setManifest(latest);
-      if (!localResult?.record) {
-        setUpdateAvailable(false);
-      } else {
-        const latestDigest = await digestOfflinePackManifest(latest);
-        setUpdateAvailable(latestDigest !== localResult.record.manifestSha256);
-      }
-      setError(null);
-    } catch (caught) {
-      if (!localResult?.record) {
-        const code = caught instanceof Error ? caught.message : "";
-        setError(
-          code === "OFFLINE_MANIFEST_FETCH_422"
-            ? "لا يوجد محتوى موثّق متاح للتنزيل في هذه المادة بعد."
-            : offlineDownloadErrorMessage(caught),
+  const refresh = useCallback(
+    async (readRemote = true) => {
+      if (!mountedRef.current) return;
+      preparationRef.current?.abort();
+      const controller = new AbortController();
+      preparationRef.current = controller;
+      if (readRemote) setLoading(true);
+      let localResult: OfflineSubjectPackLocalStatus | null = null;
+      try {
+        localResult = await inspectOfflineSubjectPack(subjectId, undefined, controller.signal);
+        if (controller.signal.aborted) return;
+        setLocal(localResult);
+        let latest = manifestRef.current;
+        if (readRemote) {
+          latest = await fetchOfflineSubjectPackManifest(subjectId, setUnavailableQuestions, {
+            signal: controller.signal,
+            expectedOwnerId: localResult.ownerId,
+          });
+          if (controller.signal.aborted) return;
+          manifestRef.current = latest;
+          setManifest(latest);
+        }
+        const latestDigest =
+          latest && localResult.record ? await digestOfflinePackManifest(latest) : null;
+        if (controller.signal.aborted) return;
+        setUpdateAvailable(
+          Boolean(
+            localResult.record &&
+            latestDigest &&
+            latestDigest !== localResult.record.manifestSha256,
+          ),
         );
+        setError(null);
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        if (!localResult?.record) {
+          const code = caught instanceof Error ? caught.message : "";
+          setError(
+            code === "OFFLINE_MANIFEST_FETCH_422"
+              ? "لا يوجد محتوى موثّق متاح للتنزيل في هذه المادة بعد."
+              : offlineDownloadErrorMessage(caught),
+          );
+        }
+      } finally {
+        if (preparationRef.current === controller) {
+          preparationRef.current = null;
+          if (!controller.signal.aborted) setLoading(false);
+        }
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [subjectId]);
+    },
+    [subjectId],
+  );
 
   useEffect(() => {
+    mountedRef.current = true;
+    manifestRef.current = null;
+    setManifest(null);
+    setLocal(null);
+    setUpdateAvailable(false);
+    setUnavailableQuestions(0);
+    setError(null);
+    setDownloadError(null);
+    setProgress(null);
+    setBusy(false);
     void refresh();
-    return () => abortRef.current?.abort();
+    return () => {
+      mountedRef.current = false;
+      preparationRef.current?.abort();
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
   }, [refresh]);
 
   const effectiveManifest = manifest ?? local?.record?.manifest ?? null;
@@ -98,29 +142,36 @@ export function OfflineSubjectPackCard({
   const ready = local?.ready === true && !updateAvailable;
 
   const handleDownload = async () => {
+    preparationRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setBusy(true);
     setError(null);
     setDownloadError(null);
+    let refreshRemote = false;
     try {
       await downloadOfflineSubjectPack({
         subjectId,
+        manifest: effectiveManifest ?? undefined,
+        expectedOwnerId: local?.ownerId,
         signal: controller.signal,
         onProgress: setProgress,
       });
     } catch (caught) {
       const code = caught instanceof Error ? caught.message : "";
+      refreshRemote = code.endsWith("_409") || /^OFFLINE_ARTIFACT_(HASH|SIZE)_MISMATCH$/.test(code);
       setDownloadError(
         controller.signal.aborted || code === "OFFLINE_DOWNLOAD_ABORTED"
           ? "توقف التنزيل. يمكنك استكماله لاحقًا دون إعادة الملفات المكتملة."
           : offlineDownloadErrorMessage(caught),
       );
     } finally {
-      abortRef.current = null;
-      setBusy(false);
-      setProgress(null);
-      await refresh();
+      if (mountedRef.current && abortRef.current === controller) {
+        abortRef.current = null;
+        setBusy(false);
+        setProgress(null);
+        await refresh(refreshRemote);
+      }
     }
   };
 
@@ -136,7 +187,7 @@ export function OfflineSubjectPackCard({
     } finally {
       setBusy(false);
       setProgress(null);
-      await refresh();
+      await refresh(false);
     }
   };
 

@@ -15,6 +15,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   api.inspect.mockResolvedValue({
+    ownerId: "TEST_ONLY_OWNER",
     record: null,
     presentArtifactIds: new Set(),
     presentBytes: 0,
@@ -36,7 +37,7 @@ async function clickDownload() {
   )!;
   await act(async () => button.click());
 }
-it("keeps download failure visible after successful metadata refresh and clears unfinished progress", async () => {
+it("keeps download failure visible after local refresh without rebuilding metadata", async () => {
   api.download.mockImplementation(async ({ onProgress }) => {
     onProgress({ loadedBytes: 3, totalBytes: 100, status: "downloading" });
     throw new Error("TEST_ONLY_DOWNLOAD_FAILURE");
@@ -45,7 +46,7 @@ it("keeps download failure visible after successful metadata refresh and clears 
     root.render(<OfflineSubjectPackCard subjectId="test-subject" subjectName="القراءة" />),
   );
   await clickDownload();
-  expect(api.manifest).toHaveBeenCalledTimes(2);
+  expect(api.manifest).toHaveBeenCalledTimes(1);
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("تعذّر إكمال التنزيل");
   expect(host.textContent).not.toContain("جارٍ التحقق من الملف الحالي");
   expect(host.textContent).not.toContain("3%");
@@ -106,4 +107,58 @@ it("discloses unavailable questions while keeping the available pack downloadabl
     [...host.querySelectorAll("button")].find((x) => x.textContent?.includes("تنزيل المادة"))
       ?.disabled,
   ).toBe(false);
+});
+
+it("downloads the exact preview without another manifest and re-inspects only local files", async () => {
+  const preview = { artifacts: [{ byteSize: 100 }] };
+  api.manifest.mockResolvedValue(preview);
+  api.download.mockResolvedValue(undefined);
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="test-subject" subjectName="القراءة" />),
+  );
+  await clickDownload();
+  expect(api.download).toHaveBeenCalledWith(
+    expect.objectContaining({
+      manifest: preview,
+      expectedOwnerId: "TEST_ONLY_OWNER",
+      subjectId: "test-subject",
+    }),
+  );
+  expect(api.manifest).toHaveBeenCalledTimes(1);
+  expect(api.inspect).toHaveBeenCalledTimes(2);
+});
+
+it("aborts pending preparation on navigation and ignores late responses from the previous subject", async () => {
+  let firstSignal!: AbortSignal;
+  let finish!: (value: unknown) => void;
+  api.manifest.mockImplementationOnce((_id, _report, options) => {
+    firstSignal = options.signal;
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  });
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="first" subjectName="الأولى" />),
+  );
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="second" subjectName="الثانية" />),
+  );
+  expect(firstSignal.aborted).toBe(true);
+  await act(async () => finish({ artifacts: [{ byteSize: 9000000 }] }));
+  await clickDownload();
+  expect(api.download).toHaveBeenCalledWith(
+    expect.objectContaining({ subjectId: "second", manifest: { artifacts: [{ byteSize: 100 }] } }),
+  );
+});
+
+it("refreshes changed metadata after an integrity conflict", async () => {
+  api.download.mockRejectedValue(new Error("OFFLINE_ARTIFACT_HASH_MISMATCH"));
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="test-subject" subjectName="القراءة" />),
+  );
+  await clickDownload();
+  expect(api.manifest).toHaveBeenCalledTimes(2);
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+    "OFFLINE_ARTIFACT_HASH_MISMATCH",
+  );
 });

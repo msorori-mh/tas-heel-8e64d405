@@ -232,8 +232,9 @@ export async function prepareOfflineSubjectPack(
 export async function fetchOfflineSubjectPackManifest(
   subjectId: string,
   onAvailability?: (unavailableQuestions: number) => void,
+  options: OfflineDownloadRequest = {},
 ): Promise<OfflinePackManifest> {
-  const result = await fetchOfflineSubjectPackManifestWithIdentity(subjectId);
+  const result = await fetchOfflineSubjectPackManifestWithIdentity(subjectId, options);
   onAvailability?.(result.unavailableQuestions);
   return result.manifest;
 }
