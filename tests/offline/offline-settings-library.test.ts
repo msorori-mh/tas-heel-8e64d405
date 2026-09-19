@@ -22,6 +22,10 @@ import {
   downloadStudentSubjects,
   readSavedStudentDownloads,
 } from "../../src/lib/offline/offline-download-library";
+import {
+  OfflineDownloadError,
+  OfflineLibraryPartialError,
+} from "../../src/lib/offline/offline-download-error";
 import { hasForegroundTransfers } from "../../src/lib/offline/download-priority";
 import { prepared, savedSubject, scope } from "./settings-fixtures";
 let query: {
@@ -77,7 +81,7 @@ it("continues with ready subjects when one manifest remains temporarily unavaila
   expect(result.unavailable).toEqual([
     expect.objectContaining({
       id: "one",
-      reason: "تعذّر تجهيزها مؤقتًا؛ حدّث القائمة لاستكمالها",
+      reason: expect.stringContaining("OFFLINE_MANIFEST_FETCH_500"),
     }),
   ]);
   expect(result.subjects.map((subject) => subject.id)).toEqual(["two"]);
@@ -237,4 +241,132 @@ it("lists and verifies only the current owner’s saved packs without requesting
   expect(api.inspect).toHaveBeenCalledTimes(1);
   expect(api.from).not.toHaveBeenCalled();
   expect(api.metadata).not.toHaveBeenCalled();
+});
+it("keeps the exact server diagnostic attached to the unavailable subject", async () => {
+  api.metadata.mockRejectedValueOnce(
+    new OfflineDownloadError("OFFLINE_MANIFEST_FETCH_500", "content_books_57014_lookup_failed"),
+  );
+  const plan = await prepareStudentDownloads(scope, new AbortController().signal);
+  expect(plan.unavailable[0].reason).toContain("content_books_57014_lookup_failed");
+  expect(plan.subjects.map((s) => s.id)).toEqual(["two"]);
+});
+it.each(["OFFLINE_METADATA_TIMEOUT", "OFFLINE_MANIFEST_FETCH_429"])(
+  "reports %s as temporary rather than empty content",
+  async (code) => {
+    api.metadata.mockRejectedValueOnce(new Error(code));
+    const plan = await prepareStudentDownloads(scope, new AbortController().signal);
+    expect(plan.unavailable[0].reason).toContain(code);
+    expect(plan.unavailable[0].reason).not.toContain("لم يتوفر محتوى");
+    expect(plan.subjects).toHaveLength(1);
+  },
+);
+it("isolates a stalled subject manifest and continues to the next batch", async () => {
+  vi.useFakeTimers();
+  query.abortSignal.mockResolvedValue({
+    data: [...rows, { id: "three", name: "فيزياء", curriculum_track_id: null }],
+    error: null,
+  });
+  const readyTwo = await prepared("two"),
+    readyThree = await prepared("three");
+  api.metadata.mockImplementation((id) =>
+    id === "one" ? new Promise(() => {}) : Promise.resolve(id === "two" ? readyTwo : readyThree),
+  );
+  const pending = prepareStudentDownloads(scope, new AbortController().signal);
+  await vi.advanceTimersByTimeAsync(120_000);
+  const plan = await pending;
+  expect(plan.subjects.map((s) => s.id)).toEqual(["two", "three"]);
+  expect(plan.unavailable[0].reason).toContain("OFFLINE_METADATA_TIMEOUT");
+  expect(hasForegroundTransfers()).toBe(false);
+});
+it.each([
+  "OFFLINE_ARTIFACT_DOWNLOAD_404",
+  "OFFLINE_ARTIFACT_DOWNLOAD_429",
+  "OFFLINE_ARTIFACT_DOWNLOAD_500",
+  "OFFLINE_ARTIFACT_DOWNLOAD_503",
+  "OFFLINE_ARTIFACT_NETWORK_FAILED",
+])(
+  "continues the library after %s, preserving verified progress without claiming completion",
+  async (code) => {
+    const subjects = [await prepared(), await prepared("two")];
+    const ready = vi.fn(),
+      progress = vi.fn();
+    api.download.mockImplementationOnce(async (args) => {
+      args.onProgress({ status: "verified", loadedBytes: 1 });
+      args.onProgress({ status: "downloading", loadedBytes: 2 });
+      throw new Error(code);
+    });
+    await expect(
+      downloadStudentSubjects({
+        ownerId: scope.ownerId,
+        subjects,
+        signal: new AbortController().signal,
+        onProgress: progress,
+        onReady: ready,
+      }),
+    ).rejects.toMatchObject({
+      name: "OfflineLibraryPartialError",
+      failures: [{ id: "one", name: subjects[0].name, reason: expect.stringContaining(code) }],
+    });
+    expect(api.download).toHaveBeenCalledTimes(2);
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(ready.mock.calls[0][0]).toBe("two");
+    expect(progress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ completed: 1, count: 2, loadedBytes: 4, totalBytes: 6 }),
+    );
+    expect(hasForegroundTransfers()).toBe(false);
+  },
+);
+it.each([
+  new Error("OFFLINE_ARTIFACT_DOWNLOAD_401"),
+  new Error("OFFLINE_ARTIFACT_DOWNLOAD_403"),
+  new Error("OFFLINE_ARTIFACT_HASH_MISMATCH"),
+  new Error("OFFLINE_OWNER_CHANGED"),
+  new Error("OFFLINE_ARTIFACT_PERSISTENCE_FAILED"),
+  new TypeError("local programming failure"),
+])("stops on an unsafe failure: %s", async (failure) => {
+  api.download.mockRejectedValueOnce(failure);
+  const ready = vi.fn();
+  await expect(
+    downloadStudentSubjects({
+      ownerId: scope.ownerId,
+      subjects: [await prepared(), await prepared("two")],
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      onReady: ready,
+    }),
+  ).rejects.toBe(failure);
+  expect(api.download).toHaveBeenCalledTimes(1);
+  expect(ready).not.toHaveBeenCalled();
+  expect(hasForegroundTransfers()).toBe(false);
+});
+it("does not swallow callback errors as a failed transfer", async () => {
+  const failure = new TypeError("render callback failed");
+  await expect(
+    downloadStudentSubjects({
+      ownerId: scope.ownerId,
+      subjects: [await prepared(), await prepared("two")],
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      onReady: async () => {
+        throw failure;
+      },
+    }),
+  ).rejects.toBe(failure);
+  expect(api.download).toHaveBeenCalledTimes(1);
+});
+it("all failed subjects remain explicitly failed", async () => {
+  api.download.mockRejectedValue(new Error("OFFLINE_ARTIFACT_NETWORK_FAILED"));
+  const ready = vi.fn();
+  const result = downloadStudentSubjects({
+    ownerId: scope.ownerId,
+    subjects: [await prepared(), await prepared("two")],
+    signal: new AbortController().signal,
+    onProgress: vi.fn(),
+    onReady: ready,
+  });
+  await expect(result).rejects.toBeInstanceOf(OfflineLibraryPartialError);
+  await expect(result).rejects.toMatchObject({
+    failures: [expect.objectContaining({ id: "one" }), expect.objectContaining({ id: "two" })],
+  });
+  expect(ready).not.toHaveBeenCalled();
 });

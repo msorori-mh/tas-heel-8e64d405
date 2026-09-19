@@ -1,4 +1,5 @@
 /** Settings-only orchestration over the existing verified, resumable pack engine. */
+import { OfflineLibraryPartialError, offlineDownloadErrorMessage } from "./offline-download-error";
 import { supabase } from "@/integrations/supabase/client";
 import {
   downloadOfflineSubjectPack,
@@ -132,7 +133,10 @@ export async function prepareStudentDownloads(
             } catch (error) {
               check(signal);
               const code = error instanceof Error ? error.message : "";
-              if (!/^OFFLINE_MANIFEST_FETCH_(403|404|409|422|500|502|503|504)$/.test(code)) {
+              if (
+                code !== "OFFLINE_METADATA_TIMEOUT" &&
+                !/^OFFLINE_MANIFEST_FETCH_(403|404|409|422|429|500|502|503|504)$/.test(code)
+              ) {
                 batchController.abort();
                 throw error;
               }
@@ -141,11 +145,9 @@ export async function prepareStudentDownloads(
                 value: {
                   id: subject.id,
                   name: subject.name,
-                  reason: code.endsWith("403")
-                    ? "غير متاحة للتنزيل بحسابك"
-                    : /_(500|502|503|504)$/.test(code)
-                      ? "تعذّر تجهيزها مؤقتًا؛ حدّث القائمة لاستكمالها"
-                      : "لم يتوفر محتوى قابل للتنزيل بعد",
+                  reason: code.endsWith("422")
+                    ? "لم يتوفر محتوى قابل للتنزيل بعد"
+                    : offlineDownloadErrorMessage(error),
                 },
               };
             }
@@ -193,54 +195,83 @@ export async function downloadStudentSubjects(params: {
     const { subjects, signal } = params;
     const totalBytes = subjects.reduce((sum, subject) => sum + manifestBytes(subject.manifest), 0);
     let completedBytes = 0;
+    let readyCount = 0;
+    const failures: { id: string; name: string; reason: string }[] = [];
     for (let index = 0; index < subjects.length; index += 1) {
       check(signal);
       const subject = subjects[index];
-      const report = (progress?: OfflinePackDownloadProgress) =>
+      let verifiedBytes = 0;
+      const report = (progress?: OfflinePackDownloadProgress) => {
+        if (progress && (progress.status === "cached" || progress.status === "verified")) {
+          verifiedBytes = progress.loadedBytes;
+        }
         params.onProgress({
           subjectName: subject.name,
-          completed: index,
+          completed: readyCount,
           count: subjects.length,
           loadedBytes: completedBytes + (progress?.loadedBytes ?? 0),
           totalBytes,
         });
+      };
       report();
-      const local = await inspectOfflineSubjectPack(subject.id, undefined, signal);
-      check(signal);
-      if (local.ownerId !== params.ownerId) throw new Error("OFFLINE_OWNER_CHANGED");
-      const reusable = subject.manifest.artifacts.filter(
-        (artifact) =>
-          local.presentArtifactIds.has(artifact.artifactId) &&
-          local.record?.manifest.artifacts.some(
-            (saved) =>
-              saved.artifactId === artifact.artifactId &&
-              saved.sha256 === artifact.sha256 &&
-              saved.byteSize === artifact.byteSize,
-          ),
-      );
-      const remaining =
-        manifestBytes(subject.manifest) -
-        reusable.reduce((sum, artifact) => sum + artifact.byteSize, 0);
-      const free = await getFreeStorageBytes();
-      check(signal);
-      if (free !== null && free < remaining) throw new Error("OFFLINE_INSUFFICIENT_STORAGE");
-      const record = await downloadOfflineSubjectPack({
-        subjectId: subject.id,
-        manifest: subject.manifest,
-        expectedOwnerId: params.ownerId,
-        signal,
-        onProgress: report,
-      });
+      let record: OfflinePackRecord;
+      try {
+        const local = await inspectOfflineSubjectPack(subject.id, undefined, signal);
+        check(signal);
+        if (local.ownerId !== params.ownerId) throw new Error("OFFLINE_OWNER_CHANGED");
+        const reusable = subject.manifest.artifacts.filter(
+          (artifact) =>
+            local.presentArtifactIds.has(artifact.artifactId) &&
+            local.record?.manifest.artifacts.some(
+              (saved) =>
+                saved.artifactId === artifact.artifactId &&
+                saved.sha256 === artifact.sha256 &&
+                saved.byteSize === artifact.byteSize,
+            ),
+        );
+        const remaining =
+          manifestBytes(subject.manifest) -
+          reusable.reduce((sum, artifact) => sum + artifact.byteSize, 0);
+        const free = await getFreeStorageBytes();
+        check(signal);
+        if (free !== null && free < remaining) throw new Error("OFFLINE_INSUFFICIENT_STORAGE");
+        record = await downloadOfflineSubjectPack({
+          subjectId: subject.id,
+          manifest: subject.manifest,
+          expectedOwnerId: params.ownerId,
+          signal,
+          onProgress: report,
+        });
+      } catch (error) {
+        check(signal);
+        const code = error instanceof Error ? error.message : "";
+        // Stop on identity/storage/integrity failures. Only isolated transfer
+        // failures can be skipped; verified files remain resumable.
+        if (
+          code !== "OFFLINE_ARTIFACT_NETWORK_FAILED" &&
+          !/^OFFLINE_ARTIFACT_DOWNLOAD_(404|429|500|502|503|504)$/.test(code)
+        )
+          throw error;
+        completedBytes += verifiedBytes;
+        failures.push({
+          id: subject.id,
+          name: subject.name,
+          reason: offlineDownloadErrorMessage(error),
+        });
+        continue;
+      }
       completedBytes += manifestBytes(subject.manifest);
+      readyCount += 1;
       await params.onReady(subject.id, record);
       check(signal);
       params.onProgress({
         subjectName: subject.name,
-        completed: index + 1,
+        completed: readyCount,
         count: subjects.length,
         loadedBytes: completedBytes,
         totalBytes,
       });
     }
+    if (failures.length) throw new OfflineLibraryPartialError(failures);
   });
 }

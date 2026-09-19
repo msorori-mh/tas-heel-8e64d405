@@ -9,7 +9,13 @@ async function isTransientReadFailure(input: string, response: Response): Promis
   if (!response.headers.get("content-type")?.includes("application/json")) return false;
   try {
     const payload = await response.clone().json();
-    return typeof payload?.error === "string" && /^[a-z_]+_lookup_failed$/.test(payload.error);
+    return (
+      typeof payload?.error === "string" &&
+      (/^[a-z_]+_lookup_failed$/.test(payload.error) ||
+        /^content_(books|explanations|summaries|resources|gates)_(57014|53300|53400|08000|08003|08006|57P01|57P02|57P03|PGRST000|PGRST001|PGRST002|PGRST003)_lookup_failed$/.test(
+          payload.error,
+        ))
+    );
   } catch {
     return false;
   }

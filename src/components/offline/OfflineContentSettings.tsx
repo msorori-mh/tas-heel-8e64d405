@@ -131,7 +131,9 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
             ? next.unavailable.length
               ? `تم تجهيز ${next.subjects.length} مواد. تعذّر تجهيز ${next.unavailable.length} مؤقتًا؛ يمكنك تنزيل الجاهز ثم تحديث القائمة.`
               : "راجع الحجم ثم ابدأ التنزيل."
-            : "لا يوجد محتوى قابل للتنزيل لصفك حاليًا.",
+            : next.unavailable.length
+              ? "تعذّر تجهيز المواد. راجع الأسباب أدناه ثم أعد تحديث القائمة."
+              : "لا يوجد محتوى قابل للتنزيل لصفك حاليًا.",
         );
       }
     });

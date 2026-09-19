@@ -71,7 +71,9 @@ it("third-secondary journey resumes a cut file, retains completed files, then re
     repository,
     onProgress: vi.fn(),
   };
-  await expect(downloadOfflineSubjectPack(request)).rejects.toThrow("connection reset");
+  await expect(downloadOfflineSubjectPack(request)).rejects.toThrow(
+    "OFFLINE_ARTIFACT_NETWORK_FAILED",
+  );
   const partial = (await repository.read()).packs[0];
   expect(partial.status).toBe("failed");
   expect(partial.verifiedArtifactIds).toEqual([`official-book:${firstId}`]);
