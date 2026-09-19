@@ -52,7 +52,7 @@ export type OfflineManifestLesson = {
   managed: boolean;
   visible: boolean;
   readyCapabilities: Readonly<
-    Record<string, { sha256: string; readyAt: string; snapshot?: unknown }>
+    Record<string, { sha256: string; readyAt: string; snapshot?: unknown; descriptor?: unknown }>
   >;
 };
 
@@ -209,6 +209,7 @@ export async function buildOfflineSubjectPack(
         lessonId: lesson.id,
         capability,
         readySnapshot: ready.snapshot,
+        preparedSnapshot: ready.descriptor,
       }))
     ) {
       throw new Error("OFFLINE_SOURCE_READY_HASH_MISMATCH");

@@ -237,6 +237,14 @@ jobs:
           OFFLINE_PG17_URL: postgresql://postgres:tamkeen_offline_ci_only@localhost:5432/tamkeen_offline
         run: bash tests/offline/run-pg17-offline-assessment-rehearsal.sh
 
+      - name: Verify prepared offline descriptors on an isolated PG17 database
+        env:
+          OFFLINE_PREPARED_PG_URL: postgresql://postgres:tamkeen_offline_ci_only@127.0.0.1:5432/tamkeen_prepared_test
+        run: |
+          npm ci
+          PGPASSWORD=tamkeen_offline_ci_only createdb -h 127.0.0.1 -U postgres tamkeen_prepared_test
+          node --import tsx tests/offline/prepared-descriptors-pg17.mjs
+
       - name: Stop isolated PostgreSQL 17
         if: always()
         run: docker stop tamkeen-offline-pg17 || true

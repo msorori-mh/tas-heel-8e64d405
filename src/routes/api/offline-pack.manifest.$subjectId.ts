@@ -23,6 +23,7 @@ import {
   OfflineContentReadError,
 } from "@/lib/offline/offline-content-reader";
 import { fingerprintOfflineText } from "@/lib/offline/offline-text-metadata";
+import { readPreparedOfflineSources } from "@/lib/offline/offline-prepared-sources.server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -46,6 +47,7 @@ type ReadyRow = {
   ready_hash: string | null;
   ready_at: string | null;
   ready_snapshot?: unknown;
+  ready_descriptor?: unknown;
 };
 
 function metadataHash(metadata: unknown, key: string): string | null {
@@ -88,19 +90,23 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
 
   const gates = new Map<string, Gate>();
   const batchCaller = caller.supabase as unknown as OptionalBatchGateClient;
+  let prepared;
   try {
-    const rows = await readOfflineLessonGates<Gate & { lesson_id: string }>(
-      lessonIds,
-      (ids) =>
-        batchCaller
-          .rpc("lesson_student_content_gates", { _lesson_ids: ids })
-          .abortSignal(request.signal),
-      (id) =>
-        caller.supabase
-          .rpc("lesson_student_content_gate", { _lesson_id: id })
-          .abortSignal(request.signal),
-      request.signal,
-    );
+    prepared = await readPreparedOfflineSources(caller.supabase, lessonIds, request.signal);
+    const rows =
+      prepared?.gates ??
+      (await readOfflineLessonGates<Gate & { lesson_id: string }>(
+        lessonIds,
+        (ids) =>
+          batchCaller
+            .rpc("lesson_student_content_gates", { _lesson_ids: ids })
+            .abortSignal(request.signal),
+        (id) =>
+          caller.supabase
+            .rpc("lesson_student_content_gate", { _lesson_id: id })
+            .abortSignal(request.signal),
+        request.signal,
+      ));
     for (const row of rows) gates.set(row.lesson_id, row);
   } catch (error) {
     if (error instanceof OfflineContentReadError) return offlineApiError(500, error.message);
@@ -111,8 +117,8 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
     return offlineApiError(409, "lesson_access_changed");
   }
 
-  let readyRows: ReadyRow[] = [];
-  if (lessonIds.length > 0) {
+  let readyRows: ReadyRow[] = prepared?.ready ?? [];
+  if (!prepared && lessonIds.length > 0) {
     const { data, error } = await caller.supabase
       .from("lesson_capability_lifecycle")
       .select("lesson_id,capability,ready_hash,ready_at,ready_snapshot")
@@ -124,7 +130,7 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
 
   const readyByLesson = new Map<
     string,
-    Record<string, { sha256: string; readyAt: string; snapshot?: unknown }>
+    Record<string, { sha256: string; readyAt: string; snapshot?: unknown; descriptor?: unknown }>
   >();
   for (const row of readyRows) {
     if (!row.ready_hash || !row.ready_at) continue;
@@ -133,6 +139,7 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
       sha256: row.ready_hash,
       readyAt: row.ready_at,
       snapshot: row.ready_snapshot,
+      descriptor: row.ready_descriptor,
     };
     readyByLesson.set(row.lesson_id, capabilities);
   }
@@ -219,20 +226,28 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
     try {
       // Serialize content categories and bound each request instead of fetching
       // four whole-subject result sets simultaneously.
-      books = await load("lesson_book_contents", "books", "id,lesson_id,updated_at", "content");
-      explanations = await load(
-        "lesson_explanations",
-        "explanations",
-        "id,lesson_id,title,sort_order,updated_at",
-        "content",
-      );
-      summaries = await load("lesson_summaries", "summaries", "id,lesson_id,updated_at", "summary");
-      resources = await load(
-        "lesson_resources",
-        "resources",
-        "id,lesson_id,title,url,resource_type,html_resource_type,metadata,sort_order,created_at",
-        "description",
-      );
+      books = prepared
+        ? (prepared.books as ContentRow[])
+        : await load("lesson_book_contents", "books", "id,lesson_id,updated_at", "content");
+      explanations = prepared
+        ? (prepared.explanations as ContentRow[])
+        : await load(
+            "lesson_explanations",
+            "explanations",
+            "id,lesson_id,title,sort_order,updated_at",
+            "content",
+          );
+      summaries = prepared
+        ? (prepared.summaries as ContentRow[])
+        : await load("lesson_summaries", "summaries", "id,lesson_id,updated_at", "summary");
+      resources = prepared
+        ? (prepared.resources as ContentRow[])
+        : await load(
+            "lesson_resources",
+            "resources",
+            "id,lesson_id,title,url,resource_type,html_resource_type,metadata,sort_order,created_at",
+            "description",
+          );
     } catch (error) {
       if (error instanceof OfflineContentReadError) return offlineApiError(500, error.message);
       throw error;
