@@ -127,11 +127,8 @@ try {
     });
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("http://127.0.0.1:4386");
-    const previewButton = page.getByRole("button", {
-      name: "عرض المحتوى وحجم التنزيل",
-      exact: true,
-    });
-    await previewButton.waitFor();
+    await page.getByRole("checkbox", { name: "تحديد كل المواد", exact: true }).check();
+    assert.equal(requests.filter((r) => r.path.startsWith("/api/")).length, 0);
     const cdp = await context.newCDPSession(page);
     await cdp.send("Network.enable");
     const shaping = {
@@ -141,15 +138,10 @@ try {
       uploadThroughput: 64000 / 8,
     };
     await cdp.send("Network.emulateNetworkConditions", shaping);
-    const start = performance.now();
-    await previewButton.click();
-    await page.getByText("راجع الحجم ثم ابدأ التنزيل.").waitFor();
-    const previewMs = performance.now() - start;
-    assert.equal(requests.filter((r) => r.path.includes("/artifact/")).length, 0);
     const downloadStart = performance.now();
-    await page.getByRole("button", { name: "تحميل الكل / استكمال التنزيل", exact: true }).click();
+    await page.getByRole("button", { name: /^تنزيل المواد المحددة/ }).click();
     await page
-      .getByText("اكتمل تنزيل المحتوى المحدد. افتح المواد والدروس كالمعتاد.")
+      .getByText("اكتمل تنزيل المواد المحددة. افتح دروسك كالمعتاد دون إنترنت.")
       .waitFor({ timeout: 60000 });
     const downloadMs = performance.now() - downloadStart;
     const before = requests.length;
@@ -172,7 +164,7 @@ try {
     results.push({
       profile,
       fixturePayloadBytes: Object.values(bodies).reduce((n, b) => n + b.length, 0),
-      previewMs,
+      mandatoryPreview: false,
       downloadMs,
       offlineOpenMs,
       offlineImage: true,
@@ -186,21 +178,23 @@ try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   await page.goto("http://127.0.0.1:4386");
-  await page.getByRole("button", { name: "عرض المحتوى وحجم التنزيل", exact: true }).click();
-  await page.getByText("راجع الحجم ثم ابدأ التنزيل.").waitFor();
-  const all = page.getByRole("button", { name: "تحميل الكل / استكمال التنزيل", exact: true });
+  await page.getByRole("checkbox", { name: "تحديد كل المواد", exact: true }).check();
+  const all = page.getByRole("button", { name: /^تنزيل المواد المحددة/ });
   await all.click();
   await page.getByRole("alert").waitFor({ timeout: 30000 });
-  assert.equal(await page.getByText("متاح دون إنترنت", { exact: true }).count(), 1);
-  const beforeReload = requests.length;
+  assert.equal(await page.getByText(/^متاح دون إنترنت/).count(), 1);
+  const beforeReload = requests.filter((r) => r.path.startsWith("/api/")).length;
   await page.reload();
-  await page.getByText("متاح دون إنترنت", { exact: true }).waitFor();
-  assert.equal(requests.length, beforeReload, "reload must not download content automatically");
+  await page.getByText(/^متاح دون إنترنت/).waitFor();
+  assert.equal(
+    requests.filter((r) => r.path.startsWith("/api/")).length,
+    beforeReload,
+    "reload must not download content automatically",
+  );
   breakSecond = false;
-  await page.getByRole("button", { name: "عرض المحتوى وحجم التنزيل", exact: true }).click();
-  await page.getByText("راجع الحجم ثم ابدأ التنزيل.").waitFor();
+  await page.getByRole("checkbox", { name: "تحديد كل المواد", exact: true }).check();
   await all.click();
-  await page.getByText("اكتمل تنزيل المحتوى المحدد. افتح المواد والدروس كالمعتاد.").waitFor();
+  await page.getByText("اكتمل تنزيل المواد المحددة. افتح دروسك كالمعتاد دون إنترنت.").waitFor();
   assert.equal(requests.filter((r) => r.path.endsWith("official-book%3Aone")).length, 1);
   assert.equal(requests.filter((r) => r.path.endsWith("official-book%3Atwo")).length, 2);
   results.push({

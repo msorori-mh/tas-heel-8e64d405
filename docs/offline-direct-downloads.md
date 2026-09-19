@@ -1,0 +1,7 @@
+# Direct downloads of selected subjects
+
+The student selects subject names and starts one download action. The catalog reads only subject headers. No manifest, body, size preview, or download is requested until that action. Each selected subject is prepared and transferred before preparing the next. The preparation indicator is indeterminate; byte progress is capped at 99% until the pack is verified. Completed selections are cleared, failed selections remain available for retry, and verified files are reused.
+
+The review APK uses `app.studentamkeen.tamkeen.review.direct` and the label **تمكين — تنزيل مباشر**. It installs alongside the previous review app because earlier disposable builds used different debug certificates. The old app and its local files must remain installed. The new review has its own local downloads; this is not an in-place migration or a Play release. The Actions cache retains the debug identity for further revisions within the same review scope, not a guaranteed cross-PR release signing chain.
+
+Validation covers owner isolation, cancellation, failed-subject continuation, unchanged-file reuse, actual HTTP interruption/reload/resume, offline reading, and four viewport widths. The APK workflow separately checks the embedded source hash, installation, cold-start session restore, and lesson pinch behavior. Physical-phone login, airplane-mode cold start and answer synchronization remain field acceptance; CI is not evidence of those user-device results.

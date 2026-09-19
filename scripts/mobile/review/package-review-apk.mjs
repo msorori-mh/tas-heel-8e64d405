@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 const root = process.cwd();
-const appId = "app.studentamkeen.tamkeen.review";
+const appId = "app.studentamkeen.tamkeen.review.direct";
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 assert.equal(process.env.TAMKEEN_REVIEW_APK, "1", "Explicit review flag required");
 const html = await readFile("dist/client/index.html", "utf8");
@@ -14,11 +14,11 @@ const assetDir = "dist/client/assets";
 const assetNames = await readdir(assetDir);
 const settings = [];
 for (const name of assetNames.filter((name) => /^settings-.*\.js$/.test(name))) {
-  if ((await readFile(`${assetDir}/${name}`, "utf8")).includes("تحميل المحتوى كاملًا"))
+  if ((await readFile(`${assetDir}/${name}`, "utf8")).includes("تنزيل المواد دون إنترنت"))
     settings.push(name);
 }
 assert.equal(settings.length, 1);
-assert.match(await readFile(`${assetDir}/${settings[0]}`, "utf8"), /تحميل المحتوى كاملًا/);
+assert.match(await readFile(`${assetDir}/${settings[0]}`, "utf8"), /تنزيل المواد دون إنترنت/);
 // Keep the native student entry and expose the bundled academy to its cached owner.
 const offlineEntry = await readFile("mobile/www/index.html", "utf8");
 assert.ok(offlineEntry.includes('<main id="home-view">'));
@@ -43,7 +43,7 @@ await writeFile(
     `
 // Generated review package: bundled UI, same authenticated API origin, separate app data.
 config.appId = ${JSON.stringify(appId)};
-config.appName = "تمكين — اختبار موحّد";
+config.appName = "تمكين — تنزيل مباشر";
 config.webDir = "mobile/review-www";
 config.server = { androidScheme: "https", hostname: "studentamkeen.com", cleartext: false, errorPath: "review-offline.html" };
 export default config;`,
@@ -55,7 +55,7 @@ gradle = gradle.replace(
   "    buildTypes {",
   `    buildTypes {
         debug {
-            applicationIdSuffix ".review"
+            applicationIdSuffix ".review.direct"
             versionNameSuffix "-unified-review"
         }`,
 );
@@ -69,7 +69,7 @@ await cp(
 );
 await writeFile(
   `${dir}/res/values/strings.xml`,
-  '<resources><string name="app_name">تمكين — اختبار موحّد</string><string name="title_activity_main">تمكين — اختبار موحّد</string></resources>\n',
+  '<resources><string name="app_name">تمكين — تنزيل مباشر</string><string name="title_activity_main">تمكين — تنزيل مباشر</string></resources>\n',
 );
 await writeFile(
   `${dir}/AndroidManifest.xml`,
@@ -88,6 +88,8 @@ await writeFile(
 // The immutable descriptor accompanies the embedded UI and the APK evidence.
 const descriptor = {
   kind: "TEST_ONLY",
+  downloadFlow: "selected-subjects-direct",
+  previousReviewData: "separate-and-preserved",
   appId,
   sourceSha: sha,
   featureSha: "7a8c7c7dbfab7ac56b95360ebe035c2a88276074",

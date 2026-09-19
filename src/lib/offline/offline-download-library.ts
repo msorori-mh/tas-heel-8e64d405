@@ -14,7 +14,7 @@ import { getFreeStorageBytes } from "./network";
 import { withForegroundTransfer } from "./download-priority";
 
 export type StudentDownloadScope = { ownerId: string; gradeId: string; trackId: string | null };
-export type DownloadSubject = { id: string; name: string };
+export type DownloadSubject = { id: string; name: string; semester?: number | null };
 export type PreparedSubject = DownloadSubject & {
   manifest: OfflinePackManifest;
   manifestSha256: string;
@@ -31,6 +31,8 @@ export type LibraryProgress = {
   count: number;
   loadedBytes: number;
   totalBytes: number;
+  verifiedFiles?: number;
+  totalFiles?: number;
 };
 
 function check(signal: AbortSignal) {
@@ -71,6 +73,139 @@ async function metadataRequest<T>(
 
 export const manifestBytes = (manifest: OfflinePackManifest) =>
   manifest.artifacts.reduce((sum, artifact) => sum + artifact.byteSize, 0);
+
+/** Lightweight catalog only: no manifests, source bodies or sizes before selection. */
+export async function listStudentDownloadSubjects(
+  scope: StudentDownloadScope,
+  signal: AbortSignal,
+): Promise<DownloadSubject[]> {
+  const { data, error } = await metadataRequest(
+    signal,
+    (requestSignal) =>
+      supabase
+        .from("subjects")
+        .select("id,name,semester,curriculum_track_id")
+        .eq("grade_id", scope.gradeId)
+        .order("sort_order")
+        .abortSignal(requestSignal),
+    45_000,
+  );
+  if (error) throw error;
+  return (data ?? [])
+    .filter((row) => row.curriculum_track_id === null || row.curriculum_track_id === scope.trackId)
+    .map((row) => ({ id: row.id, name: row.name, semester: row.semester }));
+}
+
+export type DirectDownloadProgress = {
+  subjectId: string;
+  subjectName: string;
+  subjectIndex: number;
+  subjectCount: number;
+  completedSubjects: number;
+  phase: "preparing" | "downloading" | "ready" | "failed";
+  loadedBytes: number;
+  totalBytes: number | null;
+  verifiedFiles: number;
+  totalFiles: number | null;
+  reason?: string;
+};
+
+/** Prepare one selected subject and immediately transfer it, then continue the queue. */
+export async function downloadSelectedStudentSubjects(params: {
+  scope: StudentDownloadScope;
+  subjects: DownloadSubject[];
+  signal: AbortSignal;
+  onProgress: (value: DirectDownloadProgress) => void;
+  onReady: (subject: DownloadSubject, record: OfflinePackRecord) => Promise<void>;
+}): Promise<void> {
+  return withForegroundTransfer(async () => {
+    const subjects = [...new Map(params.subjects.map((subject) => [subject.id, subject])).values()];
+    const failures: { id: string; name: string; reason: string }[] = [];
+    let completed = 0;
+    for (const [index, subject] of subjects.entries()) {
+      check(params.signal);
+      let progress: DirectDownloadProgress = {
+        subjectId: subject.id,
+        subjectName: subject.name,
+        subjectIndex: index + 1,
+        subjectCount: subjects.length,
+        completedSubjects: completed,
+        phase: "preparing",
+        loadedBytes: 0,
+        totalBytes: null,
+        verifiedFiles: 0,
+        totalFiles: null,
+      };
+      params.onProgress(progress);
+      let downloaded: OfflinePackRecord | undefined;
+      try {
+        const prepared = await metadataRequest(params.signal, (signal) =>
+          prepareOfflineSubjectPack(subject.id, { expectedOwnerId: params.scope.ownerId, signal }),
+        );
+        check(params.signal);
+        if (
+          prepared.manifest.scope.subjectId !== subject.id ||
+          prepared.manifest.scope.gradeId !== params.scope.gradeId ||
+          (prepared.manifest.scope.curriculumTrackId !== null &&
+            prepared.manifest.scope.curriculumTrackId !== params.scope.trackId)
+        )
+          throw new Error("OFFLINE_MANIFEST_SCOPE_MISMATCH");
+        const manifestSha256 = await digestOfflinePackManifest(prepared.manifest);
+        progress = {
+          ...progress,
+          phase: "downloading",
+          totalBytes: manifestBytes(prepared.manifest),
+          totalFiles: prepared.manifest.artifacts.length,
+        };
+        params.onProgress(progress);
+        await downloadStudentSubjects({
+          ownerId: params.scope.ownerId,
+          subjects: [{ ...subject, ...prepared, manifestSha256 }],
+          signal: params.signal,
+          onProgress: (value) => {
+            progress = {
+              ...progress,
+              loadedBytes: value.loadedBytes,
+              verifiedFiles: value.verifiedFiles ?? progress.verifiedFiles,
+            };
+            params.onProgress(progress);
+          },
+          onReady: async (_id, record) => {
+            downloaded = record;
+          },
+        });
+      } catch (error) {
+        check(params.signal);
+        const code = error instanceof Error ? error.message : "";
+        if (
+          !(error instanceof OfflineLibraryPartialError) &&
+          code !== "OFFLINE_METADATA_TIMEOUT" &&
+          !/^OFFLINE_MANIFEST_FETCH_(403|404|409|422|429|500|502|503|504)$/.test(code) &&
+          !(error instanceof TypeError && code === "Failed to fetch")
+        )
+          throw error;
+        const reason = offlineDownloadErrorMessage(error);
+        failures.push({ id: subject.id, name: subject.name, reason });
+        params.onProgress({ ...progress, phase: "failed", reason });
+        continue;
+      }
+      check(params.signal);
+      if (!downloaded || downloaded.status !== "ready") throw new Error("OFFLINE_PACK_NOT_READY");
+      // UI/callback failures must never be swallowed as transfer failures.
+      await params.onReady(subject, downloaded);
+      check(params.signal);
+      completed += 1;
+      params.onProgress({
+        ...progress,
+        phase: "ready",
+        completedSubjects: completed,
+        loadedBytes: progress.totalBytes ?? 0,
+        verifiedFiles: progress.totalFiles ?? 0,
+      });
+    }
+    if (failures.length) throw new OfflineLibraryPartialError(failures);
+  });
+}
 
 /** Both semesters, same grade/shared-track rules as the existing student subject grid. */
 export async function prepareStudentDownloads(
@@ -211,6 +346,14 @@ export async function downloadStudentSubjects(params: {
           count: subjects.length,
           loadedBytes: completedBytes + (progress?.loadedBytes ?? 0),
           totalBytes,
+          ...(progress
+            ? {
+                verifiedFiles:
+                  progress.artifactIndex +
+                  (progress.status === "verified" || progress.status === "cached" ? 1 : 0),
+                totalFiles: progress.artifactCount,
+              }
+            : {}),
         });
       };
       report();
