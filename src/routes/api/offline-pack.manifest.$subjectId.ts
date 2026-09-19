@@ -1,3 +1,4 @@
+import { withOfflineManifestCapacity } from "@/lib/offline/offline-capacity.server";
 /**
  * OFFLINE-02 — authenticated, RLS-preserving subject manifest.
  *
@@ -16,9 +17,29 @@ import {
 } from "@/lib/offline/offline-pack-manifest";
 import { isInlineHtmlResourceUrl } from "@/lib/lessons/inline-html-resource";
 
+import {
+  readOfflineContent,
+  readOfflineLessonGates,
+  OfflineContentReadError,
+} from "@/lib/offline/offline-content-reader";
+import { fingerprintOfflineText } from "@/lib/offline/offline-text-metadata";
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Gate = { managed: boolean; visible: boolean; ready_capabilities: string[] | null };
+// This optional RPC is intentionally absent from the deployed schema types.
+// Declare only its wire contract; the reader falls back when it is not installed.
+type OptionalBatchGateClient = {
+  rpc(
+    name: "lesson_student_content_gates",
+    args: { _lesson_ids: string[] },
+  ): {
+    abortSignal(signal: AbortSignal): PromiseLike<{
+      data: (Gate & { lesson_id: string })[] | null;
+      error: { code: string; message: string } | null;
+    }>;
+  };
+};
 type ReadyRow = {
   lesson_id: string;
   capability: string;
@@ -66,20 +87,28 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
   const lessonIds = (lessonRows ?? []).map((lesson) => lesson.id);
 
   const gates = new Map<string, Gate>();
-  const gateResults = await Promise.all(
-    lessonIds.map(async (lessonId) => ({
-      lessonId,
-      result: await caller.supabase.rpc("lesson_student_content_gate", { _lesson_id: lessonId }),
-    })),
-  );
-  for (const { lessonId, result } of gateResults) {
-    if (result.error) return offlineApiError(500, "lifecycle_gate_failed");
-    const row = (Array.isArray(result.data) ? result.data[0] : result.data) as Gate | undefined;
-    gates.set(lessonId, {
-      managed: row?.managed === true,
-      visible: row?.visible !== false,
-      ready_capabilities: row?.ready_capabilities ?? [],
-    });
+  const batchCaller = caller.supabase as unknown as OptionalBatchGateClient;
+  try {
+    const rows = await readOfflineLessonGates<Gate & { lesson_id: string }>(
+      lessonIds,
+      (ids) =>
+        batchCaller
+          .rpc("lesson_student_content_gates", { _lesson_ids: ids })
+          .abortSignal(request.signal),
+      (id) =>
+        caller.supabase
+          .rpc("lesson_student_content_gate", { _lesson_id: id })
+          .abortSignal(request.signal),
+      request.signal,
+    );
+    for (const row of rows) gates.set(row.lesson_id, row);
+  } catch (error) {
+    if (error instanceof OfflineContentReadError) return offlineApiError(500, error.message);
+    throw error;
+  }
+  if (lessonIds.some((id) => !gates.has(id))) {
+    // Access may have changed between the catalog read and the RLS-protected batch.
+    return offlineApiError(409, "lesson_access_changed");
   }
 
   let readyRows: ReadyRow[] = [];
@@ -128,82 +157,137 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
 
   const textSources: OfflineTextSource[] = [];
   if (lessonIds.length > 0) {
-    const [books, explanations, summaries, resources] = await Promise.all([
-      caller.supabase
-        .from("lesson_book_contents")
-        .select("id,lesson_id,content,updated_at")
-        .in("lesson_id", lessonIds),
-      caller.supabase
-        .from("lesson_explanations")
-        .select("id,lesson_id,title,content,sort_order,updated_at")
-        .in("lesson_id", lessonIds),
-      caller.supabase
-        .from("lesson_summaries")
-        .select("id,lesson_id,summary,updated_at")
-        .in("lesson_id", lessonIds),
-      caller.supabase
-        .from("lesson_resources")
-        .select(
-          "id,lesson_id,title,description,url,resource_type,html_resource_type,metadata,sort_order,created_at",
-        )
-        .in("lesson_id", lessonIds)
-        .in("resource_type", ["mindmap", "experiment"]),
-    ]);
-    if (books.error || explanations.error || summaries.error || resources.error) {
-      return offlineApiError(500, "content_lookup_failed");
+    type ContentRow = {
+      id: string;
+      lesson_id: string;
+      title?: string | null;
+      content?: string;
+      summary?: string;
+      description?: string | null;
+      offline_metadata_v1?: unknown;
+      updated_at: string;
+      created_at: string;
+      sort_order: number;
+      url: string;
+      resource_type: string;
+      html_resource_type: string | null;
+      metadata: unknown;
+    };
+    const load = (
+      table:
+        | "lesson_book_contents"
+        | "lesson_explanations"
+        | "lesson_summaries"
+        | "lesson_resources",
+      source: string,
+      fields: string,
+      bodyColumn: "content" | "summary" | "description",
+    ) =>
+      readOfflineContent<ContentRow>(
+        source,
+        lessonIds,
+        async (ids, from, to, legacy) => {
+          let query = caller.supabase
+            .from(table)
+            .select(`${fields},${legacy ? bodyColumn : "offline_metadata_v1"}`)
+            .in("lesson_id", ids)
+            .order("id")
+            .range(from, to);
+          if (table === "lesson_resources")
+            query = query.in("resource_type", ["mindmap", "experiment"]);
+          const result = await query.abortSignal(request.signal).returns<ContentRow[]>();
+          if (result.error || !result.data || !legacy) return result;
+          // Fingerprint each small legacy page, then release its large bodies.
+          // The existing builder still validates attestation and answer secrecy.
+          const data: ContentRow[] = [];
+          for (const row of result.data) {
+            request.signal.throwIfAborted();
+            const { [bodyColumn]: body, ...metadata } = row;
+            data.push({
+              ...metadata,
+              offline_metadata_v1: await fingerprintOfflineText(body ?? ""),
+            });
+          }
+          return { data, error: null };
+        },
+        request.signal,
+      );
+    let books: ContentRow[],
+      explanations: ContentRow[],
+      summaries: ContentRow[],
+      resources: ContentRow[];
+    try {
+      // Serialize content categories and bound each request instead of fetching
+      // four whole-subject result sets simultaneously.
+      books = await load("lesson_book_contents", "books", "id,lesson_id,updated_at", "content");
+      explanations = await load(
+        "lesson_explanations",
+        "explanations",
+        "id,lesson_id,title,sort_order,updated_at",
+        "content",
+      );
+      summaries = await load("lesson_summaries", "summaries", "id,lesson_id,updated_at", "summary");
+      resources = await load(
+        "lesson_resources",
+        "resources",
+        "id,lesson_id,title,url,resource_type,html_resource_type,metadata,sort_order,created_at",
+        "description",
+      );
+    } catch (error) {
+      if (error instanceof OfflineContentReadError) return offlineApiError(500, error.message);
+      throw error;
     }
 
-    for (const row of books.data ?? []) {
-      if (!row.content) continue;
+    for (const row of books) {
       textSources.push({
         sourceType: "official-book",
         sourceId: row.id,
         lessonId: row.lesson_id,
         title: "محتوى الكتاب الرسمي",
+        preparedMetadata: row.offline_metadata_v1,
         body: row.content,
         updatedAt: row.updated_at,
         sortOrder: 0,
         attestation: "lifecycle",
       });
     }
-    for (const row of explanations.data ?? []) {
+    for (const row of explanations) {
       textSources.push({
         sourceType: "tamkeen-explanation",
         sourceId: row.id,
         lessonId: row.lesson_id,
         title: row.title || "شرح تمكين",
+        preparedMetadata: row.offline_metadata_v1,
         body: row.content,
         updatedAt: row.updated_at,
         sortOrder: row.sort_order,
         attestation: "lifecycle",
       });
     }
-    for (const row of summaries.data ?? []) {
+    for (const row of summaries) {
       textSources.push({
         sourceType: "quick-review",
         sourceId: row.id,
         lessonId: row.lesson_id,
         title: "المراجعة السريعة",
+        preparedMetadata: row.offline_metadata_v1,
         body: row.summary,
         updatedAt: row.updated_at,
         sortOrder: 0,
         attestation: "lifecycle",
       });
     }
-    for (const row of resources.data ?? []) {
-      if (
-        !row.description ||
-        !isInlineHtmlResourceUrl(row.url) ||
-        row.html_resource_type !== "INTERACTIVE"
-      ) {
+    for (const row of resources) {
+      if (!isInlineHtmlResourceUrl(row.url) || row.html_resource_type !== "INTERACTIVE") {
         continue;
       }
       textSources.push({
         sourceType: row.resource_type === "mindmap" ? "mind-map" : "lab-experiment",
         sourceId: row.id,
         lessonId: row.lesson_id,
-        title: row.title,
-        body: row.description,
+        title: row.title ?? "مورد تعليمي",
+        preparedMetadata: row.offline_metadata_v1,
+        body: row.description ?? undefined,
         updatedAt: metadataString(row.metadata, "cf11_published_at") ?? row.created_at,
         sortOrder: row.sort_order,
         attestation: "body",
@@ -294,7 +378,8 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
 export const Route = createFileRoute("/api/offline-pack/manifest/$subjectId")({
   server: {
     handlers: {
-      GET: ({ request, params }) => handle(request, params.subjectId),
+      GET: ({ request, params }) =>
+        withOfflineManifestCapacity(() => handle(request, params.subjectId), request.signal),
     },
   },
 });
