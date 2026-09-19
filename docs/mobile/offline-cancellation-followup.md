@@ -63,3 +63,32 @@ Local focused suite: 137/137 PASS. TypeScript/lint and exact-head CI are require
 Live publication and the Quran assessment download must be repeated after release.
 Phone acceptance remains pending. Rollback is a revert of this follow-up; device
 content must not be deleted.
+
+## Post-publish abrupt-close follow-up
+
+PR #285 merged as `2db143e3b6f201296181eb439eebc0b10f5315e7`; the
+source-identical sync trigger `922d3590c1843e177eff73f8c5838b0490cd709d`
+was needed after the GitHub push notification was missed. The hosting UI showed
+GitHub one commit ahead on main. An empty, non-forced fast-forward commit restored
+sync; no files or repository connection were replaced.
+
+Deployment `6d710b05-6a13-4dfc-85b3-fad29ba49cff` completed with the hosting
+confirmation “Your website was updated”. The Quran manifest then succeeded and
+all 21 files (displayed 28 MB) downloaded to 100%. Reopening after the update
+retained both Physics 116/116 and Quran 21/21. The network remained connected.
+
+Two subsequent abrupt closes during automatic metadata refresh reproduced a busy
+response for a new subject before the 120s execution limit elapsed. The short
+follow-up therefore separates abandonment expiry from the execution deadline:
+
+- Active tickets have a 10s lease, renewed by a timer owned only by the live request.
+  An abandoned request cannot renew, so later admission can reclaim it inside the
+  existing 15s queue window. The 120s hard execution deadline still aborts stuck work.
+- Saved packs load and verify local bytes without automatic server preparation.
+  An explicit update-check button performs preparation and reports failure while
+  keeping saved content available. New subjects still prepare a size preview.
+- Regression tests prove orphan recovery with no old timer callbacks, renewal of
+  genuinely active long work, local-only opening and manual update behavior.
+
+Focused suite: 141/141 PASS. Exact-head CI, publication and the abrupt-close live
+repeat remain required for the follow-up; physical-phone acceptance is still HOLD.

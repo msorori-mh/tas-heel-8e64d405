@@ -182,6 +182,40 @@ describe("offline preparation capacity", () => {
     await queued;
   });
 
+  it("reclaims abandoned active work within the queue window without running its timers", async () => {
+    vi.useFakeTimers();
+    const limit = createOfflineCapacityLimit(1, 0, 15000, 120000);
+    let release!: (response: Response) => void;
+    const abandoned = limit(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await Promise.resolve();
+    vi.setSystemTime(Date.now() + 10001);
+    expect((await limit(async () => new Response("recovered"))).status).toBe(200);
+    release(new Response("late"));
+    await abandoned;
+  });
+
+  it("renews healthy long-running work without allowing another request into its slot", async () => {
+    vi.useFakeTimers();
+    const limit = createOfflineCapacityLimit(1, 0, 15000, 120000);
+    let release!: (response: Response) => void;
+    const running = limit(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(25000);
+    expect((await limit(async () => new Response("must not run"))).status).toBe(503);
+    release(new Response("ok"));
+    expect((await running).status).toBe(200);
+    expect((await limit(async () => new Response("next"))).status).toBe(200);
+  });
+
   it("retries only transient reads and returns a final access denial immediately", async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0);
