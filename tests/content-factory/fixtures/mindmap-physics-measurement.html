@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>خريطة ذهنية: علم الفيزياء وأساسيات القياس</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9f9f9;
+            margin: 40px;
+            line-height: 1.6;
+        }
+
+        .mindmap-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .item {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .node {
+            cursor: pointer;
+            padding: 15px 25px;
+            border-radius: 12px;
+            border: 1px solid #777;
+            user-select: none;
+            font-weight: bold;
+            min-width: 350px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .node:hover {
+            filter: brightness(0.9);
+            transform: translateX(-5px);
+        }
+
+        /* مستويات الألوان المحددة */
+        .level-0 { background-color: #ccccff; border-color: #9999cc; } /* بنفسجي فاتح */
+        .level-1 { background-color: #c6def1; border-color: #95b3d7; } /* أزرق فاتح */
+        .level-2 { background-color: #a2dad0; border-color: #76b5a9; } /* تيركواز */
+        .level-3 { background-color: #a8f5bc; border-color: #82c694; } /* أخضر فاتح */
+
+        .children {
+            display: none;
+            margin-right: 50px;
+            padding-right: 25px;
+            border-right: 2px dashed #ccc;
+            margin-top: 10px;
+        }
+
+        .toggle-icon {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            margin-right: 20px;
+        }
+
+        .active {
+            display: block;
+        }
+
+        .formula-box {
+            background: #fff;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #333;
+            direction: ltr;
+            display: inline-block;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .step-detail {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 8px;
+            font-size: 0.95em;
+            font-weight: normal;
+            border-right: 4px solid #777;
+        }
+
+        .illustration-note {
+            font-size: 0.85em;
+            color: #555;
+            font-style: italic;
+            margin-top: 5px;
+            display: block;
+            font-weight: normal;
+        }
+    
+/* Responsive compatibility only — content, names and links unchanged */
+html{width:100%;max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{max-width:100%;min-width:0;overflow-x:hidden}
+img,svg,canvas,video,iframe{max-width:100%;height:auto}
+@media(max-width:768px){
+ body{padding:12px!important;margin:0!important}
+ .mindmap,.mindmap-container,.tree,.container{width:100%!important;max-width:100%!important;min-width:0!important}
+ .node,.node-container,.branch,.children,ul,li{min-width:0!important;max-width:100%!important}
+ .node{white-space:normal!important;overflow-wrap:anywhere;word-break:normal;max-width:94vw!important;
+       font-size:clamp(.78rem,3.5vw,1rem)!important;line-height:1.5}
+ .children{margin-right:8px!important;padding-right:14px!important}
+}
+@media(max-width:420px){
+ body{padding:8px!important}
+ .node{max-width:96vw!important;padding-left:10px!important;padding-right:10px!important;
+       font-size:clamp(.72rem,3.8vw,.92rem)!important}
+ .children{margin-right:4px!important;padding-right:10px!important}
+}
+
+</style>
+</head>
+<body>
+
+<div class="mindmap-container">
+    <!-- الجذر: المستوى 0 -->
+    <div class="item">
+        <div class="node level-0" onclick="toggle(this)">
+            علم الفيزياء والقياس والأنظمة العالمية <span class="toggle-icon">&lt;</span>
+        </div>
+        <div class="children">
+            
+            <!-- المستوى 1: أهمية علم الفيزياء -->
+            <div class="item">
+                <div class="node level-1" onclick="toggle(this)">
+                    أهمية علم الفيزياء وتطوره <span class="toggle-icon">&lt;</span>
+                </div>
+                <div class="children">
+                    <div class="node level-2">تطوير الدراسات والأبحاث لخدمة حياة الإنسان</div>
+                    <div class="node level-2">ارتباطه بمجالات الطب والهندسة والزراعة والصناعة</div>
+                    <div class="node level-2">تطبيق القوانين الفيزيائية في غزو الفضاء وانتشار الإنترنت</div>
+                </div>
+            </div>
+
+            <!-- المستوى 1: مفهوم القياس -->
+            <div class="item">
+                <div class="node level-1" onclick="toggle(this)">
+                    مفهوم القياس وأهدافه <span class="toggle-icon">&lt;</span>
+                </div>
+                <div class="children">
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">تعريف عملية القياس <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">التعبير عن صفة ظاهرة فيزيائية برقم معين</div>
+                            <div class="node level-3">مقارنة الصفة بكمية معيارية متعارف عليها تسمى وحدة القياس</div>
+                        </div>
+                    </div>
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">الهدف من القياس <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">تسهيل إدراك الظواهر الفيزيائية وتفسيرها</div>
+                            <div class="node level-3">التحكم في الظواهر والاستفادة منها عملياً</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- المستوى 1: أنظمة القياس -->
+            <div class="item">
+                <div class="node level-1" onclick="toggle(this)">
+                    أنظمة القياس العالمية والتقليدية <span class="toggle-icon">&lt;</span>
+                </div>
+                <div class="children">
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">النظام الدولي للقياس SI <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">الطول يقاس بوحدة المتر</div>
+                            <div class="node level-3">الكتلة تقاس بوحدة الكيلوجرام</div>
+                            <div class="node level-3">الزمن يقاس بوحدة الثانية</div>
+                            <div class="node level-3">درجة الحرارة تقاس بالدرجة المئوية</div>
+                        </div>
+                    </div>
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">نظام جاوس والفرنسي <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">الطول يقاس بالسنتيمتر</div>
+                            <div class="node level-3">الكتلة تقاس بالجرام</div>
+                            <div class="node level-3">الزمن يقاس بالثانية</div>
+                        </div>
+                    </div>
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">النظام الإنجليزي <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">الطول يقاس بالقدم</div>
+                            <div class="node level-3">الكتلة تقاس بالرطل أو الباوند</div>
+                            <div class="node level-3">درجة الحرارة تقاس بالفهرنهايت</div>
+                        </div>
+                    </div>
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">وحدات القياس التقليدية في بلادنا <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">الأطوال بالشبر والذراع والخطوة</div>
+                            <div class="node level-3">الأوزان بالرطل والأوقية والقيراط</div>
+                            <div class="node level-3">المكاييل بالقدح والمن والسمن</div>
+                            <div class="node level-3">المساحات باللبنة والمعاد والقصبة</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- المستوى 1: أدوات القياس -->
+            <div class="item">
+                <div class="node level-1" onclick="toggle(this)">
+                    أدوات القياس الفيزيائية <span class="toggle-icon">&lt;</span>
+                </div>
+                <div class="children">
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">أدوات قياس الأطوال <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">المسطرة والمدرج للقياسات العادية</div>
+                            <div class="node level-3">الشريط المتري للقياسات الطويلة
+                                <span class="illustration-note">وصف الرسم: شريط متري معدني مرن ملفوف داخل علبة بلاستيكية خضراء</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- المستوى 1: التطبيقات والمسائل المحلولة -->
+            <div class="item">
+                <div class="node level-1" onclick="toggle(this)">
+                    تطبيقات ومسائل حسابية محلولة <span class="toggle-icon">&lt;</span>
+                </div>
+                <div class="children">
+                    <div class="item">
+                        <div class="node level-2" onclick="toggle(this)">تمرين قياس مساحة مسطح <span class="toggle-icon">&lt;</span></div>
+                        <div class="children">
+                            <div class="node level-3">المطلوب قياس أبعاد جسم وحساب مساحته</div>
+                            <div class="item">
+                                <div class="node level-3" onclick="toggle(this)">خطوات الحل والشرح التفصيلي <span class="toggle-icon">&lt;</span></div>
+                                <div class="children">
+                                    <div class="step-detail">
+                                        أولاً يتم استخدام الشريط المتري لقياس طول الجسم وعرضه بدقة
+                                        <br>ثانياً يتم كتابة معادلة حساب المساحة للمسطحات المستطيلة
+                                        <div class="formula-box">Area = Length * Width</div>
+                                        <br>ثالثاً يتم ضرب القيمة المقاسة للطول في القيمة المقاسة للعرض لاستخراج النتيجة النهائية
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggle(element) {
+        var childrenContainer = element.nextElementSibling;
+        var icon = element.querySelector('.toggle-icon');
+        
+        if (childrenContainer && childrenContainer.classList.contains('children')) {
+            if (childrenContainer.classList.contains('active')) {
+                childrenContainer.classList.remove('active');
+                if (icon) icon.innerHTML = '&lt;';
+            } else {
+                childrenContainer.classList.add('active');
+                if (icon) icon.innerHTML = '∨';
+            }
+        }
+    }
+</script>
+
+</body>
+</html>

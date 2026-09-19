@@ -50,6 +50,24 @@ These facts establish missing optional dependencies and substantial raw-body vol
 4. Build and test the companion review APK. Verify actual download, interruption, resume, airplane-mode cold start and reconnect synchronization on the physical device.
 5. Roll back by reverting the server code commit and republishing the prior source. There is no data migration to reverse or device data to delete.
 
-## Current blocker
+## Release continuation — 2026-09-19
 
-Automatic approval review rejected the Git push because it required explicit consent to transmit source and documentation to the connected GitHub repository. No alternative upload or remote write was attempted. Both changes are prepared locally; no new PR, remote CI run, APK, merge, production deployment or Google Play upload exists for this patch yet.
+The user authorized completing publication and validation. The earlier Git-upload
+approval blocker is resolved: PR #282 exists and its previous exact head passed
+Web, Android, low-data reading, identity PG17 and capacity CI. This record supersedes
+the initial local-only checkpoint above.
+
+The release branch merges production `main@5074e6323d4659e79c8b32ccdfb212e19a73eccf`
+into server head `8340c59bd7bd74b6870025000a536e534b39f57f`. The merge is clean and
+retains the already-applied explanation and mindmap publication fixes. It does not
+merge the review-client tree or change the published UI, database data, RLS, grants,
+Android identity, stored offline files or progress formats.
+
+The merged source passed all 127 focused offline/manifest/capacity tests. Exact-head
+CI, hosting synchronization, production publication and authenticated live checks
+must complete before this stage can be closed. Physical-phone interruption,
+airplane-mode cold start and answer synchronization remain a separate acceptance
+gate; automated tests do not substitute for that evidence.
+
+Rollback: revert this server-only PR and republish the previously verified main
+source. No database rollback or removal of device content is needed.
