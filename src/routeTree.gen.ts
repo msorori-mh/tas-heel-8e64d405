@@ -76,6 +76,7 @@ import { Route as AuthenticatedAdminMinisterialExamsRouteImport } from './routes
 import { Route as AuthenticatedAdminLessonsRouteImport } from './routes/_authenticated/admin.lessons'
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated/admin.import'
 import { Route as AuthenticatedAdminExamTemplatesRouteImport } from './routes/_authenticated/admin.exam-templates'
+import { Route as AuthenticatedAdminDiagnosticsRouteImport } from './routes/_authenticated/admin.diagnostics'
 import { Route as AuthenticatedAdminCurriculumRouteImport } from './routes/_authenticated/admin.curriculum'
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
 import { Route as AuthenticatedMinisterialExamsRepeatedIndexRouteImport } from './routes/_authenticated/ministerial-exams.repeated.index'
@@ -458,6 +459,12 @@ const AuthenticatedAdminExamTemplatesRoute =
     path: '/exam-templates',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminDiagnosticsRoute =
+  AuthenticatedAdminDiagnosticsRouteImport.update({
+    id: '/diagnostics',
+    path: '/diagnostics',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCurriculumRoute =
   AuthenticatedAdminCurriculumRouteImport.update({
     id: '/curriculum',
@@ -609,6 +616,7 @@ export interface FileRoutesByFullPath {
   '/academy/': typeof AcademyIndexRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
+  '/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
@@ -692,6 +700,7 @@ export interface FileRoutesByTo {
   '/academy': typeof AcademyIndexRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
+  '/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/ministerial-exams': typeof AuthenticatedAdminMinisterialExamsRoute
@@ -780,6 +789,7 @@ export interface FileRoutesById {
   '/academy/': typeof AcademyIndexRoute
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
   '/_authenticated/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
+  '/_authenticated/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/_authenticated/admin/exam-templates': typeof AuthenticatedAdminExamTemplatesRoute
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
   '/_authenticated/admin/lessons': typeof AuthenticatedAdminLessonsRouteWithChildren
@@ -869,6 +879,7 @@ export interface FileRouteTypes {
     | '/academy/'
     | '/admin/academic'
     | '/admin/curriculum'
+    | '/admin/diagnostics'
     | '/admin/exam-templates'
     | '/admin/import'
     | '/admin/lessons'
@@ -952,6 +963,7 @@ export interface FileRouteTypes {
     | '/academy'
     | '/admin/academic'
     | '/admin/curriculum'
+    | '/admin/diagnostics'
     | '/admin/exam-templates'
     | '/admin/import'
     | '/admin/ministerial-exams'
@@ -1039,6 +1051,7 @@ export interface FileRouteTypes {
     | '/academy/'
     | '/_authenticated/admin/academic'
     | '/_authenticated/admin/curriculum'
+    | '/_authenticated/admin/diagnostics'
     | '/_authenticated/admin/exam-templates'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/lessons'
@@ -1587,6 +1600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminExamTemplatesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/diagnostics': {
+      id: '/_authenticated/admin/diagnostics'
+      path: '/diagnostics'
+      fullPath: '/admin/diagnostics'
+      preLoaderRoute: typeof AuthenticatedAdminDiagnosticsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/curriculum': {
       id: '/_authenticated/admin/curriculum'
       path: '/curriculum'
@@ -1740,6 +1760,7 @@ const AuthenticatedAdminLessonsRouteWithChildren =
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAcademicRoute: typeof AuthenticatedAdminAcademicRoute
   AuthenticatedAdminCurriculumRoute: typeof AuthenticatedAdminCurriculumRoute
+  AuthenticatedAdminDiagnosticsRoute: typeof AuthenticatedAdminDiagnosticsRoute
   AuthenticatedAdminExamTemplatesRoute: typeof AuthenticatedAdminExamTemplatesRoute
   AuthenticatedAdminImportRoute: typeof AuthenticatedAdminImportRoute
   AuthenticatedAdminLessonsRoute: typeof AuthenticatedAdminLessonsRouteWithChildren
@@ -1764,6 +1785,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAcademicRoute: AuthenticatedAdminAcademicRoute,
   AuthenticatedAdminCurriculumRoute: AuthenticatedAdminCurriculumRoute,
+  AuthenticatedAdminDiagnosticsRoute: AuthenticatedAdminDiagnosticsRoute,
   AuthenticatedAdminExamTemplatesRoute: AuthenticatedAdminExamTemplatesRoute,
   AuthenticatedAdminImportRoute: AuthenticatedAdminImportRoute,
   AuthenticatedAdminLessonsRoute: AuthenticatedAdminLessonsRouteWithChildren,

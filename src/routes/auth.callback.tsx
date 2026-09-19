@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { translateAuthError } from "@/lib/auth-helpers";
+import { captureDiagnosticSync } from "@/lib/diagnostics/telemetry";
 
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
@@ -56,6 +57,14 @@ function AuthCallback() {
         if (cancelled) return;
         navigate({ to: complete ? "/app" : "/complete-profile", replace: true });
       } catch (e) {
+        // No code/token/state is ever passed through; the sanitizer also strips them.
+        captureDiagnosticSync({
+          eventType: "auth_callback_failed",
+          severity: "error",
+          error: e,
+          action: "auth_callback",
+          route: "/auth/callback",
+        });
         if (!cancelled) setError(translateAuthError(e));
       }
     }

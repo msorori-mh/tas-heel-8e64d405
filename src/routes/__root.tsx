@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { captureDiagnosticSync } from "@/lib/diagnostics/telemetry";
+import { DiagnosticsBridge } from "@/components/diagnostics/DiagnosticsBridge";
 import { registerServiceWorker } from "@/lib/pwa/register-sw";
 import { PwaUpdateNotice } from "@/components/pwa/PwaUpdateNotice";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -47,6 +49,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    captureDiagnosticSync({
+      eventType: "react_root_boundary",
+      severity: "fatal",
+      error,
+      action: "tanstack_root_error_component",
+    });
   }, [error]);
 
   return (
@@ -221,6 +229,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
+        <DiagnosticsBridge />
         <AndroidBackHandler />
         <NativeAuthDeepLinkHandler />
         <NativeNotificationHandler />

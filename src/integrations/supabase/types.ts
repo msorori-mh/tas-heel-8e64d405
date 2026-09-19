@@ -47,6 +47,102 @@ export type Database = {
         }
         Relationships: []
       }
+      app_diagnostic_events: {
+        Row: {
+          action: string | null
+          app_build: string | null
+          app_version: string | null
+          created_at: string
+          device_model: string | null
+          event_type: string
+          fingerprint: string
+          id: string
+          message: string
+          metadata: Json
+          network_type: string | null
+          online: boolean | null
+          os_version: string | null
+          platform: string | null
+          route: string | null
+          session_id: string | null
+          severity: string
+          source: string
+          stack: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          app_build?: string | null
+          app_version?: string | null
+          created_at?: string
+          device_model?: string | null
+          event_type: string
+          fingerprint: string
+          id?: string
+          message: string
+          metadata?: Json
+          network_type?: string | null
+          online?: boolean | null
+          os_version?: string | null
+          platform?: string | null
+          route?: string | null
+          session_id?: string | null
+          severity: string
+          source: string
+          stack?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          app_build?: string | null
+          app_version?: string | null
+          created_at?: string
+          device_model?: string | null
+          event_type?: string
+          fingerprint?: string
+          id?: string
+          message?: string
+          metadata?: Json
+          network_type?: string | null
+          online?: boolean | null
+          os_version?: string | null
+          platform?: string | null
+          route?: string | null
+          session_id?: string | null
+          severity?: string
+          source?: string
+          stack?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      app_diagnostic_issue_state: {
+        Row: {
+          created_at: string
+          fingerprint: string
+          note: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          fingerprint: string
+          note?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string
+          note?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       assessment_questions: {
         Row: {
           assessment_id: string
@@ -5225,6 +5321,52 @@ export type Database = {
         Args: { _capability: string; _lesson_id: string; _reason?: string }
         Returns: Json
       }
+      admin_diagnostics_issue_detail: {
+        Args: { _fingerprint: string; _limit?: number }
+        Returns: {
+          action: string
+          app_build: string
+          app_version: string
+          created_at: string
+          device_model: string
+          event_type: string
+          id: string
+          message: string
+          metadata: Json
+          network_type: string
+          online: boolean
+          os_version: string
+          platform: string
+          route: string
+          session_id: string
+          severity: string
+          source: string
+          stack: string
+        }[]
+      }
+      admin_diagnostics_issues: {
+        Args: { _limit?: number; _window?: string }
+        Returns: {
+          affected_users: number
+          app_version: string
+          event_count: number
+          event_type: string
+          fingerprint: string
+          first_seen: string
+          last_seen: string
+          message: string
+          platform: string
+          route: string
+          severity: string
+          source: string
+          status: string
+        }[]
+      }
+      admin_diagnostics_set_issue_status: {
+        Args: { _fingerprint: string; _note?: string; _status: string }
+        Returns: Json
+      }
+      admin_diagnostics_summary: { Args: { _window?: string }; Returns: Json }
       admin_edit_school: {
         Args: { p_expected: Json; p_id: string; p_school: Json }
         Returns: Json
@@ -5365,6 +5507,7 @@ export type Database = {
         }
         Returns: Json
       }
+      app_diagnostics_window: { Args: { _window: string }; Returns: string }
       apply_offline_learning_mutation: {
         Args: {
           _answer_text: string

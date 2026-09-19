@@ -13,6 +13,7 @@ import {
   subscribeDownloadPriority,
 } from "./download-priority";
 import { supabase } from "@/integrations/supabase/client";
+import { captureDiagnosticSync } from "@/lib/diagnostics/telemetry";
 import { downloadAndCache, fetchFileMeta } from "./lesson-file-client";
 import { getEntry, touchEntry } from "./pdf-cache";
 import { getFreeStorageBytes, getNetworkState } from "./network";
@@ -179,8 +180,15 @@ export async function downloadPack(params: {
         });
       }
       progress.done += 1;
-    } catch {
+    } catch (failure) {
       progress.failed.push(resource.resourceId);
+      captureDiagnosticSync({
+        eventType: "offline_download_failed",
+        severity: "warning",
+        error: failure,
+        action: "downloadPack",
+        metadata: { total: progress.total, done: progress.done },
+      });
     }
     params.onProgress?.({ ...progress });
   }
