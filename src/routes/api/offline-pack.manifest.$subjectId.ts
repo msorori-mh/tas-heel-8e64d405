@@ -328,6 +328,7 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
   try {
     assessmentSources = await loadOfflineAssessmentSources({
       userClient: caller.supabase,
+      signal: request.signal,
       lessons,
       onUnavailableQuestion: () => {
         unavailableQuestions += 1;
@@ -379,7 +380,10 @@ export const Route = createFileRoute("/api/offline-pack/manifest/$subjectId")({
   server: {
     handlers: {
       GET: ({ request, params }) =>
-        withOfflineManifestCapacity(() => handle(request, params.subjectId), request.signal),
+        withOfflineManifestCapacity(
+          (signal) => handle(new Request(request, { signal }), params.subjectId),
+          request.signal,
+        ),
     },
   },
 });

@@ -1,3 +1,5 @@
+import { offlineRequestFetch } from "./offline-request-fetch.server";
+
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
@@ -27,7 +29,10 @@ export async function createOfflineCaller(
   if (!token) return { error: offlineApiError(401, "unauthorized") };
 
   const supabase = createClient<Database>(url, publishableKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+    global: {
+      headers: { Authorization: `Bearer ${token}` },
+      fetch: offlineRequestFetch(request.signal),
+    },
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await supabase.auth.getClaims(token);

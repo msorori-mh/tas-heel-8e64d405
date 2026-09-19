@@ -93,6 +93,7 @@ describe("offline preparation capacity", () => {
     expect((await cancelled).status).toBe(499);
     release();
     await first;
+    await vi.advanceTimersByTimeAsync(50);
     await second;
     expect(order).toEqual([2]);
     let unlock!: () => void;
@@ -110,6 +111,77 @@ describe("offline preparation capacity", () => {
     await held;
     expect((await limit(async () => new Response("recovered"))).status).toBe(200);
   });
+  it("cancels active work and admits a new request even if the old promise never settles", async () => {
+    const limit = createOfflineCapacityLimit(1, 0);
+    const parent = new AbortController();
+    let workSignal!: AbortSignal;
+    const abandoned = limit(async (signal) => {
+      workSignal = signal;
+      return new Promise<Response>(() => {});
+    }, parent.signal);
+    await Promise.resolve();
+    parent.abort();
+    expect((await abandoned).status).toBe(499);
+    expect(workSignal.aborted).toBe(true);
+    expect((await limit(async () => new Response("next"))).status).toBe(200);
+  });
+
+  it("bounds a stuck preparation and propagates its timeout to database reads", async () => {
+    vi.useFakeTimers();
+    const limit = createOfflineCapacityLimit(1, 0, 1000, 2000);
+    let workSignal!: AbortSignal;
+    const stuck = limit(async (signal) => {
+      workSignal = signal;
+      return new Promise<Response>(() => {});
+    });
+    await vi.advanceTimersByTimeAsync(2001);
+    expect((await stuck).status).toBe(504);
+    expect(workSignal.aborted).toBe(true);
+    expect((await limit(async () => new Response("next"))).status).toBe(200);
+  });
+
+  it("reclaims orphaned tickets without their timers or finally running, without releasing a newer ticket", async () => {
+    vi.useFakeTimers();
+    const limit = createOfflineCapacityLimit(1, 0, 1000, 2000);
+    let releaseOld!: (response: Response) => void;
+    const old = limit(
+      () =>
+        new Promise<Response>((resolve) => {
+          releaseOld = resolve;
+        }),
+    );
+    await Promise.resolve();
+    // A disconnected Worker can abandon its callbacks while the isolate survives.
+    vi.setSystemTime(Date.now() + 2001);
+    let releaseNew!: (response: Response) => void;
+    const next = limit(
+      () =>
+        new Promise<Response>((resolve) => {
+          releaseNew = resolve;
+        }),
+    );
+    await Promise.resolve();
+    releaseOld(new Response("late"));
+    await old;
+    expect((await limit(async () => new Response("must not run"))).status).toBe(503);
+    releaseNew(new Response("next"));
+    await next;
+  });
+
+  it("reclaims an orphaned queue ticket as well as the expired active ticket", async () => {
+    vi.useFakeTimers();
+    const limit = createOfflineCapacityLimit(1, 1, 1000, 2000);
+    const parent = new AbortController();
+    const held = limit(() => new Promise<Response>(() => {}), parent.signal);
+    const queued = limit(async () => new Response("old queue"), parent.signal);
+    await Promise.resolve();
+    vi.setSystemTime(Date.now() + 2001);
+    expect((await limit(async () => new Response("recovered"))).status).toBe(200);
+    parent.abort();
+    await held;
+    await queued;
+  });
+
   it("retries only transient reads and returns a final access denial immediately", async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0);
