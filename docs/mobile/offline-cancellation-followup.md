@@ -59,7 +59,7 @@ Focused tests include normal success/failure, fair bounded queuing, active and q
 cancellation, stuck work, orphaned timers/cleanup, late ticket release, cancellation
 of downstream reads, exact preview reuse, navigation and stale responses.
 
-Local focused suite: 136/136 PASS. TypeScript/lint and exact-head CI are required.
+Local focused suite: 137/137 PASS. TypeScript/lint and exact-head CI are required.
 Live publication and the Quran assessment download must be repeated after release.
 Phone acceptance remains pending. Rollback is a revert of this follow-up; device
 content must not be deleted.

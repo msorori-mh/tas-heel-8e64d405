@@ -162,3 +162,23 @@ it("refreshes changed metadata after an integrity conflict", async () => {
     "OFFLINE_ARTIFACT_HASH_MISMATCH",
   );
 });
+
+it("does not show the old download's cancellation on a newly selected subject", async () => {
+  api.download.mockImplementation(
+    ({ signal }) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), {
+          once: true,
+        });
+      }),
+  );
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="first" subjectName="الأولى" />),
+  );
+  await clickDownload();
+  await act(async () =>
+    root.render(<OfflineSubjectPackCard subjectId="second" subjectName="الثانية" />),
+  );
+  expect(host.querySelector('[role="alert"]')).toBeNull();
+  expect(host.textContent).toContain("الثانية");
+});

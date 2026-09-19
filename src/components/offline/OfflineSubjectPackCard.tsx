@@ -155,9 +155,12 @@ export function OfflineSubjectPackCard({
         manifest: effectiveManifest ?? undefined,
         expectedOwnerId: local?.ownerId,
         signal: controller.signal,
-        onProgress: setProgress,
+        onProgress: (next) => {
+          if (abortRef.current === controller) setProgress(next);
+        },
       });
     } catch (caught) {
+      if (!mountedRef.current || abortRef.current !== controller) return;
       const code = caught instanceof Error ? caught.message : "";
       refreshRemote = code.endsWith("_409") || /^OFFLINE_ARTIFACT_(HASH|SIZE)_MISMATCH$/.test(code);
       setDownloadError(
