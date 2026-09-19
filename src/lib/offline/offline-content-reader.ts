@@ -32,17 +32,27 @@ export async function readOfflineContent<T>(
     const ids = lessonIds.slice(offset, offset + 8);
     for (let from = 0; ; ) {
       signal?.throwIfAborted();
-      let pageSize = legacy ? 8 : 64;
+      // Legacy HTML embeds textbook images: even eight rows can exceed 16 MB
+      // and the database's statement timeout during JSON serialization. Read
+      // and fingerprint one body before requesting the next; metadata stays batched.
+      let pageSize = legacy ? 1 : 64;
       let result = await read(ids, from, from + pageSize - 1, legacy);
       signal?.throwIfAborted();
       // Only a specifically missing metadata column permits the legacy path.
       // Auth, policy, timeout and all other failures remain visible.
       if (!legacy && isMissingOfflineField(result.error, "offline_metadata_v1")) {
         legacy = true;
-        pageSize = 8;
+        pageSize = 1;
         result = await read(ids, from, from + pageSize - 1, true);
       }
       signal?.throwIfAborted();
+      // A transient cancellation of this single-row read need not rebuild the
+      // whole subject. Retry the exact page once, within the request deadline.
+      // Never use an error to enter the legacy path or return partial content.
+      if (legacy && result.error?.code === "57014") {
+        result = await read(ids, from, from + pageSize - 1, true);
+        signal?.throwIfAborted();
+      }
       if (result.error) throw new OfflineContentReadError(source, result.error);
       if (!result.data) throw new OfflineContentReadError(source, { code: "NODATA" });
       rows.push(...result.data);
