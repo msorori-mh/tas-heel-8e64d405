@@ -9,13 +9,12 @@ import {
   deleteOfflineSubjectPack,
 } from "@/lib/offline/offline-pack-downloader";
 import {
-  downloadStudentSubjects,
+  listStudentDownloadSubjects,
+  downloadSelectedStudentSubjects,
   manifestBytes,
-  prepareStudentDownloads,
   readSavedStudentDownloads,
-  type DownloadPlan,
-  type LibraryProgress,
-  type PreparedSubject,
+  type DownloadSubject,
+  type DirectDownloadProgress,
   type SavedSubject,
   type StudentDownloadScope,
 } from "@/lib/offline/offline-download-library";
@@ -46,11 +45,14 @@ export function OfflineContentSettings() {
 
 export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope }) {
   const [saved, setSaved] = useState<SavedSubject[]>([]);
-  const [plan, setPlan] = useState<DownloadPlan | null>(null);
-  const [busy, setBusy] = useState<"prepare" | "download" | "delete" | null>(null);
+  const [catalog, setCatalog] = useState<DownloadSubject[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<"download" | "delete" | null>(null);
   const [checkingLocal, setCheckingLocal] = useState(true);
-  const [preparing, setPreparing] = useState("");
-  const [progress, setProgress] = useState<LibraryProgress | null>(null);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+  const [progress, setProgress] = useState<DirectDownloadProgress | null>(null);
+  const [activity, setActivity] = useState<Record<string, DirectDownloadProgress>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -61,13 +63,26 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
     const rows = await readSavedStudentDownloads(scope.ownerId, signal);
     if (!signal.aborted) setSaved(rows);
   };
+  const loadCatalog = async (signal: AbortSignal) => {
+    setLoadingCatalog(true);
+    setCatalogError("");
+    try {
+      const rows = await listStudentDownloadSubjects(scope, signal);
+      if (!signal.aborted) setCatalog(rows);
+    } catch {
+      if (!signal.aborted)
+        setCatalogError(
+          "تعذّر جلب قائمة المواد. المحتوى المحفوظ ما زال متاحًا؛ أعد المحاولة عند عودة الاتصال.",
+        );
+    } finally {
+      if (!signal.aborted) setLoadingCatalog(false);
+    }
+  };
   useEffect(() => {
     const controller = new AbortController();
     lifetime.current = controller;
-    void readSavedStudentDownloads(scope.ownerId, controller.signal)
-      .then((rows) => {
-        if (!controller.signal.aborted) setSaved(rows);
-      })
+    void loadCatalog(controller.signal);
+    void refresh(controller.signal)
       .catch(() => {
         if (!controller.signal.aborted)
           setError("تعذّر قراءة التنزيلات المحفوظة. أعد فتح هذا القسم للمحاولة.");
@@ -79,15 +94,14 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
       controller.abort();
       operation.current?.abort();
     };
-  }, [scope.ownerId]);
+    // The parent keys this component by account, grade and track.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope.ownerId, scope.gradeId, scope.trackId]);
 
-  const run = async (
-    kind: "prepare" | "download" | "delete",
-    work: (signal: AbortSignal) => Promise<void>,
-  ) => {
+  const run = async (kind: "download" | "delete", work: (signal: AbortSignal) => Promise<void>) => {
     if (operation.current || !lifetime.current || lifetime.current.signal.aborted) return;
-    const controller = new AbortController();
-    const live = lifetime.current.signal;
+    const controller = new AbortController(),
+      live = lifetime.current.signal;
     operation.current = controller;
     setBusy(kind);
     setMessage("");
@@ -97,11 +111,10 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
     try {
       await work(controller.signal);
     } catch (failure) {
-      if (live.aborted) return;
-      if (controller.signal.aborted) {
-        setMessage("توقف الطلب. الملفات المكتملة محفوظة، ويمكنك استكمال الباقي لاحقًا.");
-      } else {
-        setError(offlineDownloadErrorMessage(failure));
+      if (!live.aborted) {
+        if (controller.signal.aborted)
+          setMessage("توقف التنزيل. الملفات المكتملة محفوظة؛ حدد المواد واستكمل الناقص لاحقًا.");
+        else setError(offlineDownloadErrorMessage(failure));
       }
     } finally {
       if (!live.aborted) {
@@ -112,46 +125,30 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
         }
         if (!live.aborted) {
           setBusy(null);
-          setPreparing("");
           setProgress(null);
         }
       }
       if (operation.current === controller) operation.current = null;
     }
   };
-  const prepare = () =>
-    void run("prepare", async (signal) => {
-      const next = await prepareStudentDownloads(scope, signal, (name) => {
-        if (!signal.aborted) setPreparing(name);
-      });
-      if (!signal.aborted) {
-        setPlan(next);
-        setMessage(
-          next.subjects.length
-            ? next.unavailable.length
-              ? `تم تجهيز ${next.subjects.length} مواد. تعذّر تجهيز ${next.unavailable.length} مؤقتًا؛ يمكنك تنزيل الجاهز ثم تحديث القائمة.`
-              : "راجع الحجم ثم ابدأ التنزيل."
-            : next.unavailable.length
-              ? "تعذّر تجهيز المواد. راجع الأسباب أدناه ثم أعد تحديث القائمة."
-              : "لا يوجد محتوى قابل للتنزيل لصفك حاليًا.",
-        );
-      }
-    });
-  const download = (subjects: PreparedSubject[]) =>
+  const download = (subjects: DownloadSubject[]) => {
+    if (!subjects.length) return;
     void run("download", async (signal) => {
-      await downloadStudentSubjects({
-        ownerId: scope.ownerId,
+      setActivity({});
+      await downloadSelectedStudentSubjects({
+        scope,
         subjects,
         signal,
         onProgress: (value) => {
-          if (!signal.aborted) setProgress(value);
+          if (!signal.aborted) {
+            setProgress(value);
+            setActivity((current) => ({ ...current, [value.subjectId]: value }));
+          }
         },
-        onReady: async (subjectId, record) => {
+        onReady: async (subject, record) => {
           if (signal.aborted) return;
-          const subject = subjects.find((item) => item.id === subjectId)!;
-          // The downloader just verified persisted bytes; avoid re-hashing all previous books.
           const row: SavedSubject = {
-            id: subjectId,
+            id: subject.id,
             name: subject.name,
             local: {
               ownerId: scope.ownerId,
@@ -162,11 +159,18 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
               totalBytes: manifestBytes(record.manifest),
             },
           };
-          setSaved((current) => [...current.filter((item) => item.id !== subjectId), row]);
+          setSaved((current) => [...current.filter((item) => item.id !== subject.id), row]);
+          setSelected((current) => {
+            const next = new Set(current);
+            next.delete(subject.id);
+            return next;
+          });
         },
       });
-      if (!signal.aborted) setMessage("اكتمل تنزيل المحتوى المحدد. افتح المواد والدروس كالمعتاد.");
+      if (!signal.aborted)
+        setMessage("اكتمل تنزيل المواد المحددة. افتح دروسك كالمعتاد دون إنترنت.");
     });
+  };
   const remove = () => {
     const target = confirmDelete;
     if (!target) return;
@@ -177,24 +181,39 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
         setMessage("حُذفت النسخة من الجهاز. يمكنك تنزيلها مجددًا.");
     });
   };
-
-  const used = saved.reduce((sum, row) => sum + row.local.presentBytes, 0);
-  const total = plan?.subjects.reduce((sum, row) => sum + manifestBytes(row.manifest), 0) ?? 0;
-  const omitted = plan?.subjects.reduce((sum, row) => sum + row.omitted, 0) ?? 0;
-  const rows = [
-    ...(plan?.subjects ?? []),
-    ...saved.filter((row) => !plan?.subjects.some((subject) => subject.id === row.id)),
+  const rows: DownloadSubject[] = [
+    ...catalog,
+    ...saved
+      .filter((row) => !catalog.some((item) => item.id === row.id))
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        semester: row.local.record?.manifest.scope.semester,
+      })),
   ];
+  const chosen = rows.filter((row) => selected.has(row.id));
   const disabled = !!busy || checkingLocal;
-
+  const used = saved.reduce((sum, row) => sum + row.local.presentBytes, 0);
+  const toggle = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const percent = progress?.totalBytes
+    ? Math.min(
+        progress.phase === "ready" ? 100 : 99,
+        Math.floor((100 * progress.loadedBytes) / progress.totalBytes),
+      )
+    : 0;
   return (
-    <div className="space-y-3 border-t border-border/60 pt-3" aria-label="تنزيل المحتوى دون إنترنت">
+    <div className="space-y-4 border-t border-border/60 pt-3" aria-label="تنزيل المحتوى دون إنترنت">
       <div>
-        <h3 className="text-sm font-bold">تحميل المحتوى كاملًا</h3>
+        <h3 className="text-sm font-bold">تنزيل المواد دون إنترنت</h3>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          حمّل المحتوى المتاح لمواد صفك في الفصلين، ثم افتح دروسك من الصفحات المعتادة. يشمل الكتب
-          والشروح والملخصات والأسئلة والأنشطة المتاحة للتنزيل. الفيديو والروابط الخارجية تحتاج إلى
-          الإنترنت.
+          اختر المواد التي تحتاجها واضغط تنزيل. تُحفظ الملفات المكتملة ويُستكمل الناقص عند إعادة
+          المحاولة. الفيديو والروابط الخارجية تحتاج إلى الإنترنت.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 p-3 text-xs">
@@ -206,91 +225,179 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
           {checkingLocal ? "جارٍ الفحص…" : used ? formatBytes(used) : "لا توجد تنزيلات"}
         </span>
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        تُحفظ الملفات داخل مساحة التطبيق الخاصة
-        {isNativeStorage() ? " على هاتفك" : " في هذا المتصفح"}. يُفضّل التنزيل عبر Wi-Fi. الملفات
-        المكتملة لا تُحمّل مجددًا ما لم تتغير.
-      </p>
-      <Button
-        type="button"
-        variant="outline"
-        className="min-h-11 w-full whitespace-normal"
-        disabled={disabled}
-        onClick={prepare}
-      >
-        {busy === "prepare" ? (
-          <Loader2 className="ms-2 h-4 w-4 shrink-0 animate-spin" />
-        ) : (
-          <Download className="ms-2 h-4 w-4 shrink-0" />
-        )}
-        {plan ? "تحديث قائمة المحتوى والحجم" : "عرض المحتوى وحجم التنزيل"}
-      </Button>
-
-      {!!plan?.subjects.length && (
-        <div className="space-y-2 rounded-xl border border-border p-3">
-          <p className="text-sm font-semibold">
-            {plan.subjects.length} مواد · الحجم الكلي {formatBytes(total)}
-          </p>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            الحجم يشمل الملفات المحفوظة؛ يُنزَّل الجديد والناقص فقط.
-          </p>
-          {omitted > 0 && (
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              هناك {omitted} عناصر غير مشمولة لأنها غير جاهزة للتنزيل أو تعتمد على الإنترنت.
-            </p>
-          )}
+      {loadingCatalog && (
+        <p role="status" className="text-xs text-muted-foreground">
+          جارٍ جلب أسماء المواد…
+        </p>
+      )}
+      {catalogError && (
+        <div className="space-y-2 text-xs text-muted-foreground">
+          <p>{catalogError}</p>
           <Button
-            type="button"
-            className="min-h-11 w-full whitespace-normal"
-            disabled={disabled}
-            onClick={() => download(plan.subjects)}
+            variant="outline"
+            size="sm"
+            disabled={!!busy || loadingCatalog}
+            onClick={() => lifetime.current && void loadCatalog(lifetime.current.signal)}
           >
-            تحميل الكل / استكمال التنزيل
+            إعادة جلب المواد
           </Button>
         </div>
       )}
-      {busy && (
-        <div role="status" className="space-y-2 rounded-xl bg-muted/50 p-3 text-xs leading-relaxed">
-          <p>
-            {busy === "prepare"
-              ? `جارٍ تحديد الحجم${preparing ? `: ${preparing}` : "…"}`
-              : busy === "delete"
-                ? "جارٍ حذف النسخة من الجهاز…"
-                : `جارٍ تنزيل: ${progress?.subjectName ?? "المحتوى"}`}
+      {!loadingCatalog && !catalogError && !rows.length && (
+        <p className="text-xs text-muted-foreground">لا توجد مواد لصفك حاليًا.</p>
+      )}
+      {!!rows.length && (
+        <>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              aria-label="تحديد كل المواد"
+              className="h-5 w-5 accent-primary"
+              disabled={disabled}
+              checked={chosen.length === rows.length}
+              onChange={() =>
+                setSelected(
+                  chosen.length === rows.length ? new Set() : new Set(rows.map((row) => row.id)),
+                )
+              }
+            />
+            تحديد الكل
+          </label>
+          {[1, 2, 0].map((semester) => {
+            const group = rows.filter(
+              (row) => (row.semester === 1 || row.semester === 2 ? row.semester : 0) === semester,
+            );
+            if (!group.length) return null;
+            return (
+              <fieldset key={semester} className="min-w-0 rounded-xl border border-border px-3">
+                <legend className="px-1 text-sm font-semibold">
+                  {semester === 1 ? "الفصل الأول" : semester === 2 ? "الفصل الثاني" : "مواد مشتركة"}
+                </legend>
+                <ul className="divide-y divide-border/60">
+                  {group.map((row) => {
+                    const local = saved.find((item) => item.id === row.id)?.local,
+                      state = activity[row.id];
+                    return (
+                      <li key={row.id} className="space-y-1 py-3">
+                        <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`تحديد ${row.name}`}
+                            className="h-5 w-5 shrink-0 accent-primary"
+                            disabled={disabled}
+                            checked={selected.has(row.id)}
+                            onChange={() => toggle(row.id)}
+                          />
+                          <span className="break-words text-sm font-semibold">{row.name}</span>
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          {local?.ready
+                            ? "متاح دون إنترنت"
+                            : local?.record
+                              ? "التنزيل غير مكتمل"
+                              : "لم يُنزّل بعد"}
+                          {local?.record
+                            ? ` · ${local.presentArtifactIds.size} / ${local.record.manifest.artifacts.length} ملفات محفوظة`
+                            : ""}
+                        </p>
+                        {state?.phase === "failed" && (
+                          <p className="text-xs leading-relaxed text-destructive">{state.reason}</p>
+                        )}
+                        {local?.record && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="min-h-11"
+                              disabled={disabled}
+                              onClick={() => download([row])}
+                              aria-label={`استكمال ${row.name}`}
+                            >
+                              {local.ready ? "تنزيل التحديثات" : "استكمال التنزيل"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-11"
+                              disabled={disabled}
+                              onClick={() => setConfirmDelete(row.id)}
+                              aria-label={`حذف تنزيل ${row.name}`}
+                            >
+                              <Trash2 className="ms-1 h-4 w-4" />
+                              حذف
+                            </Button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </fieldset>
+            );
+          })}
+          <Button
+            className="min-h-12 w-full whitespace-normal"
+            disabled={disabled || chosen.length === 0}
+            onClick={() => download(chosen)}
+          >
+            <Download className="ms-2 h-4 w-4 shrink-0" />
+            تنزيل المواد المحددة{chosen.length ? ` (${chosen.length})` : ""}
+          </Button>
+        </>
+      )}
+      {busy === "download" && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="space-y-3 rounded-xl bg-muted/50 p-3 text-xs leading-relaxed"
+        >
+          <p className="font-semibold">
+            {!progress || progress.phase === "preparing"
+              ? `بدء تنزيل ${progress?.subjectName ?? "المواد المحددة"}…`
+              : `تنزيل: ${progress.subjectName}`}
           </p>
-          {progress && (
+          {progress?.totalBytes !== null && progress?.totalBytes !== undefined ? (
             <>
-              <Progress
-                aria-label="تقدم تنزيل المحتوى"
-                value={progress.totalBytes ? (100 * progress.loadedBytes) / progress.totalBytes : 0}
-              />
+              <Progress aria-label="تقدم تنزيل المادة" value={percent} />
               <p>
-                {Math.round(
-                  progress.totalBytes ? (100 * progress.loadedBytes) / progress.totalBytes : 0,
-                )}
-                ٪ · {progress.completed} / {progress.count} مواد مكتملة ·{" "}
+                {percent}٪ · {progress.verifiedFiles} / {progress.totalFiles} ملفات محفوظة ·{" "}
                 {formatBytes(progress.loadedBytes)} / {formatBytes(progress.totalBytes)}
               </p>
             </>
+          ) : (
+            <div
+              role="progressbar"
+              aria-label="بدء التنزيل"
+              aria-valuetext="جارٍ الاتصال وتجهيز أول ملف"
+              className="h-2 overflow-hidden rounded-full bg-primary/15"
+            >
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+            </div>
           )}
-          {busy !== "delete" && (
-            <>
-              <p>
-                اترك هذا القسم مفتوحًا أثناء التنزيل. عند مغادرته يتوقف الطلب وتبقى الملفات المكتملة
-                محفوظة.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="min-h-11"
-                onClick={() => operation.current?.abort()}
-              >
-                إيقاف
-              </Button>
-            </>
+          {progress && (
+            <p>
+              المادة {progress.subjectIndex} من {progress.subjectCount} ·{" "}
+              {progress.completedSubjects} مواد مكتملة
+            </p>
           )}
+          <p>
+            اترك هذا القسم مفتوحًا أثناء التنزيل. عند إيقافه أو إغلاق التطبيق تبقى الملفات المكتملة
+            محفوظة.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-11"
+            onClick={() => operation.current?.abort()}
+          >
+            إيقاف التنزيل
+          </Button>
         </div>
+      )}
+      {busy === "delete" && (
+        <p role="status" className="text-xs">
+          <Loader2 className="inline h-4 w-4 animate-spin" /> جارٍ حذف النسخة من الجهاز…
+        </p>
       )}
       {message && (
         <p role="status" className="text-xs leading-relaxed text-muted-foreground">
@@ -302,83 +409,15 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
           {error}
         </p>
       )}
-
-      {rows.length > 0 && (
-        <ul className="divide-y divide-border/60 rounded-xl border border-border px-3">
-          {rows.map((row) => {
-            const local = saved.find((item) => item.id === row.id)?.local;
-            const prepared = plan?.subjects.find((item) => item.id === row.id);
-            const changed =
-              !!prepared &&
-              !!local?.record &&
-              local.record.manifestSha256 !== prepared.manifestSha256;
-            return (
-              <li key={row.id} className="space-y-2 py-3">
-                <div className="space-y-1">
-                  <p className="break-words text-sm font-semibold">{row.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {local?.ready === true
-                      ? "متاح دون إنترنت"
-                      : local?.record
-                        ? "التنزيل غير مكتمل"
-                        : "لم يُنزّل بعد"}
-                    {changed ? " · يتوفر تحديث" : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {prepared && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-11"
-                      disabled={disabled}
-                      onClick={() => download([prepared])}
-                      aria-label={`تنزيل ${row.name}`}
-                    >
-                      {changed
-                        ? "تنزيل التحديث"
-                        : local?.ready
-                          ? "فحص واستكمال"
-                          : local?.record
-                            ? "استكمال التنزيل"
-                            : "تنزيل المادة"}
-                    </Button>
-                  )}
-                  {local?.record && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="min-h-11"
-                      disabled={disabled}
-                      onClick={() => setConfirmDelete(row.id)}
-                      aria-label={`حذف تنزيل ${row.name}`}
-                    >
-                      <Trash2 className="ms-1 h-4 w-4" />
-                      حذف
-                    </Button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {!!plan?.unavailable.length && (
-        <ul className="space-y-1 text-xs leading-relaxed text-muted-foreground">
-          {plan.unavailable.map((row) => (
-            <li key={row.id}>
-              {row.name}: {row.reason}
-            </li>
-          ))}
-        </ul>
-      )}
-      {saved.length > 0 && (
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        تُحفظ الملفات داخل مساحة التطبيق الخاصة
+        {isNativeStorage() ? " على هاتفك" : " في هذا المتصفح"}. يُفضّل التنزيل عبر Wi-Fi. الملفات
+        المطابقة المحفوظة لا تُنزّل مجددًا.
+      </p>
+      {!!saved.length && (
         <Button
-          type="button"
-          size="sm"
           variant="ghost"
+          size="sm"
           className="min-h-11 whitespace-normal"
           disabled={disabled}
           onClick={() => setConfirmDelete("all")}
@@ -397,7 +436,6 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
-              type="button"
               variant="destructive"
               size="sm"
               className="min-h-11"
@@ -407,7 +445,6 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
               تأكيد الحذف
             </Button>
             <Button
-              type="button"
               variant="outline"
               size="sm"
               className="min-h-11"
@@ -421,5 +458,4 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
     </div>
   );
 }
-
 export default OfflineContentSettings;

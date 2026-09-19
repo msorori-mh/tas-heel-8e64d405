@@ -71,6 +71,7 @@ try {
           json: Object.keys(names).map((id) => ({
             id,
             name: names[id],
+            semester: id === "one" ? 1 : 2,
             curriculum_track_id: id === "one" ? "track-a" : null,
           })),
         });
@@ -85,29 +86,33 @@ try {
       return route.fulfill({ contentType: "text/html", body: content[id] });
     });
     await page.goto("http://127.0.0.1:4384");
-    const preview = page.getByRole("button", { name: "عرض المحتوى وحجم التنزيل", exact: true });
-    await preview.waitFor();
-    await page.waitForFunction(
-      () =>
-        ![...document.querySelectorAll("button")].find((b) =>
-          b.textContent.includes("عرض المحتوى وحجم التنزيل"),
-        )?.disabled,
-    );
-    assert.deepEqual(requests, []);
-    await page.screenshot({ path: `${output}/settings-initial-${width}.png`, fullPage: true });
-    await preview.click();
-    await page.getByText("راجع الحجم ثم ابدأ التنزيل.").waitFor();
-    assert.equal(requests.filter((p) => p.includes("/artifact/")).length, 0);
+    const selectAll = page.getByRole("checkbox", { name: "تحديد كل المواد", exact: true });
+    await selectAll.waitFor();
+    const all = page.getByRole("button", { name: /^تنزيل المواد المحددة/ });
+    assert.equal(await all.isDisabled(), true);
+    assert.equal(requests.filter((p) => p.startsWith("/api/")).length, 0);
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,
     );
-    await page.screenshot({ path: `${output}/settings-preview-${width}.png`, fullPage: true });
-    const all = page.getByRole("button", { name: "تحميل الكل / استكمال التنزيل", exact: true });
+    await page.screenshot({ path: `${output}/settings-initial-${width}.png`, fullPage: true });
+    // A single chosen subject finishes before the other subject is ever requested.
+    await page.getByRole("checkbox", { name: `تحديد ${names.one}`, exact: true }).check();
+    await all.click();
+    await page.getByText("اكتمل تنزيل المواد المحددة. افتح دروسك كالمعتاد دون إنترنت.").waitFor();
+    assert.equal(
+      requests.some((p) => p.includes("/manifest/two")),
+      false,
+    );
+    assert.equal(
+      requests.some((p) => p.endsWith("official-book%3Atwo")),
+      false,
+    );
+    await page.getByRole("checkbox", { name: `تحديد ${names.two}`, exact: true }).check();
     await all.click();
     if (secondFails) {
       await page.getByRole("alert").waitFor();
-      assert.equal(await page.getByText("متاح دون إنترنت", { exact: true }).count(), 1);
+      assert.equal(await page.getByText(/^متاح دون إنترنت/).count(), 1);
       assert.equal(requests.filter((p) => p.endsWith("official-book%3Aone")).length, 1);
       await page.screenshot({
         path: `${output}/settings-interrupted-${width}.png`,
@@ -116,11 +121,11 @@ try {
       secondFails = false;
       await all.click();
     }
-    await page.getByText("اكتمل تنزيل المحتوى المحدد. افتح المواد والدروس كالمعتاد.").waitFor();
-    assert.equal(await page.getByText("متاح دون إنترنت", { exact: true }).count(), 2);
+    await page.getByText("اكتمل تنزيل المواد المحددة. افتح دروسك كالمعتاد دون إنترنت.").waitFor();
+    assert.equal(await page.getByText(/^متاح دون إنترنت/).count(), 2);
     assert.equal(requests.filter((p) => p.endsWith("official-book%3Aone")).length, 1);
     await page.screenshot({ path: `${output}/settings-complete-${width}.png`, fullPage: true });
-    const beforeOffline = requests.length;
+    const beforeOffline = requests.filter((p) => p.startsWith("/api/")).length;
     await context.setOffline(true);
     await page.getByRole("button", { name: "فتح درس محفوظ", exact: true }).click();
     await page
@@ -130,21 +135,23 @@ try {
     const section = page.getByRole("button", { name: "المحتوى دون إنترنت", exact: true });
     await section.click();
     await page
-      .getByRole("heading", { name: "تحميل المحتوى كاملًا", exact: true })
+      .getByRole("heading", { name: "تنزيل المواد دون إنترنت", exact: true })
       .waitFor({ state: "detached" });
     await section.click();
-    await page.getByText("متاح دون إنترنت", { exact: true }).first().waitFor();
-    assert.equal(await page.getByText("متاح دون إنترنت", { exact: true }).count(), 2);
-    assert.equal(requests.length, beforeOffline);
+    await page
+      .getByText(/^متاح دون إنترنت/)
+      .first()
+      .waitFor();
+    assert.equal(await page.getByText(/^متاح دون إنترنت/).count(), 2);
+    assert.equal(requests.filter((p) => p.startsWith("/api/")).length, beforeOffline);
     await context.setOffline(false);
     if (width === 390) {
       await page.getByRole("button", { name: "حذف جميع المواد المحمّلة", exact: true }).click();
-      assert.equal(await page.getByText("متاح دون إنترنت", { exact: true }).count(), 2);
+      assert.equal(await page.getByText(/^متاح دون إنترنت/).count(), 2);
       await page.getByRole("button", { name: "تأكيد الحذف", exact: true }).click();
       await page.getByText("حُذفت النسخة من الجهاز. يمكنك تنزيلها مجددًا.").waitFor();
-      assert.equal(await page.getByText("متاح دون إنترنت", { exact: true }).count(), 0);
-      await page.getByRole("button", { name: "عرض المحتوى وحجم التنزيل", exact: true }).click();
-      await page.getByText("راجع الحجم ثم ابدأ التنزيل.").waitFor();
+      assert.equal(await page.getByText(/^متاح دون إنترنت/).count(), 0);
+      await selectAll.check();
       holdSecond = true;
       const secondRequest = page.waitForRequest((request) =>
         new URL(request.url()).pathname.endsWith("official-book%3Atwo"),
@@ -152,21 +159,21 @@ try {
       await all.click();
       await secondRequest;
       // The first saved subject stays ready when cancelling the second transfer.
-      await page.getByRole("button", { name: "إيقاف", exact: true }).click();
+      await page.getByRole("button", { name: "إيقاف التنزيل", exact: true }).click();
       await page
-        .getByText("توقف الطلب. الملفات المكتملة محفوظة، ويمكنك استكمال الباقي لاحقًا.")
+        .getByText("توقف التنزيل. الملفات المكتملة محفوظة؛ حدد المواد واستكمل الناقص لاحقًا.")
         .waitFor();
-      assert.equal(await page.getByText("متاح دون إنترنت", { exact: true }).count(), 1);
+      assert.equal(await page.getByText(/^متاح دون إنترنت/).count(), 1);
       holdSecond = false;
       await all.click();
-      await page.getByText("اكتمل تنزيل المحتوى المحدد. افتح المواد والدروس كالمعتاد.").waitFor();
+      await page.getByText("اكتمل تنزيل المواد المحددة. افتح دروسك كالمعتاد دون إنترنت.").waitFor();
     }
     assert.deepEqual(errors, []);
     results.push({
       width,
       noOverflow: true,
       openingContentRequests: 0,
-      previewArtifactRequests: 0,
+      unselectedSubjectRequests: 0,
       bothSemestersDownloaded: true,
       savedLessonOffline: true,
       savedListReopenOffline: true,

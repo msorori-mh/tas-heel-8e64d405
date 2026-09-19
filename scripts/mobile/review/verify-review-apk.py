@@ -4,7 +4,7 @@ apk = pathlib.Path(sys.argv[1])
 with zipfile.ZipFile(apk) as archive:
     assert archive.testzip() is None
     config = json.loads(archive.read('assets/capacitor.config.json'))
-    assert config['appId'] == 'app.studentamkeen.tamkeen.review'
+    assert config['appId'] == 'app.studentamkeen.tamkeen.review.direct'
     assert 'url' not in config['server']
     assert config['server']['hostname'] == 'studentamkeen.com'
     descriptor = json.loads(archive.read('assets/public/review-build.json'))
@@ -27,7 +27,7 @@ with zipfile.ZipFile(apk) as archive:
     assert hashlib.sha256(html).hexdigest() == descriptor['htmlSha256']
     settings = archive.read('assets/public/assets/' + descriptor['settingsAsset'])
     assert hashlib.sha256(settings).hexdigest() == descriptor['settingsSha256']
-    assert 'تحميل المحتوى كاملًا' in settings.decode()
+    assert 'تنزيل المواد دون إنترنت' in settings.decode()
     assert 'تأكيد الحذف' in settings.decode()
     assert 'TamkeenOfflineContent' in archive.read('assets/public/review-offline.html').decode()
     scripts = re.findall(r'<script[^>]+src="(/[^"?]+)', html.decode())

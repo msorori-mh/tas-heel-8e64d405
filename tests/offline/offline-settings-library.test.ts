@@ -370,3 +370,107 @@ it("all failed subjects remain explicitly failed", async () => {
   });
   expect(ready).not.toHaveBeenCalled();
 });
+
+it("catalog listing requests neither manifests nor files", async () => {
+  const { listStudentDownloadSubjects } =
+    await import("../../src/lib/offline/offline-download-library");
+  expect(
+    (await listStudentDownloadSubjects(scope, new AbortController().signal)).map((s) => s.id),
+  ).toEqual(["one", "two"]);
+  expect(api.metadata).not.toHaveBeenCalled();
+  expect(api.download).not.toHaveBeenCalled();
+});
+it("direct download prepares only selected subjects, then transfers before preparing the next", async () => {
+  const { downloadSelectedStudentSubjects } =
+    await import("../../src/lib/offline/offline-download-library");
+  const events: string[] = [];
+  api.metadata.mockImplementation(async (id) => {
+    events.push(`prepare:${id}`);
+    return prepared(id);
+  });
+  api.download.mockImplementation(async ({ subjectId }) => {
+    events.push(`download:${subjectId}`);
+    return savedSubject(await prepared(subjectId)).local.record;
+  });
+  const report = vi.fn();
+  await downloadSelectedStudentSubjects({
+    scope,
+    subjects: [
+      { id: "two", name: "علوم" },
+      { id: "one", name: "رياضيات" },
+      { id: "two", name: "علوم" },
+    ],
+    signal: new AbortController().signal,
+    onProgress: report,
+    onReady: async () => {},
+  });
+  expect(events).toEqual(["prepare:two", "download:two", "prepare:one", "download:one"]);
+  expect(report.mock.calls[0][0]).toMatchObject({
+    phase: "preparing",
+    totalBytes: null,
+    totalFiles: null,
+  });
+  expect(report.mock.calls.at(-1)?.[0]).toMatchObject({
+    phase: "ready",
+    completedSubjects: 2,
+    verifiedFiles: 1,
+  });
+});
+it("a failed selected subject does not block the next download or claim full completion", async () => {
+  const { downloadSelectedStudentSubjects } =
+    await import("../../src/lib/offline/offline-download-library");
+  api.metadata.mockRejectedValueOnce(new Error("OFFLINE_MANIFEST_FETCH_500"));
+  const ready = vi.fn();
+  await expect(
+    downloadSelectedStudentSubjects({
+      scope,
+      subjects: [
+        { id: "one", name: "رياضيات" },
+        { id: "two", name: "علوم" },
+      ],
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      onReady: ready,
+    }),
+  ).rejects.toBeInstanceOf(OfflineLibraryPartialError);
+  expect(api.download).toHaveBeenCalledTimes(1);
+  expect(api.download.mock.calls[0][0].subjectId).toBe("two");
+  expect(ready).toHaveBeenCalledTimes(1);
+});
+it("direct download rejects wrong subject scope and stops on account change", async () => {
+  const { downloadSelectedStudentSubjects } =
+    await import("../../src/lib/offline/offline-download-library");
+  api.metadata.mockResolvedValue(await prepared("outside"));
+  await expect(
+    downloadSelectedStudentSubjects({
+      scope,
+      subjects: [{ id: "one", name: "رياضيات" }],
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      onReady: vi.fn(),
+    }),
+  ).rejects.toThrow("OFFLINE_MANIFEST_SCOPE_MISMATCH");
+  expect(api.download).not.toHaveBeenCalled();
+});
+it("cancellation during direct preparation never starts the next subject", async () => {
+  const { downloadSelectedStudentSubjects } =
+    await import("../../src/lib/offline/offline-download-library");
+  api.metadata.mockImplementation(() => new Promise(() => {}));
+  const controller = new AbortController();
+  const pending = downloadSelectedStudentSubjects({
+    scope,
+    subjects: [
+      { id: "one", name: "رياضيات" },
+      { id: "two", name: "علوم" },
+    ],
+    signal: controller.signal,
+    onProgress: vi.fn(),
+    onReady: vi.fn(),
+  });
+  const rejected = expect(pending).rejects.toThrow("OFFLINE_DOWNLOAD_ABORTED");
+  await vi.waitFor(() => expect(api.metadata).toHaveBeenCalledTimes(1));
+  controller.abort();
+  await rejected;
+  expect(api.download).not.toHaveBeenCalled();
+  expect(api.metadata).toHaveBeenCalledTimes(1);
+});

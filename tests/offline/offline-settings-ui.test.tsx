@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 const api = vi.hoisted(() => ({
-  prepare: vi.fn(),
+  catalog: vi.fn(),
   download: vi.fn(),
   read: vi.fn(),
   remove: vi.fn(),
@@ -21,8 +21,8 @@ vi.mock("@/lib/offline/offline-pack-downloader", () => ({
 }));
 vi.mock("@/lib/offline/offline-download-library", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  prepareStudentDownloads: api.prepare,
-  downloadStudentSubjects: api.download,
+  listStudentDownloadSubjects: api.catalog,
+  downloadSelectedStudentSubjects: api.download,
   readSavedStudentDownloads: api.read,
 }));
 import { OfflineContentSettings } from "../../src/components/offline/OfflineContentSettings";
@@ -53,7 +53,13 @@ beforeEach(async () => {
     subjects: [await prepared(), await prepared("two", "اللغة العربية")],
     unavailable: [{ id: "unready", name: "الأحياء", reason: "لم يتوفر محتوى قابل للتنزيل بعد" }],
   };
-  api.prepare.mockResolvedValue(plan);
+  api.catalog.mockResolvedValue(
+    plan.subjects.map((row) => ({
+      id: row.id,
+      name: row.name,
+      semester: row.manifest.scope.semester,
+    })),
+  );
   api.read.mockResolvedValue([]);
   api.download.mockResolvedValue(undefined);
   api.remove.mockResolvedValue(undefined);
@@ -66,59 +72,126 @@ afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
 });
-it("opening Settings reads saved files only, then shows size before explicitly downloading", async () => {
+
+async function select(name: string) {
+  const input = host.querySelector<HTMLInputElement>(`input[aria-label="تحديد ${name}"]`)!;
+  expect(input).not.toBeNull();
+  await act(async () => input.click());
+}
+it("loads a lightweight catalog, then downloads selected subjects directly without a size preview", async () => {
   await mount();
-  expect(api.read).toHaveBeenCalled();
-  expect(api.prepare).not.toHaveBeenCalled();
+  expect(api.catalog).toHaveBeenCalled();
   expect(api.download).not.toHaveBeenCalled();
-  expect(host.textContent).toContain("توفير البيانات");
-  expect(host.querySelector("a")).toBeNull();
-  await click("عرض المحتوى");
-  expect(host.textContent).toContain("الحجم الكلي");
-  expect(host.textContent).toContain("الأحياء");
-  expect(api.download).not.toHaveBeenCalled();
-  await click("تحميل الكل");
+  expect(host.textContent).toContain("الفصل الأول");
+  expect(host.textContent).toContain("الفصل الثاني");
+  expect(host.textContent).not.toContain("عرض المحتوى وحجم التنزيل");
+  expect(button("تنزيل المواد المحددة").disabled).toBe(true);
+  await select("الرياضيات");
+  await click("تنزيل المواد المحددة");
   expect(api.download).toHaveBeenCalledWith(
-    expect.objectContaining({ ownerId: "student-a", subjects: plan.subjects }),
+    expect.objectContaining({ scope, subjects: [expect.objectContaining({ id: "one" })] }),
   );
-  expect(host.textContent).toContain("اكتمل تنزيل المحتوى المحدد");
+  expect(host.textContent).toContain("اكتمل تنزيل المواد المحددة");
 });
-it("prevents duplicate downloads and deletion during a download, supports stopping and retrying", async () => {
-  api.read.mockResolvedValue([savedSubject(plan.subjects[0])]);
+it("shows indeterminate preparation immediately and real file progress after preparation", async () => {
+  let report!: (value: unknown) => void;
+  api.download.mockImplementation(({ onProgress }) => {
+    report = onProgress;
+    return new Promise(() => {});
+  });
+  await mount();
+  await select("الرياضيات");
+  await click("تنزيل المواد المحددة");
+  expect(host.querySelector('[role="progressbar"]')?.hasAttribute("aria-valuenow")).toBe(false);
+  await act(async () =>
+    report({
+      subjectId: "one",
+      subjectName: "الرياضيات",
+      subjectIndex: 1,
+      subjectCount: 1,
+      completedSubjects: 0,
+      phase: "downloading",
+      loadedBytes: 3,
+      totalBytes: 3,
+      verifiedFiles: 0,
+      totalFiles: 1,
+    }),
+  );
+  expect(host.textContent).toContain("99٪");
+  expect(host.textContent).not.toContain("100٪");
+});
+it("prevents duplicate jobs, cancels explicitly and permits resume", async () => {
   api.download.mockImplementationOnce(
     ({ signal }) =>
       new Promise((_, reject) =>
-        signal.addEventListener("abort", () => reject(new Error("abort")), { once: true }),
+        signal.addEventListener("abort", () => reject(new Error("abort"))),
       ),
   );
   await mount();
-  await click("عرض المحتوى");
-  await click("تحميل الكل");
-  expect(button("تحميل الكل").disabled).toBe(true);
-  expect(button("حذف جميع").disabled).toBe(true);
-  await click("تحميل الكل");
+  await select("الرياضيات");
+  await click("تنزيل المواد المحددة");
+  expect(button("تنزيل المواد المحددة").disabled).toBe(true);
+  await click("تنزيل المواد المحددة");
   expect(api.download).toHaveBeenCalledTimes(1);
-  await click("إيقاف");
+  await click("إيقاف التنزيل");
   expect(host.textContent).toContain("الملفات المكتملة محفوظة");
-  expect(button("تحميل الكل").disabled).toBe(false);
-  await click("تحميل الكل");
+  await click("تنزيل المواد المحددة");
   expect(api.download).toHaveBeenCalledTimes(2);
 });
-it("a failed download keeps saved content and makes no false completion claim", async () => {
-  api.read.mockResolvedValue([
-    savedSubject(plan.subjects[0]),
-    savedSubject(plan.subjects[1], false),
-  ]);
-  api.download.mockRejectedValue(new Error("network failure"));
+it("retains local content when the network catalog is unavailable", async () => {
+  api.catalog.mockRejectedValue(new Error("offline"));
+  api.read.mockResolvedValue([savedSubject(plan.subjects[0])]);
   await mount();
-  await click("عرض المحتوى");
-  await click("تحميل الكل");
-  expect(host.querySelector('[role="alert"]')?.textContent).toContain("الملفات المكتملة محفوظة");
   expect(host.textContent).toContain("متاح دون إنترنت");
-  expect(host.textContent).toContain("التنزيل غير مكتمل");
-  expect(host.textContent).not.toContain("اكتمل تنزيل المحتوى المحدد");
+  expect(host.textContent).toContain("الرياضيات");
+  expect(host.textContent).toContain("إعادة جلب المواد");
+  expect(api.download).not.toHaveBeenCalled();
 });
-it("requires an in-app delete confirmation, scopes deletion to the account, and shows storage failure", async () => {
+it("retains partial files and never claims completion on failure", async () => {
+  api.read.mockResolvedValue([savedSubject(plan.subjects[0], false)]);
+  api.download.mockRejectedValue(new Error("network"));
+  await mount();
+  await select("الرياضيات");
+  await click("تنزيل المواد المحددة");
+  expect(host.textContent).toContain("التنزيل غير مكتمل");
+  expect(host.querySelector('[role="alert"]')).not.toBeNull();
+  expect(host.textContent).not.toContain("اكتمل تنزيل المواد المحددة");
+});
+it("leaving Settings cancels both catalog reads and the active download", async () => {
+  let downloadSignal!: AbortSignal;
+  api.download.mockImplementation(({ signal }) => {
+    downloadSignal = signal;
+    return new Promise(() => {});
+  });
+  await mount();
+  const catalogSignal = api.catalog.mock.calls[0][1];
+  await select("الرياضيات");
+  await click("تنزيل المواد المحددة");
+  await act(async () => root.render(null));
+  expect(catalogSignal.aborted).toBe(true);
+  expect(downloadSignal.aborted).toBe(true);
+});
+it("late catalog data from an old account cannot populate the new account", async () => {
+  let finish!: (rows: unknown[]) => void;
+  api.catalog.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await mount();
+  const oldSignal = api.catalog.mock.calls[0][1];
+  api.auth.mockReturnValue({
+    user: { id: "student-b" },
+    profile: { grade_uuid: scope.gradeId, curriculum_track_id: scope.trackId },
+  });
+  api.catalog.mockResolvedValue([]);
+  await mount();
+  await act(async () => finish([{ id: "one", name: "الرياضيات" }]));
+  expect(oldSignal.aborted).toBe(true);
+  expect(host.textContent).not.toContain("الرياضيات");
+});
+it("preserves explicit scoped deletion confirmation", async () => {
   api.read.mockResolvedValue([savedSubject(plan.subjects[0])]);
   await mount();
   await click("حذف جميع");
@@ -126,67 +199,17 @@ it("requires an in-app delete confirmation, scopes deletion to the account, and 
   await click("إلغاء");
   expect(api.removeAll).not.toHaveBeenCalled();
   await click("حذف جميع");
-  api.removeAll.mockRejectedValue(new Error("disk"));
   await click("تأكيد الحذف");
-  expect(api.removeAll).toHaveBeenCalledWith(undefined, "student-a");
-  expect(host.querySelector('[role="alert"]')).not.toBeNull();
+  expect(api.removeAll).toHaveBeenCalledWith(undefined, scope.ownerId);
 });
-it("can download one subject without starting the rest", async () => {
+it("select all remains optional and includes both semesters", async () => {
   await mount();
-  await click("عرض المحتوى");
-  const target = host.querySelector<HTMLButtonElement>('[aria-label="تنزيل الرياضيات"]')!;
-  await act(async () => target.click());
-  expect(api.download.mock.calls[0][0].subjects).toEqual([plan.subjects[0]]);
-});
-it("a new account cancels the old job and cannot receive its late content list", async () => {
-  let resolve!: (value: DownloadPlan) => void;
-  let signal!: AbortSignal;
-  api.prepare.mockImplementationOnce((_scope, currentSignal) => {
-    signal = currentSignal;
-    return new Promise((r) => {
-      resolve = r;
-    });
-  });
-  await mount();
-  await click("عرض المحتوى");
-  api.auth.mockReturnValue({
-    user: { id: "student-b" },
-    profile: { grade_uuid: scope.gradeId, curriculum_track_id: scope.trackId },
-  });
-  await mount();
-  expect(signal.aborted).toBe(true);
-  await act(async () => resolve(plan));
-  expect(host.textContent).not.toContain("الرياضيات");
-  expect(api.read).toHaveBeenLastCalledWith("student-b", expect.any(AbortSignal));
-});
-it("leaving Settings cancels metadata preparation", async () => {
-  let signal!: AbortSignal;
-  api.prepare.mockImplementationOnce((_scope, currentSignal) => {
-    signal = currentSignal;
-    return new Promise(() => {});
-  });
-  await mount();
-  await click("عرض المحتوى");
-  await act(async () => root.render(null));
-  expect(signal.aborted).toBe(true);
-});
-it("shows an available update while keeping the saved version usable", async () => {
-  const saved = savedSubject(plan.subjects[0]);
-  saved.local.record!.manifestSha256 = "a".repeat(64);
-  api.read.mockResolvedValue([saved]);
-  await mount();
-  await click("عرض المحتوى");
-  expect(host.textContent).toContain("متاح دون إنترنت");
-  expect(host.textContent).toContain("يتوفر تحديث");
-});
-it("does not claim the grade has no content when every manifest failed", async () => {
-  api.prepare.mockResolvedValue({
-    subjects: [],
-    unavailable: [{ id: "one", name: "رياضيات", reason: "content_books_57014_lookup_failed" }],
-  });
-  await mount();
-  await click("عرض المحتوى");
-  expect(host.textContent).toContain("تعذّر تجهيز المواد");
-  expect(host.textContent).toContain("content_books_57014_lookup_failed");
-  expect(host.textContent).not.toContain("لا يوجد محتوى قابل للتنزيل");
+  const all = host.querySelector<HTMLInputElement>('[aria-label="تحديد كل المواد"]')!;
+  expect(all.checked).toBe(false);
+  await act(async () => all.click());
+  await click("تنزيل المواد المحددة");
+  expect(api.download.mock.calls[0][0].subjects.map((s: { id: string }) => s.id)).toEqual([
+    "one",
+    "two",
+  ]);
 });

@@ -1,7 +1,7 @@
 name: Offline downloads in Settings
 on:
   pull_request:
-    branches: [main]
+    branches: [main, test/review-september15-complete]
     paths:
       - "src/lib/offline/**"
       - "src/components/offline/**"

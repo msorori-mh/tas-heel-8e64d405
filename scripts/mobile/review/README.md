@@ -1,3 +1,7 @@
+# Selected-subject download review
+
+See [the current download review scope](../../../docs/offline-direct-downloads.md). This build uses `app.studentamkeen.tamkeen.review.direct` and **تمكين — تنزيل مباشر**, alongside previous builds without deleting their data.
+
 # Unified APK for field review of PR #241
 
 This is a disposable test build, not a Play release. Its separate application ID (`app.studentamkeen.tamkeen.review`) and label allow installation beside the existing Play app, with separate local data. The Google OAuth callback is the already configured production native callback. If Android asks which app to open after Google, choose **تمكين — اختبار موحّد**.

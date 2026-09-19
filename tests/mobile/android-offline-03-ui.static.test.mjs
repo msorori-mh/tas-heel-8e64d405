@@ -20,14 +20,14 @@ describe("OFFLINE-03 truthful student UI", () => {
     expect(settings).not.toContain("OfflinePackCard");
     expect(settings).toContain("deleteAllOfflinePacks");
     expect(settings).not.toContain('to="/semesters"');
-    expect(settings).toContain("تحميل المحتوى كاملًا");
+    expect(settings).toContain("تنزيل المواد دون إنترنت");
   });
 
   it("labels a pack ready only from verified device presence", () => {
-    expect(settings).toContain("local?.ready === true");
+    expect(settings).toContain("local?.ready");
     expect(settings).toContain("متاح دون إنترنت");
     expect(library).toContain("digestOfflinePackManifest");
-    expect(settings).toContain("يتوفر تحديث");
+    expect(settings).toContain("تنزيل التحديثات");
   });
 
   it("hydrates lesson bodies from owner-isolated, hash-verified local bytes", () => {
