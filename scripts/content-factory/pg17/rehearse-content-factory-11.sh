@@ -78,6 +78,7 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260910020000_lesson_component_v2_resource_metadata_contract.sql" \
   -f "$root_dir/supabase/migrations/20260910030000_lesson_component_v2_superseded_intake_archival.sql" \
   -f "$root_dir/supabase/migrations/20260912050000_multiple_lab_experiment_instances.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/lesson-explanation-code-production-guard.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-publishing-v2-pg17.sql" \
   -f "$root_dir/scripts/content-factory/pg17/lesson-component-multiple-lab-pg17.sql" \
   -f "$root_dir/supabase/migrations/20260913010000_allowlisted_phet_lab_embed.sql" \
@@ -87,4 +88,9 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260918040000_self_test_answer_and_question_management.sql" \
   -f "$root_dir/tests/lessons/question-images-baseline.sql" \
   -f "$root_dir/supabase/migrations/20260918040001_lesson_question_images.sql" \
-  -f "$root_dir/tests/lessons/question-images.pg17.sql"
+  -f "$root_dir/tests/lessons/question-images.pg17.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/component-republish-before-fix-pg17.sql" \
+  -f "$root_dir/supabase/migrations/20260919010000_component_republish_normalized_codes.sql" \
+  -f "$root_dir/supabase/migrations/20260919010000_component_republish_normalized_codes.sql" \
+  -f "$root_dir/supabase/migrations/20260911010000_admin_content_deletion.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/component-republish-after-fix-pg17.sql"

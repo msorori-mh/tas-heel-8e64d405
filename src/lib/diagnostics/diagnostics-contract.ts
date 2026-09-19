@@ -12,12 +12,7 @@ export type DiagnosticSeverity = (typeof DIAGNOSTIC_SEVERITIES)[number];
 export const DIAGNOSTIC_SOURCES = ["client", "server", "google_play", "crashlytics"] as const;
 export type DiagnosticSource = (typeof DIAGNOSTIC_SOURCES)[number];
 
-export const DIAGNOSTIC_ISSUE_STATUSES = [
-  "new",
-  "investigating",
-  "resolved",
-  "ignored",
-] as const;
+export const DIAGNOSTIC_ISSUE_STATUSES = ["new", "investigating", "resolved", "ignored"] as const;
 export type DiagnosticIssueStatus = (typeof DIAGNOSTIC_ISSUE_STATUSES)[number];
 
 export const DIAGNOSTIC_WINDOWS = ["24h", "7d", "30d"] as const;
