@@ -16,6 +16,7 @@ async function setup(
   missing = false,
   options: {
     legacy?: boolean;
+    prepared?: boolean;
     contentError?: { table: string; code: string; message: string };
     copies?: number;
     maxLegacyRows?: number;
@@ -62,26 +63,48 @@ async function setup(
   };
   const rpc = vi.fn((name: string, args: { _lesson_ids?: string[]; _lesson_id?: string }) => {
     const result =
-      name === "lesson_student_content_gates" && options.legacy
-        ? {
-            data: null,
-            error: {
-              code: "PGRST202",
-              message: "Could not find public.lesson_student_content_gates",
-            },
-          }
-        : {
-            error: null,
-            data:
-              name === "can_access_subject"
-                ? true
-                : missing
-                  ? []
-                  : gates.filter(
-                      (g) =>
-                        args._lesson_ids?.includes(g.lesson_id) || args._lesson_id === g.lesson_id,
-                    ),
-          };
+      name === "offline_manifest_sources_v1"
+        ? options.prepared
+          ? {
+              data: {
+                version: 1,
+                pending: false,
+                gates: gates.filter((g) => args._lesson_ids?.includes(g.lesson_id)),
+                ready: [],
+                books: (tables.lesson_book_contents as Record<string, unknown>[])
+                  .filter((r) => args._lesson_ids?.includes(r.lesson_id as string))
+                  .map(({ content: _content, ...header }) => header),
+                explanations: [],
+                summaries: [],
+                resources: [],
+              },
+              error: null,
+            }
+          : {
+              data: null,
+              error: { code: "PGRST202", message: "offline_manifest_sources_v1 missing" },
+            }
+        : name === "lesson_student_content_gates" && options.legacy
+          ? {
+              data: null,
+              error: {
+                code: "PGRST202",
+                message: "Could not find public.lesson_student_content_gates",
+              },
+            }
+          : {
+              error: null,
+              data:
+                name === "can_access_subject"
+                  ? true
+                  : missing
+                    ? []
+                    : gates.filter(
+                        (g) =>
+                          args._lesson_ids?.includes(g.lesson_id) ||
+                          args._lesson_id === g.lesson_id,
+                      ),
+            };
     return Object.assign(Promise.resolve(result), { abortSignal: () => Promise.resolve(result) });
   });
   const from = (table: string) => {
@@ -173,7 +196,7 @@ it("40 lessons use one gate batch and no full text columns", async () => {
   expect(rpc.mock.calls.filter(([name]) => name === "lesson_student_content_gates")).toHaveLength(
     1,
   );
-  expect(rpc.mock.calls).toHaveLength(2);
+  expect(rpc.mock.calls).toHaveLength(3);
   for (const s of selects.filter((s) =>
     /^lesson_(book_contents|explanations|summaries|resources)$/.test(s.table),
   )) {
@@ -271,4 +294,28 @@ it("missing access evidence on the legacy RPC also fails closed", async () => {
   await setup(3, true, { legacy: true });
   expect((await call()).status).toBe(409);
   expect(mocks.assessments).not.toHaveBeenCalled();
+});
+
+it("prepared source RPC produces identical artifacts without text or lifecycle queries", async () => {
+  await setup(80);
+  const expected = await (await call()).json();
+  const { rpc, selects } = await setup(80, false, { prepared: true });
+  const response = await call();
+  expect(response.status).toBe(200);
+  expect((await response.json()).manifest.artifacts).toEqual(expected.manifest.artifacts);
+  expect(
+    rpc.mock.calls
+      .filter(([name]) => name === "offline_manifest_sources_v1")
+      .map(([, args]) => args._lesson_ids?.length),
+  ).toEqual([64, 16]);
+  expect(rpc.mock.calls.some(([name]) => name.startsWith("lesson_student_content_gate"))).toBe(
+    false,
+  );
+  expect(
+    selects.some((s) =>
+      /^lesson_(book_contents|explanations|summaries|resources|capability_lifecycle)$/.test(
+        s.table,
+      ),
+    ),
+  ).toBe(false);
 });

@@ -19,7 +19,8 @@ describe("OFFLINE-03 truthful student UI", () => {
     expect(card).toContain("استكمال التنزيل");
     expect(settings).not.toContain("OfflinePackCard");
     expect(settings).toContain("deleteAllOfflinePacks");
-    expect(settings).toContain('to="/semesters"');
+    expect(settings).toContain("downloadSelectedStudentSubjects");
+    expect(settings).toContain("تنزيل المواد دون إنترنت");
   });
 
   it("labels a pack ready only from verified device presence", () => {

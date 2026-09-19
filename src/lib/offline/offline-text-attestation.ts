@@ -29,8 +29,25 @@ export async function isOfflineTextApproved(params: {
   lessonId: string;
   capability: string;
   readySnapshot?: unknown;
+  preparedSnapshot?: unknown;
 }): Promise<boolean> {
   if (params.bodySha256 === params.expectedSha256) return true;
+  const descriptor = params.preparedSnapshot as Record<string, unknown> | undefined;
+  if (descriptor && typeof descriptor === "object" && !Array.isArray(descriptor)) {
+    // Only the protected database cache creates this descriptor. Its trigger
+    // verifies the full publication snapshot before storing exact body hashes.
+    // It never substitutes current/unapproved content for publication evidence.
+    if (descriptor.snapshotVersion === "offline.snapshot.descriptor.1") {
+      return (
+        descriptor.lessonId === params.lessonId &&
+        descriptor.capability === params.capability &&
+        descriptor.snapshotHash === params.expectedSha256 &&
+        descriptor.verified === true &&
+        Array.isArray(descriptor.bodyHashes) &&
+        descriptor.bodyHashes.includes(params.bodySha256)
+      );
+    }
+  }
   const snapshot = params.readySnapshot;
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return false;
   const record = snapshot as Record<string, unknown>;

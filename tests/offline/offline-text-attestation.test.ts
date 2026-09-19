@@ -121,3 +121,39 @@ it("verifies bodyless database metadata only against exact content in an approve
     await isOfflineTextApproved({ ...value, body: undefined, lessonId: "another-lesson" }),
   ).toBe(false);
 });
+
+it("binds protected prepared snapshot descriptors to the exact publication and body", async () => {
+  const value = await input();
+  const descriptor = {
+    snapshotVersion: "offline.snapshot.descriptor.1",
+    lessonId,
+    capability: value.capability,
+    snapshotHash,
+    verified: true,
+    bodyHashes: [value.bodySha256],
+  };
+  expect(
+    await isOfflineTextApproved({
+      ...value,
+      readySnapshot: undefined,
+      preparedSnapshot: descriptor,
+    }),
+  ).toBe(true);
+  for (const patch of [
+    { lessonId: "different" },
+    { capability: "quickReview" },
+    { snapshotHash: "0".repeat(64) },
+    { verified: false },
+    { bodyHashes: [] },
+  ]) {
+    expect(
+      await isOfflineTextApproved({
+        ...value,
+        readySnapshot: undefined,
+        preparedSnapshot: { ...descriptor, ...patch },
+      }),
+    ).toBe(false);
+  }
+  // Raw publication JSON cannot impersonate a protected cache result.
+  expect(await isOfflineTextApproved({ ...value, readySnapshot: descriptor })).toBe(false);
+});
