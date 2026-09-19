@@ -327,6 +327,17 @@ jobs:
           IRON_PREVIEW_BASE_URL: http://127.0.0.1:4173
         run: node tests/content-packages/chemistry-g12-iron-v3-ui-runtime.mjs
 
+      - name: Verify authored mindmap interaction in the student sandbox
+        run: node --import tsx tests/lessons/mindmap-authored-html-runtime.mjs
+
+      - name: Upload mindmap browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindmap-runtime-evidence
+          path: artifacts/mindmap-runtime
+          if-no-files-found: error
+
       - name: Upload Iron UI evidence
         if: always()
         uses: actions/upload-artifact@v4

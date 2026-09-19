@@ -93,4 +93,8 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/supabase/migrations/20260919010000_component_republish_normalized_codes.sql" \
   -f "$root_dir/supabase/migrations/20260919010000_component_republish_normalized_codes.sql" \
   -f "$root_dir/supabase/migrations/20260911010000_admin_content_deletion.sql" \
-  -f "$root_dir/scripts/content-factory/pg17/component-republish-after-fix-pg17.sql"
+  -f "$root_dir/scripts/content-factory/pg17/component-republish-after-fix-pg17.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/mindmap-contract-before-fix-pg17.sql" \
+  -f "$root_dir/supabase/migrations/20260919020000_separate_mindmap_publication_contract.sql" \
+  -f "$root_dir/supabase/migrations/20260919020000_separate_mindmap_publication_contract.sql" \
+  -f "$root_dir/scripts/content-factory/pg17/mindmap-contract-after-fix-pg17.sql"
