@@ -38,10 +38,7 @@ export async function captureServerDiagnostic(params: {
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const insert = supabaseAdmin.from("app_diagnostic_events").insert(event);
-    await Promise.race([
-      insert,
-      new Promise((resolve) => setTimeout(resolve, TIMEOUT_MS)),
-    ]);
+    await Promise.race([insert, new Promise((resolve) => setTimeout(resolve, TIMEOUT_MS))]);
   } catch {
     // A telemetry failure (e.g. missing service role config) must be terminal.
     disabled = true;

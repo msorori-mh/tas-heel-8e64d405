@@ -79,7 +79,9 @@ function readPending(): SanitizedDiagnosticEvent[] {
     const raw = sessionStorage.getItem(PENDING_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as SanitizedDiagnosticEvent[]).slice(0, PENDING_MAX) : [];
+    return Array.isArray(parsed)
+      ? (parsed as SanitizedDiagnosticEvent[]).slice(0, PENDING_MAX)
+      : [];
   } catch {
     return [];
   }
