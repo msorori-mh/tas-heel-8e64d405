@@ -18,6 +18,7 @@ import {
   UserCog,
   Wallet,
   Landmark,
+  HeartPulse,
 } from "lucide-react";
 import { TrendingDown, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -49,7 +50,8 @@ type LinkItem = {
     | "/admin/learning-insights/quick-review"
     | "/admin/payment-methods"
     | "/admin/payment-requests"
-    | "/admin/wallet-topups";
+    | "/admin/wallet-topups"
+    | "/admin/diagnostics";
   label: string;
   icon: typeof LayoutDashboard;
   end?: boolean;
@@ -78,6 +80,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/payment-methods", label: "طرق الدفع", icon: Landmark },
   { href: "/admin/payment-requests", label: "طلبات الدفع", icon: CreditCard },
   { href: "/admin/wallet-topups", label: "طلبات شحن المحفظة", icon: Wallet },
+  { href: "/admin/diagnostics", label: "صحة التطبيق والتشخيص", icon: HeartPulse },
 ];
 
 const upcomingLinks: DisabledItem[] = [

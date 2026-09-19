@@ -25,6 +25,7 @@ export const FULL_ADMIN_ONLY_ADMIN_PATHS = [
   "/admin/payment-requests",
   "/admin/wallet-topups",
   "/admin/learning-insights",
+  "/admin/diagnostics",
 ] as const;
 
 export type AdminSection = "full" | "content";
@@ -49,6 +50,7 @@ export function canAccessAdminPath(
   if (path.startsWith("/admin/payment-requests")) return false;
   if (path.startsWith("/admin/wallet-topups")) return false;
   if (path.startsWith("/admin/learning-insights")) return false;
+  if (path.startsWith("/admin/diagnostics")) return false;
   return isContentManagerAdminPath(path);
 }
 
@@ -73,7 +75,8 @@ type SidebarLink = {
     | "/admin/learning-insights/quick-review"
     | "/admin/payment-methods"
     | "/admin/payment-requests"
-    | "/admin/wallet-topups";
+    | "/admin/wallet-topups"
+    | "/admin/diagnostics";
   label: string;
   end?: boolean;
 };
@@ -91,7 +94,8 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(links: T[], isAdm
       link.href !== "/admin/wallet-topups" &&
       link.href !== "/admin/learning-insights/mistakes" &&
       link.href !== "/admin/learning-insights/performance" &&
-      link.href !== "/admin/learning-insights/quick-review",
+      link.href !== "/admin/learning-insights/quick-review" &&
+      link.href !== "/admin/diagnostics",
   );
 }
 

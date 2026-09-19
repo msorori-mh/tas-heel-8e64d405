@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { captureDiagnosticSync } from "@/lib/diagnostics/telemetry";
 import { getAuthRedirectUrl } from "@/lib/auth-helpers";
 import {
   NATIVE_OAUTH_REDIRECT_URL,
@@ -24,9 +25,28 @@ export async function startGoogleSignIn(): Promise<void> {
       skipBrowserRedirect: true,
     },
   });
-  if (error) throw error;
+  if (error) {
+    // The OAuth URL itself is never logged; only the sanitized failure reason.
+    captureDiagnosticSync({
+      eventType: "google_sign_in_failed",
+      severity: "error",
+      error,
+      action: "signInWithOAuth",
+      metadata: { native },
+    });
+    throw error;
+  }
   const url = data?.url;
-  if (!url) throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
+  if (!url) {
+    captureDiagnosticSync({
+      eventType: "google_sign_in_failed",
+      severity: "error",
+      message: "missing_oauth_url",
+      action: "signInWithOAuth",
+      metadata: { native },
+    });
+    throw new Error("تعذّر بدء تسجيل الدخول عبر Google.");
+  }
 
   if (native) {
     setNativeAuthDestination("student");
