@@ -14,12 +14,13 @@ import {
   buildDiagnosticEvent,
   shouldSendEvent,
   type DiagnosticInput,
+  type RateLimitEntry,
   type SanitizedDiagnosticEvent,
 } from "./diagnostics-contract";
 
 const PENDING_KEY = "tamkeen.diagnostics.pending.v1";
 const PENDING_MAX = 10;
-const seen = new Map<string, number>();
+const seen = new Map<string, RateLimitEntry>();
 let sessionId: string | null = null;
 let installed = false;
 let sending = false;

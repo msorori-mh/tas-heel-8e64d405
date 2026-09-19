@@ -257,23 +257,23 @@ export function buildDiagnosticEvent(input: DiagnosticInput): SanitizedDiagnosti
 }
 
 /** Simple per-fingerprint rate limiting so one loop cannot flood the table. */
+export type RateLimitEntry = { first: number; count: number };
+
 export function shouldSendEvent(
-  seen: Map<string, number>,
+  seen: Map<string, RateLimitEntry>,
   fingerprint: string,
   now: number,
   windowMs = 60_000,
   maxPerWindow = 3,
 ): boolean {
-  for (const [key, stamp] of seen) if (now - stamp > windowMs * 10) seen.delete(key);
-  const countKey = `${fingerprint}:count`;
-  const firstKey = `${fingerprint}:first`;
-  const first = seen.get(firstKey);
-  if (first === undefined || now - first > windowMs) {
-    seen.set(firstKey, now);
-    seen.set(countKey, 1);
+  for (const [key, entry] of seen) {
+    if (now - entry.first > windowMs * 10) seen.delete(key);
+  }
+  const entry = seen.get(fingerprint);
+  if (!entry || now - entry.first > windowMs) {
+    seen.set(fingerprint, { first: now, count: 1 });
     return true;
   }
-  const count = (seen.get(countKey) ?? 0) + 1;
-  seen.set(countKey, count);
-  return count <= maxPerWindow;
+  entry.count += 1;
+  return entry.count <= maxPerWindow;
 }

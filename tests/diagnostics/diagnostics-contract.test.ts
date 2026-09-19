@@ -142,7 +142,7 @@ describe("buildDiagnosticEvent", () => {
 
 describe("shouldSendEvent", () => {
   it("rate limits repeats of the same fingerprint", () => {
-    const seen = new Map<string, number>();
+    const seen = new Map<string, { first: number; count: number }>();
     const now = 1_000_000;
     expect(shouldSendEvent(seen, "fp", now)).toBe(true);
     expect(shouldSendEvent(seen, "fp", now + 10)).toBe(true);
@@ -152,7 +152,7 @@ describe("shouldSendEvent", () => {
   });
 
   it("tracks fingerprints independently", () => {
-    const seen = new Map<string, number>();
+    const seen = new Map<string, { first: number; count: number }>();
     expect(shouldSendEvent(seen, "a", 1)).toBe(true);
     expect(shouldSendEvent(seen, "b", 1)).toBe(true);
   });

@@ -10,9 +10,16 @@ describe("diagnostics admin access guards", () => {
   const fns = read("src/lib/diagnostics/diagnostics-admin.functions.ts");
 
   it("declares /admin/diagnostics as full-admin only", () => {
-    expect(access).toContain('"/admin/diagnostics",\n] as const;');
+    const fullAdminBlock = access.slice(access.indexOf("FULL_ADMIN_ONLY_ADMIN_PATHS"));
+    expect(fullAdminBlock.slice(0, fullAdminBlock.indexOf("] as const;"))).toContain(
+      "/admin/diagnostics",
+    );
     expect(access).toContain('if (path.startsWith("/admin/diagnostics")) return false;');
-    expect(access).not.toContain('"/admin/diagnostics",\n] as const;\n\nexport type');
+    const contentBlock = access.slice(
+      access.indexOf("CONTENT_MANAGER_ADMIN_PATHS"),
+      access.indexOf("FULL_ADMIN_ONLY_ADMIN_PATHS"),
+    );
+    expect(contentBlock).not.toContain("/admin/diagnostics");
   });
 
   it("hides the sidebar link from content managers", () => {
