@@ -11,7 +11,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useStudentView } from "@/hooks/use-student-view";
+import { useConnectivity } from "@/hooks/use-connectivity";
+import { ConnectionRequired } from "@/components/offline/ConnectionRequired";
 import {
   BookOpen,
   CheckCircle2,
@@ -95,7 +97,9 @@ export function SubjectTextbooksSheet({
   subjectName,
   semester,
 }: Props) {
-  const { data, isLoading, error } = useQuery({
+  const online = useConnectivity();
+  const { data, isLoading, error } = useStudentView({
+    offline: async (): Promise<StudentTextbook[]> => [],
     enabled: open,
     queryKey: ["subject-textbooks", subjectId, semester ?? null],
     queryFn: () => listStudentTextbooks({ subjectId, semester: semester ?? null }),
@@ -132,7 +136,10 @@ export function SubjectTextbooksSheet({
             <p className="text-xs text-destructive">تعذّر تحميل قائمة الكتب. حاول لاحقاً.</p>
           )}
 
-          {data && data.length === 0 && (
+          {!online && data?.length === 0 && (
+            <ConnectionRequired message="اتصل بالإنترنت لتحميل قائمة كتب المنهج. محتوى الدروس الذي نزّلته متاح من صفحة المادة." />
+          )}
+          {online && data && data.length === 0 && (
             <p className="rounded-xl bg-muted/60 px-3 py-3 text-xs text-muted-foreground">
               لا توجد كتب منهج متاحة لهذه المادة حتى الآن.
             </p>
@@ -181,6 +188,7 @@ function TextbookRow({
   subjectLabel: string;
   onOpen: () => void;
 }) {
+  const online = useConnectivity();
   const [local, setLocal] = useState<TextbookLocalState | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState<{ loaded: number; total: number | null } | null>(null);
@@ -226,6 +234,10 @@ function TextbookRow({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const start = async () => {
+    if (!online) {
+      setMessage("اتصل بالإنترنت لتنزيل هذا الكتاب. يمكنك الآن قراءة كتبك المحفوظة.");
+      return;
+    }
     setDownloading(true);
     setMessage(null);
     void prepareReader();
@@ -260,6 +272,10 @@ function TextbookRow({
   };
 
   const openBook = async () => {
+    if (!online && !local?.cached) {
+      setMessage("هذا الكتاب غير محفوظ على جهازك. اتصل بالإنترنت لفتحه أو تنزيله.");
+      return;
+    }
     // Guard against a cache entry that vanished after the last render.
     const state = await readTextbookLocalState(book);
     setLocal(state);

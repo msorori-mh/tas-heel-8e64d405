@@ -1180,7 +1180,10 @@ function LessonPage() {
         )}
       </header>
 
-      {primaryUnavailable && (
+      {primaryUnavailable && !online && (
+        <ConnectionRequired message="نص الدرس غير محفوظ على جهازك. اتصل بالإنترنت لاستكمال تنزيله، أو تابع الأجزاء المحفوظة أدناه." />
+      )}
+      {primaryUnavailable && online && (
         <section
           role="status"
           className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card"

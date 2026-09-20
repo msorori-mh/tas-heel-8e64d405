@@ -28,7 +28,18 @@ public class ReviewOfflineShellTest {
   private void link(ActivityScenario<ReviewActivity> a, String href) throws Exception {
     evaluate(a, "document.querySelector('a[href=\""+href+"\"]').click();'opening'");
   }
-  private void screenshot(Context context, String name) throws Exception {
+  private void screenshot(ActivityScenario<ReviewActivity> activity, Context context, String name) throws Exception {
+    CountDownLatch drawn = new CountDownLatch(1);
+    activity.onActivity(current -> current.getBridge().getWebView().postVisualStateCallback(1,
+      new android.webkit.WebView.VisualStateCallback() {
+        @Override public void onComplete(long id) {
+          android.webkit.WebView view = current.getBridge().getWebView();
+          view.postOnAnimation(() -> view.postOnAnimation(drawn::countDown));
+          view.invalidate();
+        }
+      }));
+    assertTrue("Offline screen was not drawn", drawn.await(15, TimeUnit.SECONDS));
+    InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     android.graphics.Bitmap image = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
     assertNotNull(image);
     java.io.File dir = new java.io.File(context.getExternalFilesDir(null), "offline-shell-evidence"); dir.mkdirs();
@@ -52,18 +63,18 @@ public class ReviewOfflineShellTest {
         until(a, "document.body.innerText", "مرحباً، طالبة");
         until(a, "document.querySelector('nav[aria-label=\"التنقل السفلي\"]')?.innerText", "موادي");
         assertEquals("false", evaluate(a, "location.pathname.includes('review-offline')"));
-        screenshot(context, "home-airplane");
+        screenshot(a, context, "home-airplane");
         link(a, "/semesters");
         until(a, "document.body.innerText", "الأحياء"); until(a, "document.body.innerText", "الكيمياء");
         assertEquals("false", evaluate(a, "document.body.innerText.includes('التفاعلات الكيميائية')"));
-        screenshot(context, "subjects-airplane");
+        screenshot(a, context, "subjects-airplane");
         evaluate(a, "Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/biology')).click();'opening'");
         until(a, "document.body.innerText", "الخلية الحية");
         assertEquals("false", evaluate(a, "document.body.innerText.includes('التفاعلات الكيميائية')"));
         link(a, "/lessons/lesson-biology");
         until(a, "document.querySelector('article')?.innerText", "الخلية الحية");
         until(a, "Array.from(document.querySelectorAll('iframe')).some(f=>(f.srcdoc||'').includes('محتوى الأحياء المحفوظ'))", "true");
-        screenshot(context, "lesson-airplane");
+        screenshot(a, context, "lesson-airplane");
         link(a, "/semesters");
         until(a, "Boolean(Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/chemistry')))", "true");
         evaluate(a, "Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/chemistry')).click();'opening'");
@@ -71,7 +82,7 @@ public class ReviewOfflineShellTest {
         assertEquals("false", evaluate(a, "document.body.innerText.includes('الخلية الحية')"));
         link(a, "/exams"); until(a, "document.body.innerText", "هذه الخدمة تحتاج اتصالًا بالإنترنت");
         until(a, "document.querySelector('nav[aria-label=\"التنقل السفلي\"]')?.innerText", "الرئيسية");
-        screenshot(context, "connection-required");
+        screenshot(a, context, "connection-required");
         link(a, "/app"); until(a, "document.body.innerText", "مرحباً، طالبة");
         assertEquals("false", evaluate(a, "navigator.onLine"));
       }
