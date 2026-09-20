@@ -25,9 +25,11 @@ const release = Object.freeze({
   sha: resolveBuildSha(),
   builtAt: new Date().toISOString(),
 });
+const bundledNative =
+  process.env.TAMKEEN_REVIEW_APK === "1" || process.env.TAMKEEN_NATIVE_APP === "1";
 
 export default defineConfig({
-  ...(process.env.TAMKEEN_REVIEW_APK === "1"
+  ...(bundledNative
     ? {
         plugins: [
           {
@@ -47,9 +49,9 @@ export default defineConfig({
         ],
       }
     : {}),
-  ...(process.env.TAMKEEN_REVIEW_APK === "1" ? { nitro: false as const } : {}),
+  ...(bundledNative ? { nitro: false as const } : {}),
   vite: {
-    ...(process.env.TAMKEEN_REVIEW_APK === "1" ? { preview: { host: "127.0.0.1" } } : {}),
+    ...(bundledNative ? { preview: { host: "127.0.0.1" } } : {}),
     // Lovable publishes the student app from the repository root. The academy
     // database passed production post-verify before this route was enabled, so
     // the root build deliberately exposes the isolated academy UI below /academy.
@@ -62,7 +64,7 @@ export default defineConfig({
   },
   tanstackStart: {
     // Explicit review-only packaging; the normal web/release build remains SSR.
-    ...(process.env.TAMKEEN_REVIEW_APK === "1"
+    ...(bundledNative
       ? {
           prerender: { concurrency: 1 },
           spa: { enabled: true, prerender: { outputPath: "/index" } },

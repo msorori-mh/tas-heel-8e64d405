@@ -41,7 +41,7 @@ function AuthenticatedLayout() {
       return;
     }
     if (!profile && !isAdmin && !isContentStaff) return; // wait for profile load
-    if (!profileComplete && !isAdmin && !isContentStaff) {
+    if (online && !profileComplete && !isAdmin && !isContentStaff) {
       navigate({ to: "/complete-profile", replace: true });
     }
   }, [loading, user, online, profile, profileComplete, isAdmin, isContentStaff, navigate]);

@@ -4,7 +4,7 @@ apk = pathlib.Path(sys.argv[1])
 with zipfile.ZipFile(apk) as archive:
     assert archive.testzip() is None
     config = json.loads(archive.read('assets/capacitor.config.json'))
-    assert config['appId'] == 'app.studentamkeen.tamkeen.review.direct'
+    assert config['appId'] == 'app.studentamkeen.tamkeen.review.offlineui'
     assert 'url' not in config['server']
     assert config['server']['hostname'] == 'studentamkeen.com'
     descriptor = json.loads(archive.read('assets/public/review-build.json'))
@@ -14,7 +14,12 @@ with zipfile.ZipFile(apk) as archive:
     assert descriptor['backendCapacityApplied'] is False
     assert descriptor['academyOfflineStage'] == 1
     assert descriptor['academyNotesMigrationApplied'] is False
-    assert 'academy-offline-entry' in archive.read('assets/public/review-offline.html').decode()
+    assert config['server']['errorPath'] == 'app-recovery.html'
+    assert descriptor['offlineShell'] == 'normal-app-local-first-v2'
+    assert descriptor['legacyOfflineLibrary'] is False
+    recovery = archive.read('assets/public/app-recovery.html').decode()
+    assert "location.replace('/')" in recovery
+    assert 'دروسك المحفوظة' not in recovery
     assert 'assets/public/academy-shell/index.html' in archive.namelist()
     academy_assets = json.loads(archive.read('assets/public/academy-shell/assets.json'))
     assert academy_assets
@@ -29,7 +34,7 @@ with zipfile.ZipFile(apk) as archive:
     assert hashlib.sha256(settings).hexdigest() == descriptor['settingsSha256']
     assert 'تنزيل المواد دون إنترنت' in settings.decode()
     assert 'تأكيد الحذف' in settings.decode()
-    assert 'TamkeenOfflineContent' in archive.read('assets/public/review-offline.html').decode()
+    assert archive.read('assets/public/review-offline.html').decode() == recovery
     scripts = re.findall(r'<script[^>]+src="(/[^"?]+)', html.decode())
     assert scripts
     for script in scripts:

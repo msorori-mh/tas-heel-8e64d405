@@ -40,8 +40,14 @@ export async function forgetStudentIdentity(): Promise<void> {
 export async function readStudentIdentity(): Promise<{ profile: Profile; user: User } | null> {
   try {
     const snapshot = await deviceOfflineStateRepository.read();
-    const entry = JSON.parse((await read(IDENTITY_KEY)) ?? "null");
-    const p = entry?.profile;
+    if (!snapshot.activeOwnerId) return null;
+    let entry: { version?: number; profile?: Profile } | null = null;
+    try {
+      entry = JSON.parse((await read(IDENTITY_KEY)) ?? "null");
+    } catch {
+      /* Older installs can recover from verified packs. */
+    }
+    let p = entry?.profile;
     if (
       entry?.version !== 1 ||
       !p ||
@@ -53,8 +59,26 @@ export async function readStudentIdentity(): Promise<{ profile: Profile; user: U
       !(p.grade_uuid || p.grade_id) ||
       !p.curriculum_track_id ||
       !p.governorate_id
-    )
-      return null;
+    ) {
+      // Earlier APKs downloaded content before the presentation identity existed.
+      // Recover local navigation without inventing a server session or completed profile.
+      const subjects = await readSavedSubjects(snapshot.activeOwnerId);
+      if (!subjects.length) return null;
+      p = {
+        id: snapshot.activeOwnerId,
+        user_id: snapshot.activeOwnerId,
+        full_name: null,
+        grade_id: null,
+        grade_uuid: subjects[0].grade_id,
+        governorate: null,
+        governorate_id: null,
+        curriculum_track_id: subjects[0].curriculum_track_id,
+        school_name: null,
+        phone: null,
+        avatar_url: null,
+      };
+    }
+    if ((await deviceOfflineStateRepository.read()).activeOwnerId !== p.user_id) return null;
     // This identity opens local student screens only. Online requests still require Supabase auth.
     return {
       profile: p,

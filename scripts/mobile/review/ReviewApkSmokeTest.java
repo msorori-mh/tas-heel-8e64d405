@@ -86,7 +86,7 @@ public class ReviewApkSmokeTest {
     }
     @Test public void pinnedAppLaunchAndAuthenticatedApiBoundary() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("app.studentamkeen.tamkeen.review.direct", context.getPackageName());
+        assertEquals("app.studentamkeen.tamkeen.review.offlineui", context.getPackageName());
         String descriptor;
         try (java.io.InputStream input = context.getAssets().open("public/review-build.json")) {
             descriptor = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
@@ -109,9 +109,10 @@ public class ReviewApkSmokeTest {
             assertTrue(response.contains("unauthorized"));
             evaluate(activity, "window.__reviewWorker='pending'; fetch('/sw.js').then(r=>{window.__reviewWorker=String(r.status)}); 'requested'");
             until(activity, "window.__reviewWorker", "404");
-            // The original native offline entry is packaged and can open without a web deployment.
+            // Legacy fallback URLs return to the normal app, never the old flat library.
             evaluate(activity, "location.href='/review-offline.html'; 'opening'");
-            until(activity, "document.title", "دون اتصال");
+            until(activity, "location.pathname", "\"/\"");
+            until(activity, "document.body.innerText", "دخول الطالب");
             // Seed only local fixture content, then prove the actual APK cold-start route offline.
             evaluate(activity, "window.__academySeed='pending'; const req=indexedDB.open('tamkeen-academy-offline-v1',1); req.onupgradeneeded=()=>{for(const name of ['packs','files','events','notes']) req.result.createObjectStore(name,{keyPath:['owner','id']}).createIndex('owner','owner');}; req.onsuccess=()=>{const db=req.result;const tx=db.transaction('packs','readwrite');tx.objectStore('packs').put({owner:'review-teacher',id:'review-program',program:{title:'برنامج اختبار الأكاديمية'},lessons:[{lesson_id:'review-lesson',title:'درس محفوظ للاختبار',content:'محتوى الأكاديمية يعمل دون إنترنت',sections:[],completed:false}],omitted:[],savedAt:new Date().toISOString()});tx.oncomplete=()=>{db.close();localStorage.setItem('tamkeen-academy-offline-owner','review-teacher');window.__academySeed='ready';};tx.onerror=()=>{window.__academySeed='error';};}; 'seeded'");
             until(activity, "window.__academySeed", "ready");

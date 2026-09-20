@@ -45,6 +45,28 @@ it("does not restore incomplete or corrupted identity", async () => {
   localStorage.setItem("tamkeen.student-shell.identity.v1", "{");
   expect(await readStudentIdentity()).toBeNull();
 });
+it("recovers older downloads without inventing profile fields or requiring an online visit", async () => {
+  local.state.packs = [savedSubject(await prepared("one", "الأحياء")).local.record];
+  const recovered = await readStudentIdentity();
+  expect(recovered?.user.id).toBe("student-a");
+  expect(recovered?.profile.full_name).toBeNull();
+  expect(recovered?.profile.governorate_id).toBeNull();
+  expect(recovered?.user.app_metadata).toEqual({});
+  expect(localStorage.getItem("tamkeen.student-shell.identity.v1")).toBeNull();
+  local.state.activeOwnerId = "";
+  expect(await readStudentIdentity()).toBeNull();
+});
+it("does not recover an older account from unverified or foreign downloads", async () => {
+  const pack = savedSubject(await prepared()).local.record;
+  for (const invalid of [
+    { ...pack, ownerId: "student-b" },
+    { ...pack, verifiedArtifactIds: [] },
+    { ...pack, manifestSha256: "0".repeat(64) },
+  ]) {
+    local.state.packs = [invalid];
+    expect(await readStudentIdentity()).toBeNull();
+  }
+});
 it("separates downloaded Biology and Chemistry and includes unvisited lessons", async () => {
   const bio = savedSubject(await prepared("one", "الأحياء")).local.record;
   const chem = savedSubject(await prepared("two", "الكيمياء")).local.record;
