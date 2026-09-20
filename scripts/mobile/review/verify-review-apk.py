@@ -4,7 +4,7 @@ apk = pathlib.Path(sys.argv[1])
 with zipfile.ZipFile(apk) as archive:
     assert archive.testzip() is None
     config = json.loads(archive.read('assets/capacitor.config.json'))
-    assert config['appId'] == 'app.studentamkeen.tamkeen.review.direct'
+    assert config['appId'] == 'app.studentamkeen.tamkeen.review.offlineui'
     assert 'url' not in config['server']
     assert config['server']['hostname'] == 'studentamkeen.com'
     descriptor = json.loads(archive.read('assets/public/review-build.json'))

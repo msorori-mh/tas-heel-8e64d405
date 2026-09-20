@@ -86,7 +86,7 @@ public class ReviewApkSmokeTest {
     }
     @Test public void pinnedAppLaunchAndAuthenticatedApiBoundary() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("app.studentamkeen.tamkeen.review.direct", context.getPackageName());
+        assertEquals("app.studentamkeen.tamkeen.review.offlineui", context.getPackageName());
         String descriptor;
         try (java.io.InputStream input = context.getAssets().open("public/review-build.json")) {
             descriptor = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);

@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { prepareBundledUi } from "../prepare-bundled-ui.mjs";
 const root = process.cwd();
-const appId = "app.studentamkeen.tamkeen.review.direct";
+const appId = "app.studentamkeen.tamkeen.review.offlineui";
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 assert.equal(process.env.TAMKEEN_REVIEW_APK, "1", "Explicit review flag required");
 const html = await readFile("dist/client/index.html", "utf8");
@@ -40,9 +40,17 @@ let gradle = await readFile("android/app/build.gradle", "utf8");
 assert.ok(gradle.includes("    buildTypes {"));
 gradle = gradle.replace(
   "    buildTypes {",
-  `    buildTypes {
+  `    signingConfigs {
         debug {
-            applicationIdSuffix ".review.direct"
+            storeFile rootProject.file("review-signing/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix ".review.offlineui"
             versionNameSuffix "-offline-ui-v2"
         }`,
 );

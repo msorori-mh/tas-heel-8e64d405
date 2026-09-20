@@ -66,7 +66,9 @@ public class ReviewOfflineShellTest {
         assertEquals("false", evaluate(a, "location.pathname.includes('review-offline')"));
         screenshot(a, context, "home-airplane");
         link(a, "/semesters");
-        until(a, "document.body.innerText", "الأحياء"); until(a, "document.body.innerText", "الكيمياء");
+        until(a, "location.pathname", "\"/semesters\"");
+        until(a, "Array.from(document.querySelectorAll('a[href^=\"/subjects/\"]')).map(a=>a.innerText).join('|')", "الأحياء");
+        until(a, "Array.from(document.querySelectorAll('a[href^=\"/subjects/\"]')).map(a=>a.innerText).join('|')", "الكيمياء");
         assertEquals("false", evaluate(a, "document.body.innerText.includes('التفاعلات الكيميائية')"));
         screenshot(a, context, "subjects-airplane");
         evaluate(a, "Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/biology')).click();'opening'");
@@ -126,7 +128,10 @@ public class ReviewOfflineShellTest {
       try (ActivityScenario<ReviewActivity> a = ActivityScenario.launch(context.getPackageManager().getLaunchIntentForPackage(context.getPackageName()))) {
         until(a, "location.pathname", "/app");
         until(a, "document.querySelector('nav[aria-label=\"التنقل السفلي\"]')?.innerText", "موادي");
-        link(a, "/semesters"); until(a, "document.body.innerText", "الأحياء"); until(a, "document.body.innerText", "الكيمياء");
+        link(a, "/semesters");
+        until(a, "location.pathname", "\"/semesters\"");
+        until(a, "Array.from(document.querySelectorAll('a[href^=\"/subjects/\"]')).map(a=>a.innerText).join('|')", "الأحياء");
+        until(a, "Array.from(document.querySelectorAll('a[href^=\"/subjects/\"]')).map(a=>a.innerText).join('|')", "الكيمياء");
         assertEquals("false", evaluate(a, "document.body.innerText.includes('دروسك المحفوظة')"));
         screenshot(a, context, "subjects-after-update-airplane");
         evaluate(a, "location.href='/review-offline.html';'old-url'");

@@ -39,6 +39,7 @@ artifacts/
 # Capacitor / Android release
 android/keystore.properties
 android/*.jks
+android/review-signing/
 android/app/build/
 android/.gradle/
 mobile/app-www/
