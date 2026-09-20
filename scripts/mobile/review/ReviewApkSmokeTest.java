@@ -121,9 +121,8 @@ public class ReviewApkSmokeTest {
                 automation.executeShellCommand("svc data disable").close();
                 until(activity, "navigator.onLine", "false");
                 activity.recreate();
-                until(activity, "document.title", "دون اتصال");
-                until(activity, "Boolean(document.getElementById('academy-offline-entry') && !document.getElementById('academy-offline-entry').hidden)", "true");
-                evaluate(activity, "document.getElementById('academy-offline-entry').click(); 'opening'");
+                until(activity, "typeof window.Capacitor", "object");
+                evaluate(activity, "location.href='/academy/'; 'opening'");
                 until(activity, "document.body.innerText", "برنامج اختبار الأكاديمية");
                 evaluate(activity, "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('فتح المحتوى المحفوظ')).click(); 'opening'");
                 until(activity, "document.body.innerText", "محتوى الأكاديمية يعمل دون إنترنت");

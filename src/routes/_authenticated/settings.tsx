@@ -1,3 +1,5 @@
+import { useConnectivity } from "@/hooks/use-connectivity";
+import { useStudentView } from "@/hooks/use-student-view";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -81,6 +83,7 @@ function daysBetween(iso: string | null): number | null {
 
 function SettingsPage() {
   const { user, profile, signOut } = useAuth();
+  const online = useConnectivity();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const callDelete = useServerFn(deleteMyAccount);
@@ -108,7 +111,8 @@ function SettingsPage() {
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
   // Reuse the same query keys as StudentProfileCard so cache is shared.
-  const gradeQ = useQuery({
+  const gradeQ = useStudentView({
+    offline: async () => null,
     enabled: !!gradeKey,
     queryKey: ["pcard-grade", gradeKey],
     queryFn: async () => {
@@ -121,7 +125,8 @@ function SettingsPage() {
     },
   });
 
-  const trackQ = useQuery({
+  const trackQ = useStudentView({
+    offline: async () => null,
     enabled: !!profile?.curriculum_track_id,
     queryKey: ["pcard-track", profile?.curriculum_track_id],
     queryFn: async () => {
@@ -134,7 +139,8 @@ function SettingsPage() {
     },
   });
 
-  const govQ = useQuery({
+  const govQ = useStudentView({
+    offline: async () => null,
     enabled: !!profile?.governorate_id,
     queryKey: ["pcard-gov", profile?.governorate_id],
     queryFn: async () => {
@@ -300,10 +306,14 @@ function SettingsPage() {
               <p className="text-xs text-muted-foreground">المنهج الدراسي الحالي</p>
               <p className="mt-0.5 text-sm font-semibold text-foreground">{trackName ?? "—"}</p>
             </div>
-            <ChangeCurriculumTrackButton />
+            {online && <ChangeCurriculumTrackButton />}
           </div>
           <div className="mt-3 flex justify-end">
-            <EditProfileDialog />
+            {online ? (
+              <EditProfileDialog />
+            ) : (
+              <p className="text-xs text-muted-foreground">اتصل بالإنترنت لتعديل بيانات حسابك.</p>
+            )}
           </div>
         </SectionItem>
 
@@ -497,7 +507,10 @@ function SettingsPage() {
                       variant="outline"
                       size="sm"
                       className="mt-3 gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => setOpen(true)}
+                      onClick={() => {
+                        if (online) setOpen(true);
+                        else toast.info("اتصل بالإنترنت لإدارة حسابك.");
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                       حذف حسابي

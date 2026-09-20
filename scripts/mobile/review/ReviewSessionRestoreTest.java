@@ -112,15 +112,15 @@ public class ReviewSessionRestoreTest {
                 network(false);
                 // Seed through the real Capacitor Preferences bridge, then destroy this WebView.
                 try (ActivityScenario<ReviewActivity> activity = ActivityScenario.launch(intent)) {
-                    until(activity, "document.title", "دون اتصال");
+                    until(activity, "typeof window.Capacitor", "object");
                     String record = session(space.equals("teacher"), "TEST_ONLY_INITIAL_REFRESH").toString();
                     String preference = new JSONObject().put("owner", OWNER).put("space", space).toString();
                     String script = "window.__seed=false;Promise.all([Capacitor.nativePromise('Preferences','set',{key:"+JSONObject.quote(KEY)+",value:"+JSONObject.quote(record)+"}),Capacitor.nativePromise('Preferences','set',{key:"+JSONObject.quote(SPACE_KEY)+",value:"+JSONObject.quote(preference)+"})]).then(()=>{localStorage.clear();window.__seed=true});'pending'";
                     evaluate(activity, script); until(activity, "window.__seed", "true");
                 }
                 try (ActivityScenario<ReviewActivity> activity = ActivityScenario.launch(intent)) {
-                    until(activity, "document.title", "دون اتصال");
-                    assertEquals("null", evaluate(activity, "localStorage.getItem('"+KEY+"')"));
+                    until(activity, "typeof window.Capacitor", "object");
+                    assertNotNull("Native preferences were lost", context.getSharedPreferences("CapacitorStorage", 0).getString(KEY, null));
                     installFixture(activity, refreshes, oauth);
                     network(true); until(activity, "navigator.onLine", "true");
                     evaluate(activity, "location.href='/';'opening'");
@@ -147,7 +147,7 @@ public class ReviewSessionRestoreTest {
             assertNull("Native session survived explicit logout", context.getSharedPreferences("CapacitorStorage",0).getString(KEY,null));
             network(false);
             try (ActivityScenario<ReviewActivity> activity = ActivityScenario.launch(intent)) {
-                until(activity, "document.title", "دون اتصال"); installFixture(activity, refreshes, oauth);
+                until(activity, "typeof window.Capacitor", "object"); installFixture(activity, refreshes, oauth);
                 network(true); until(activity,"navigator.onLine","true"); evaluate(activity,"location.href='/';'opening'");
                 until(activity,"document.body.innerText","دخول الطالب"); assertEquals("\"/\"",evaluate(activity,"location.pathname"));
             }

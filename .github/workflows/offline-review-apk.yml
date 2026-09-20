@@ -54,7 +54,7 @@ jobs:
       - run: npm ci
       - name: Verify lesson zoom before packaging
         run: |
-          npx vitest run tests/lessons/lesson-content-zoom.test.tsx tests/mobile/session-restore src/integrations/supabase/nativeAuthStorage.test.ts tests/performance/auth-bootstrap.test.tsx
+          npx vitest run tests/lessons/lesson-content-zoom.test.tsx tests/mobile/session-restore src/integrations/supabase/nativeAuthStorage.test.ts tests/performance/auth-bootstrap.test.tsx tests/offline/student-shell-cache.test.ts
           npx playwright install --with-deps chromium
           npx vite build --config tests/e2e/lesson-zoom/vite.config.ts
           node tests/e2e/lesson-zoom/verify.mjs
@@ -65,9 +65,10 @@ jobs:
           node scripts/mobile/review/package-review-apk.mjs
           npx cap sync android
           mkdir -p android/app/src/androidTest/java/app/studentamkeen/tamkeen
-          cp scripts/mobile/review/ReviewApkSmokeTest.java scripts/mobile/review/ReviewSessionRestoreTest.java scripts/mobile/review/ReviewLessonPinchTest.java android/app/src/androidTest/java/app/studentamkeen/tamkeen/
+          cp scripts/mobile/review/ReviewApkSmokeTest.java scripts/mobile/review/ReviewSessionRestoreTest.java scripts/mobile/review/ReviewLessonPinchTest.java scripts/mobile/review/ReviewOfflineShellTest.java android/app/src/androidTest/java/app/studentamkeen/tamkeen/
           mkdir -p android/app/src/androidTest/assets/pinch
           cp -R tests/e2e/lesson-zoom/dist/. android/app/src/androidTest/assets/pinch/
+          cp scripts/mobile/review/offline-shell-fixture.js android/app/src/androidTest/assets/
       - name: Retain signing identity while revising this review
         uses: actions/cache@v4
         with:
@@ -107,6 +108,9 @@ jobs:
             adb shell am instrument -w -e class app.studentamkeen.tamkeen.ReviewLessonPinchTest app.studentamkeen.tamkeen.review.direct.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/offline-review-apk/pinch-instrumentation.txt
             adb pull /sdcard/Android/data/app.studentamkeen.tamkeen.review.direct/files/pinch-evidence artifacts/offline-review-apk/pinch-evidence || true
             grep -F 'OK (1 test)' artifacts/offline-review-apk/pinch-instrumentation.txt
+            adb shell am instrument -w -e class app.studentamkeen.tamkeen.ReviewOfflineShellTest app.studentamkeen.tamkeen.review.direct.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/offline-review-apk/offline-shell-instrumentation.txt
+            adb pull /sdcard/Android/data/app.studentamkeen.tamkeen.review.direct/files/offline-shell-evidence artifacts/offline-review-apk/offline-shell-evidence || true
+            grep -F 'OK (1 test)' artifacts/offline-review-apk/offline-shell-instrumentation.txt
             adb pull /sdcard/Android/data/app.studentamkeen.tamkeen.review.direct/files/review-launch.png artifacts/offline-review-apk/review-launch.png
       - uses: actions/upload-artifact@v4
         if: always()

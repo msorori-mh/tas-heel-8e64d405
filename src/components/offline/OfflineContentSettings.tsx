@@ -1,3 +1,4 @@
+import { useConnectivity } from "@/hooks/use-connectivity";
 import { useEffect, useRef, useState } from "react";
 import { Download, HardDrive, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ export function OfflineContentSettings() {
 }
 
 export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope }) {
+  const online = useConnectivity();
   const [saved, setSaved] = useState<SavedSubject[]>([]);
   const [catalog, setCatalog] = useState<DownloadSubject[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -66,6 +68,10 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
   const loadCatalog = async (signal: AbortSignal) => {
     setLoadingCatalog(true);
     setCatalogError("");
+    if (!online) {
+      setLoadingCatalog(false);
+      return;
+    }
     try {
       const rows = await listStudentDownloadSubjects(scope, signal);
       if (!signal.aborted) setCatalog(rows);
@@ -96,7 +102,7 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
     };
     // The parent keys this component by account, grade and track.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope.ownerId, scope.gradeId, scope.trackId]);
+  }, [scope.ownerId, scope.gradeId, scope.trackId, online]);
 
   const run = async (kind: "download" | "delete", work: (signal: AbortSignal) => Promise<void>) => {
     if (operation.current || !lifetime.current || lifetime.current.signal.aborted) return;
@@ -132,6 +138,12 @@ export function OfflineDownloadSettings({ scope }: { scope: StudentDownloadScope
     }
   };
   const download = (subjects: DownloadSubject[]) => {
+    if (!online) {
+      setMessage(
+        "اتصل بالإنترنت لتنزيل مواد جديدة أو استكمالها. دروسك المحفوظة متاحة الآن من موادي.",
+      );
+      return;
+    }
     if (!subjects.length) return;
     void run("download", async (signal) => {
       setActivity({});

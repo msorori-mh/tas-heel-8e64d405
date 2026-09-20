@@ -1,3 +1,7 @@
+import { useStudentView } from "@/hooks/use-student-view";
+import { useConnectivity } from "@/hooks/use-connectivity";
+import { readSavedSubjects } from "@/lib/offline/student-shell-cache";
+import { ConnectionRequired } from "@/components/offline/ConnectionRequired";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -70,8 +74,11 @@ function SubjectIndexPage() {
   const { subjectId } = Route.useParams();
   const { semester } = Route.useSearch();
   const { profile, user, isContentStaff } = useAuth();
+  const online = useConnectivity();
 
-  const { data: subject, isLoading: loadingSubject } = useQuery({
+  const { data: subject, isLoading: loadingSubject } = useStudentView({
+    offline: async (): Promise<Subject | null> =>
+      (await readSavedSubjects(user!.id)).find((s) => s.id === subjectId) ?? null,
     queryKey: ["subject-meta", subjectId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -98,7 +105,13 @@ function SubjectIndexPage() {
     return true;
   }, [subject, profile]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useStudentView({
+    offline: async (): Promise<{ units: Unit[]; lessons: Lesson[] }> => ({
+      units: [],
+      lessons:
+        (await readSavedSubjects(user!.id, semester)).find((s) => s.id === subjectId)?.lessons ??
+        [],
+    }),
     enabled: !!subject && accessible === true,
     queryKey: ["subject-index", subjectId, semester ?? null, isContentStaff === true],
     queryFn: async () => {
@@ -138,7 +151,8 @@ function SubjectIndexPage() {
 
   const lessonIds = useMemo(() => (data?.lessons ?? []).map((l) => l.id), [data]);
 
-  const { data: completedIds } = useQuery({
+  const { data: completedIds } = useStudentView({
+    offline: async (): Promise<string[]> => [],
     enabled: !!user?.id && lessonIds.length > 0,
     queryKey: ["subject-progress", subjectId, user?.id, lessonIds.length],
     queryFn: async () => {
@@ -148,7 +162,7 @@ function SubjectIndexPage() {
         .eq("user_id", user!.id)
         .in("lesson_id", lessonIds);
       if (err) throw err;
-      return new Set((rows ?? []).filter((r) => r.completed).map((r) => r.lesson_id as string));
+      return (rows ?? []).filter((r) => r.completed).map((r) => r.lesson_id as string);
     },
   });
 
@@ -198,7 +212,11 @@ function SubjectIndexPage() {
     return (
       <div className="space-y-4" dir="rtl">
         <Breadcrumbs items={[...backCrumbs, { label: "المادة" }]} />
-        <StateMessage>هذه المادة غير متاحة.</StateMessage>
+        {online ? (
+          <StateMessage>هذه المادة غير متاحة.</StateMessage>
+        ) : (
+          <ConnectionRequired message="هذه المادة لم تُنزّل على جهازك بعد. اتصل بالإنترنت لتنزيلها، أو اختر إحدى موادك المحفوظة." />
+        )}
         <div className="text-center">
           <Button asChild variant="outline">
             <Link to="/semesters">
@@ -227,7 +245,7 @@ function SubjectIndexPage() {
   const hasUnits = units.length > 0;
   const hasAny = hasUnits || lessons.length > 0;
 
-  const done = completedIds ?? new Set<string>();
+  const done = new Set(completedIds ?? []);
   const completedCount = lessons.filter((l) => done.has(l.id)).length;
   const percent = lessons.length > 0 ? Math.round((completedCount / lessons.length) * 100) : 0;
   const nextLesson = lessons.find((l) => !done.has(l.id));
@@ -329,13 +347,17 @@ function SubjectIndexPage() {
           </section>
         ))}
 
-      <ExamTemplatesSection
-        scope={{ kind: "subject", subjectId: subject.id }}
-        canAccess={canAccessExams}
-        title="اختبارات المادة"
-        emptyMessage="لا توجد اختبارات شاملة للمادة بعد."
-        lockedMessage="اختبارات المادة غير متاحة حالياً."
-      />
+      {online ? (
+        <ExamTemplatesSection
+          scope={{ kind: "subject", subjectId: subject.id }}
+          canAccess={canAccessExams}
+          title="اختبارات المادة"
+          emptyMessage="لا توجد اختبارات شاملة للمادة بعد."
+          lockedMessage="اختبارات المادة غير متاحة حالياً."
+        />
+      ) : (
+        <ConnectionRequired message="اختبارات المادة الشاملة تحتاج اتصالًا بالإنترنت. أسئلة الدروس التي نزّلتها متاحة داخل كل درس." />
+      )}
 
       <div className="pt-2">
         <Button asChild variant="outline" className="gap-1">

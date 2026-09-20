@@ -7,9 +7,16 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type Session, type User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { deriveAuthRoles } from "@/lib/auth-roles";
+import { getNetworkState } from "@/lib/offline/network";
+import { useConnectivity } from "@/hooks/use-connectivity";
+import {
+  readStudentIdentity,
+  rememberStudentIdentity,
+  forgetStudentIdentity,
+} from "@/lib/offline/student-shell-cache";
 import { setActiveOfflineOwner } from "@/lib/offline/offline-state-store";
 
 export type Profile = {
@@ -55,6 +62,8 @@ function computeComplete(p: Profile | null): boolean {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
+  const online = useConnectivity();
+  const [offlineUser, setOfflineUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -74,6 +83,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Independent requests share one network round trip. Concurrent auth
     // notifications reuse this promise, never a previous account's result.
     const promise = (async () => {
+      if (!(await getNetworkState()).online) {
+        const saved = await readStudentIdentity();
+        if (
+          generation.current === currentGeneration &&
+          owner.current === userId &&
+          saved?.user.id === userId
+        ) {
+          setProfile(saved.profile);
+          setOfflineUser(saved.user);
+          setIsAdmin(false);
+          setIsContentManager(false);
+          setIsContentStaff(false);
+        }
+        return;
+      }
       const [profileResult, adminResult, managerResult] = await Promise.all([
         supabase
           .from("profiles")
@@ -86,7 +110,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.rpc("has_role", { _user_id: userId, _role: "content_manager" }),
       ]);
       if (generation.current !== currentGeneration || owner.current !== userId) return;
-      setProfile(profileResult.error ? null : ((profileResult.data as Profile | null) ?? null));
+      const loadedProfile = profileResult.error
+        ? null
+        : ((profileResult.data as Profile | null) ?? null);
+      setProfile(loadedProfile);
+      setOfflineUser(null);
+      if (loadedProfile) void rememberStudentIdentity(loadedProfile).catch(() => undefined);
       const roles = deriveAuthRoles({
         hasAdmin: !adminResult.error && adminResult.data === true,
         hasContentManager: !managerResult.error && managerResult.data === true,
@@ -118,6 +147,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const acceptSession = (sess: Session | null, refresh = false) => {
       if (!mounted) return;
+      // A missing SDK session during an offline refresh is not an explicit sign-out.
+      if (!sess && !navigator.onLine) {
+        setLoading(false);
+        return;
+      }
       const uid = sess?.user?.id ?? null;
       const changed = !initialized || owner.current !== uid;
       initialized = true;
@@ -128,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         inFlight.current = null;
         void setActiveOfflineOwner(uid).catch(() => undefined);
         setProfile(null);
+        setOfflineUser(null);
         setIsAdmin(false);
         setIsContentManager(false);
         setIsContentStaff(false);
@@ -148,6 +183,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       timers.add(timer);
     };
 
+    // Restore the local student identity independently of SDK token refresh, which
+    // can wait for a network that does not exist on an airplane-mode cold start.
+    const bootstrapGeneration = generation.current;
+    void (async () => {
+      if ((await getNetworkState()).online) return;
+      const saved = await readStudentIdentity();
+      if (!mounted || navigator.onLine || !saved) {
+        if (mounted && !navigator.onLine) setLoading(false);
+        return;
+      }
+      if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
+      owner.current = saved.user.id;
+      initialized = true;
+      setOfflineUser(saved.user);
+      setProfile(saved.profile);
+      setLoading(false);
+      setIsAdmin(false);
+      setIsContentManager(false);
+      setIsContentStaff(false);
+    })();
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
       // Revoke the academy's offline entry when the shared account changes or signs out.
       try {
@@ -158,6 +214,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         /* Storage may be unavailable. */
+      }
+      if (event === "SIGNED_OUT") {
+        setIsAdmin(false);
+        setIsContentManager(false);
+        setIsContentStaff(false);
+        generation.current += 1;
+        owner.current = null;
+        setOfflineUser(null);
+        setProfile(null);
+        setSession(null);
+        setLoading(false);
+        void forgetStudentIdentity();
+        void setActiveOfflineOwner(null).catch(() => undefined);
       }
       receivedAuthEvent = true;
       acceptSession(sess, event === "SIGNED_IN" || event === "USER_UPDATED");
@@ -184,9 +253,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadProfile]);
 
+  useEffect(() => {
+    if (!online) {
+      setIsAdmin(false);
+      setIsContentManager(false);
+      setIsContentStaff(false);
+      return;
+    }
+    if (!offlineUser) return;
+    // Re-enter the normal SDK validation path on reconnect; cached roles never apply.
+    const restoringOwner = offlineUser.id;
+    const restoringGeneration = generation.current;
+    void supabase.auth
+      .getUser()
+      .then(async ({ data, error }) => {
+        if (owner.current !== restoringOwner || generation.current !== restoringGeneration) return;
+        if (!error && data.user?.id === restoringOwner) {
+          await loadProfile(data.user.id, true);
+        } else if (error && !isAuthRetryableFetchError(error)) {
+          generation.current += 1;
+          owner.current = null;
+          setOfflineUser(null);
+          setSession(null);
+          setProfile(null);
+          setIsAdmin(false);
+          setIsContentManager(false);
+          setIsContentStaff(false);
+          await forgetStudentIdentity();
+          await setActiveOfflineOwner(null).catch(() => undefined);
+        }
+      })
+      .catch(() => undefined);
+  }, [online, offlineUser, loadProfile]);
+
   const signOut = useCallback(async () => {
+    generation.current += 1;
+    owner.current = null;
+    setOfflineUser(null);
+    setSession(null);
+    setProfile(null);
+    setIsAdmin(false);
+    setIsContentManager(false);
+    setIsContentStaff(false);
+    await forgetStudentIdentity();
     await setActiveOfflineOwner(null).catch(() => undefined);
-    await supabase.auth.signOut();
+    await supabase.auth.signOut(navigator.onLine ? undefined : { scope: "local" });
   }, []);
 
   return (
@@ -194,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         loading,
         session,
-        user: session?.user ?? null,
+        user: session?.user ?? offlineUser,
         profile,
         isAdmin,
         isContentManager,
