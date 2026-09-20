@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   owner: vi.fn(),
   from: vi.fn(),
   rpc: vi.fn(),
+  getUser: vi.fn(),
   notify: null as null | ((event: string, session: unknown) => void),
 }));
 vi.mock("@/hooks/use-connectivity", () => ({ useConnectivity: () => state.online }));
@@ -26,6 +27,7 @@ vi.mock("@/integrations/supabase/client", () => ({
     from: state.from,
     rpc: state.rpc,
     auth: {
+      getUser: state.getUser,
       getSession: () => new Promise(() => {}),
       onAuthStateChange: (notify: typeof state.notify) => {
         state.notify = notify;
@@ -113,4 +115,15 @@ test("a late local identity read cannot restore the account after sign-out", asy
   await act(async () => finish(identity));
   expect(current.user).toBeNull();
   expect(current.profile).toBeNull();
+});
+
+test("a definitively revoked session on reconnect cannot keep a local identity active", async () => {
+  await render();
+  state.getUser.mockResolvedValue({ data: { user: null }, error: new Error("session revoked") });
+  state.online = true;
+  await render();
+  expect(current.user).toBeNull();
+  expect(current.profile).toBeNull();
+  expect(state.owner).toHaveBeenCalledWith(null);
+  expect(current.isContentStaff).toBe(false);
 });

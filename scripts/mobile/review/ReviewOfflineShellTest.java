@@ -65,6 +65,7 @@ public class ReviewOfflineShellTest {
         until(a, "Array.from(document.querySelectorAll('iframe')).some(f=>(f.srcdoc||'').includes('محتوى الأحياء المحفوظ'))", "true");
         screenshot(context, "lesson-airplane");
         link(a, "/semesters");
+        until(a, "Boolean(Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/chemistry')))", "true");
         evaluate(a, "Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/chemistry')).click();'opening'");
         until(a, "document.body.innerText", "التفاعلات الكيميائية");
         assertEquals("false", evaluate(a, "document.body.innerText.includes('الخلية الحية')"));
