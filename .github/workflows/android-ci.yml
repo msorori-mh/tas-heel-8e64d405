@@ -67,6 +67,8 @@ jobs:
     name: Android API 36 debug bundle
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      TAMKEEN_NATIVE_APP: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -94,7 +96,10 @@ jobs:
           npm run test:mobile-release
 
       - name: Synchronize Capacitor Android project
-        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+        run: |
+          npm run build
+          node scripts/mobile/package-native-app.mjs
+          node node_modules/@capacitor/cli/bin/capacitor sync android
 
       - name: Build debug app bundle
         working-directory: android
@@ -118,6 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      TAMKEEN_NATIVE_APP: "1"
       KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
@@ -171,7 +177,10 @@ jobs:
             -alias "$KEY_ALIAS" >/dev/null
 
       - name: Synchronize Capacitor Android project
-        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+        run: |
+          npm run build
+          node scripts/mobile/package-native-app.mjs
+          node node_modules/@capacitor/cli/bin/capacitor sync android
 
       - name: Build and verify the signed Play bundle
         working-directory: android

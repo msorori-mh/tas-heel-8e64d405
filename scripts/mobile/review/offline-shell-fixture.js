@@ -47,6 +47,69 @@
       sha256: await digest(body),
       sortOrder: 0,
     };
+    const bodies = [[artifact, body]];
+    if (id === "biology") {
+      const extra = [
+        [
+          "mind-map:fixture-map",
+          "lesson-html",
+          "خريطة الخلية",
+          '<html dir="rtl"><body><h1>خريطة الخلية المحفوظة</h1></body></html>',
+        ],
+        [
+          "lab-experiment:fixture-lab",
+          "lesson-html",
+          "تجربة الخلية",
+          '<html dir="rtl"><body><button id="run" onclick="this.textContent=\'نجحت التجربة\'">شغّل التجربة</button><script>parent.postMessage({type:"fixture-lab-ready"},"*");</script></body></html>',
+        ],
+        [
+          "self-test:lesson-biology",
+          "self-test",
+          "اختبر فهمك",
+          JSON.stringify({
+            schemaVersion: 1,
+            kind: "self-test",
+            lessonId: "lesson-biology",
+            questions: [
+              {
+                questionId: "fixture-question",
+                revisionId: "fixture-revision",
+                questionText: "ما الوحدة الأساسية للحياة؟",
+                questionType: "mcq",
+                sortOrder: 0,
+                options: [
+                  { id: "a", text: "الخلية", sortOrder: 0 },
+                  { id: "b", text: "الصخرة", sortOrder: 1 },
+                ],
+                correctOptionId: "a",
+                explanation: "الخلية هي الوحدة الأساسية للحياة.",
+                feedbackByOption: {
+                  a: { whyCorrect: "أحسنت", whyWrong: null },
+                  b: { whyCorrect: null, whyWrong: "راجع الدرس" },
+                },
+              },
+            ],
+          }),
+        ],
+      ];
+      for (const [resourceId, kind, title, content] of extra) {
+        bodies.push([
+          {
+            ...artifact,
+            artifactId: resourceId,
+            resourceId,
+            kind,
+            title,
+            relativePath: `packs/${resourceId.replace(/:/g, "-")}.txt`,
+            contentType: kind === "self-test" ? "application/json" : "text/html",
+            byteSize: new TextEncoder().encode(content).length,
+            sha256: await digest(content),
+            sortOrder: bodies.length,
+          },
+          content,
+        ]);
+      }
+    }
     const manifest = {
       schemaVersion: 1,
       packId: `subject-${id}`,
@@ -59,42 +122,44 @@
         subjectId: id,
         subjectTitle: name,
       },
-      artifacts: [artifact],
+      artifacts: bodies.map(([item]) => item),
     };
     packs.push({
       ownerId: owner,
       manifest,
       manifestSha256: await digest(canonical(manifest)),
       status: "ready",
-      verifiedArtifactIds: [artifact.artifactId],
-      downloadedBytes: artifact.byteSize,
+      verifiedArtifactIds: bodies.map(([item]) => item.artifactId),
+      downloadedBytes: bodies.reduce((sum, [item]) => sum + item.byteSize, 0),
       lastErrorCode: null,
       createdAt: now,
       updatedAt: now,
     });
-    await native("Filesystem", "writeFile", {
-      directory: "DATA",
-      path: `tamkeen/offline-artifacts/${owner}/${artifact.relativePath}`,
-      recursive: true,
-      encoding: "utf8",
-      data: body,
-    });
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("artifact-meta", "readwrite");
-      tx.objectStore("artifact-meta").put(
-        {
-          ownerId: owner,
-          artifactId: artifact.artifactId,
-          relativePath: artifact.relativePath,
-          contentType: artifact.contentType,
-          byteSize: artifact.byteSize,
-          sha256: artifact.sha256,
-        },
-        `${owner}\0${artifact.artifactId}`,
-      );
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
+    for (const [artifact, body] of bodies) {
+      await native("Filesystem", "writeFile", {
+        directory: "DATA",
+        path: `tamkeen/offline-artifacts/${owner}/${artifact.relativePath}`,
+        recursive: true,
+        encoding: "utf8",
+        data: body,
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("artifact-meta", "readwrite");
+        tx.objectStore("artifact-meta").put(
+          {
+            ownerId: owner,
+            artifactId: artifact.artifactId,
+            relativePath: artifact.relativePath,
+            contentType: artifact.contentType,
+            byteSize: artifact.byteSize,
+            sha256: artifact.sha256,
+          },
+          `${owner}\0${artifact.artifactId}`,
+        );
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    }
   }
   db.close();
   await native("Filesystem", "writeFile", {
@@ -111,6 +176,12 @@
       learning: [],
     }),
   });
+  if (window.__offlineShellLegacySeed) {
+    await native("Preferences", "remove", { key: "tamkeen.student-shell.identity.v1" });
+    await native("Preferences", "remove", { key: "tamkeen.native-last-space.v1" });
+    window.__offlineShellSeed = "ready";
+    return;
+  }
   await native("Preferences", "set", {
     key: "tamkeen.student-shell.identity.v1",
     value: JSON.stringify({

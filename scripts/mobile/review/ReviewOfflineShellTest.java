@@ -55,12 +55,13 @@ public class ReviewOfflineShellTest {
       ui.executeShellCommand("svc wifi disable").close(); ui.executeShellCommand("svc data disable").close();
       try (ActivityScenario<ReviewActivity> a = ActivityScenario.launch(intent)) {
         until(a, "typeof window.Capacitor", "object"); until(a, "navigator.onLine", "false");
+        evaluate(a, "window.__offlineShellLegacySeed=true;'legacy'");
         evaluate(a, fixture); until(a, "window.__offlineShellSeed", "ready");
       }
       // No JS memory, router state, live server, or valid access token survives this launch.
       try (ActivityScenario<ReviewActivity> a = ActivityScenario.launch(intent)) {
         until(a, "location.pathname", "/app");
-        until(a, "document.body.innerText", "مرحباً، طالبة");
+        until(a, "document.body.innerText", "مرحباً، بك");
         until(a, "document.querySelector('nav[aria-label=\"التنقل السفلي\"]')?.innerText", "موادي");
         assertEquals("false", evaluate(a, "location.pathname.includes('review-offline')"));
         screenshot(a, context, "home-airplane");
@@ -75,6 +76,18 @@ public class ReviewOfflineShellTest {
         until(a, "document.querySelector('article')?.innerText", "الخلية الحية");
         until(a, "Array.from(document.querySelectorAll('iframe')).some(f=>(f.srcdoc||'').includes('محتوى الأحياء المحفوظ'))", "true");
         screenshot(a, context, "lesson-airplane");
+        evaluate(a, "document.getElementById('lesson-tab-MINDMAP').click();'map'");
+        until(a, "Array.from(document.querySelectorAll('#lesson-panel-MINDMAP iframe')).some(f=>(f.srcdoc||'').includes('خريطة الخلية المحفوظة'))", "true");
+        evaluate(a, "window.__labReady=false;addEventListener('message',e=>{if(e.data?.type==='fixture-lab-ready')window.__labReady=true});document.getElementById('lesson-tab-PRACTICAL').click();'lab'");
+        until(a, "window.__labReady", "true");
+        until(a, "document.querySelector('#lesson-panel-PRACTICAL iframe')?.getAttribute('sandbox')", "allow-scripts");
+        screenshot(a, context, "lab-airplane");
+        evaluate(a, "document.getElementById('lesson-tab-SELF_TEST').click();'question'");
+        until(a, "document.querySelector('#lesson-panel-SELF_TEST')?.innerText", "ما الوحدة الأساسية للحياة؟");
+        evaluate(a, "Array.from(document.querySelectorAll('#lesson-panel-SELF_TEST button')).find(b=>b.innerText.includes('الخلية')).click();'answer'");
+        evaluate(a, "Array.from(document.querySelectorAll('#lesson-panel-SELF_TEST button')).find(b=>b.innerText.includes('تحقق من الإجابة')).click();'grade'");
+        until(a, "document.querySelector('#lesson-panel-SELF_TEST')?.innerText", "إجابة صحيحة");
+        screenshot(a, context, "answer-airplane");
         link(a, "/semesters");
         until(a, "Boolean(Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/chemistry')))", "true");
         evaluate(a, "Array.from(document.querySelectorAll('a')).find(a=>a.getAttribute('href')?.startsWith('/subjects/chemistry')).click();'opening'");
@@ -83,8 +96,42 @@ public class ReviewOfflineShellTest {
         link(a, "/exams"); until(a, "document.body.innerText", "هذه الخدمة تحتاج اتصالًا بالإنترنت");
         until(a, "document.querySelector('nav[aria-label=\"التنقل السفلي\"]')?.innerText", "الرئيسية");
         screenshot(a, context, "connection-required");
-        link(a, "/app"); until(a, "document.body.innerText", "مرحباً، طالبة");
+        link(a, "/settings"); until(a, "document.body.innerText", "الإعدادات");
+        assertEquals("false", evaluate(a, "location.pathname.includes('complete-profile')"));
+        link(a, "/app"); until(a, "document.body.innerText", "مرحباً، بك");
         assertEquals("false", evaluate(a, "navigator.onLine"));
+      }
+    } finally { ui.executeShellCommand("svc wifi enable").close(); ui.executeShellCommand("svc data enable").close(); }
+  }
+
+  /** Invoked separately AFTER force-stop and adb install -r, with no reseeding. */
+  @Test public void reopensDownloadsAndAnswersAfterPackageUpdate() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    android.app.UiAutomation ui = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+    try {
+      ui.executeShellCommand("svc wifi disable").close(); ui.executeShellCommand("svc data disable").close();
+      String journal;
+      try (java.io.FileInputStream input = new java.io.FileInputStream(new java.io.File(context.getFilesDir(), "tamkeen/offline/foundation-v1.json"))) {
+        journal = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+      }
+      org.json.JSONObject saved = new org.json.JSONObject(journal);
+      assertEquals(2, saved.getJSONArray("packs").length());
+      org.json.JSONArray learning = saved.getJSONArray("learning");
+      boolean answerFound = false;
+      for (int i=0; i<learning.length(); i++) {
+        org.json.JSONObject answer = learning.getJSONObject(i);
+        if ("fixture-question".equals(answer.optString("questionId")) && answer.optBoolean("isCorrect")) answerFound = true;
+      }
+      assertTrue("Offline answer was lost on package replacement", answerFound);
+      try (ActivityScenario<ReviewActivity> a = ActivityScenario.launch(context.getPackageManager().getLaunchIntentForPackage(context.getPackageName()))) {
+        until(a, "location.pathname", "/app");
+        until(a, "document.querySelector('nav[aria-label=\"التنقل السفلي\"]')?.innerText", "موادي");
+        link(a, "/semesters"); until(a, "document.body.innerText", "الأحياء"); until(a, "document.body.innerText", "الكيمياء");
+        assertEquals("false", evaluate(a, "document.body.innerText.includes('دروسك المحفوظة')"));
+        screenshot(a, context, "subjects-after-update-airplane");
+        evaluate(a, "location.href='/review-offline.html';'old-url'");
+        until(a, "location.pathname", "/app");
+        until(a, "document.querySelector('nav[aria-label=\"التنقل السفلي\"]')?.innerText", "موادي");
       }
     } finally { ui.executeShellCommand("svc wifi enable").close(); ui.executeShellCommand("svc data enable").close(); }
   }

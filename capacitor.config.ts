@@ -36,4 +36,16 @@ const config: CapacitorConfig = {
   },
 };
 
+// Native distributions ship the same React routes as the website. Only API
+// calls need the server; the application shell is always available locally.
+if (process.env.TAMKEEN_NATIVE_APP === "1") {
+  config.webDir = "mobile/app-www";
+  config.server = {
+    androidScheme: "https",
+    hostname: "studentamkeen.com",
+    cleartext: false,
+    errorPath: "app-recovery.html",
+  };
+}
+
 export default config;

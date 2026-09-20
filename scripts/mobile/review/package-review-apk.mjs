@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { prepareBundledUi } from "../prepare-bundled-ui.mjs";
 const root = process.cwd();
 const appId = "app.studentamkeen.tamkeen.review.direct";
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -19,21 +20,7 @@ for (const name of assetNames.filter((name) => /^settings-.*\.js$/.test(name))) 
 }
 assert.equal(settings.length, 1);
 assert.match(await readFile(`${assetDir}/${settings[0]}`, "utf8"), /تنزيل المواد دون إنترنت/);
-// Keep the native student entry and expose the bundled academy to its cached owner.
-const offlineEntry = await readFile("mobile/www/index.html", "utf8");
-assert.ok(offlineEntry.includes('<main id="home-view">'));
-await writeFile(
-  "dist/client/review-offline.html",
-  offlineEntry.replace(
-    '<main id="home-view">',
-    `<main id="home-view">
-<a id="academy-offline-entry" class="card" href="/academy/" hidden>فتح تنزيلات أكاديمية المعلمين</a>
-<script>try { document.getElementById("academy-offline-entry").hidden = !localStorage.getItem("tamkeen-academy-offline-owner"); } catch {}</script>`,
-  ),
-);
-await cp("mobile/www/student-tamkeen-mark.png", "dist/client/student-tamkeen-mark.png");
-await mkdir("mobile/review-www", { recursive: true });
-await cp("dist/client", "mobile/review-www", { recursive: true });
+await prepareBundledUi("mobile/review-www");
 const capacitorSource = await readFile("capacitor.config.ts", "utf8");
 assert.ok(capacitorSource.endsWith("export default config;\n"));
 await writeFile(
@@ -43,9 +30,9 @@ await writeFile(
     `
 // Generated review package: bundled UI, same authenticated API origin, separate app data.
 config.appId = ${JSON.stringify(appId)};
-config.appName = "تمكين — تنزيل مباشر";
+config.appName = "تمكين — أوفلاين";
 config.webDir = "mobile/review-www";
-config.server = { androidScheme: "https", hostname: "studentamkeen.com", cleartext: false, errorPath: "review-offline.html" };
+config.server = { androidScheme: "https", hostname: "studentamkeen.com", cleartext: false, errorPath: "app-recovery.html" };
 export default config;`,
   ),
 );
@@ -56,9 +43,10 @@ gradle = gradle.replace(
   `    buildTypes {
         debug {
             applicationIdSuffix ".review.direct"
-            versionNameSuffix "-unified-review"
+            versionNameSuffix "-offline-ui-v2"
         }`,
 );
+gradle = gradle.replace(/versionCode\s+\d+/, "versionCode 26092001");
 await writeFile("android/app/build.gradle", gradle);
 const dir = "android/app/src/debug";
 await mkdir(`${dir}/java/app/studentamkeen/tamkeen`, { recursive: true });
@@ -69,7 +57,7 @@ await cp(
 );
 await writeFile(
   `${dir}/res/values/strings.xml`,
-  '<resources><string name="app_name">تمكين — تنزيل مباشر</string><string name="title_activity_main">تمكين — تنزيل مباشر</string></resources>\n',
+  '<resources><string name="app_name">تمكين — أوفلاين</string><string name="title_activity_main">تمكين — أوفلاين</string></resources>\n',
 );
 await writeFile(
   `${dir}/AndroidManifest.xml`,
@@ -91,6 +79,7 @@ const descriptor = {
   downloadFlow: "selected-subjects-direct",
   previousReviewData: "separate-and-preserved",
   appId,
+  versionCode: 26092001,
   sourceSha: sha,
   featureSha: "7a8c7c7dbfab7ac56b95360ebe035c2a88276074",
   capacitySha: "01310672afdb3805bceb8bd4c124bf5557718ea9",
@@ -104,6 +93,8 @@ const descriptor = {
   htmlSha256: createHash("sha256").update(html).digest("hex"),
   apiOrigin: "https://studentamkeen.com",
   ui: "bundled",
+  offlineShell: "normal-app-local-first-v2",
+  legacyOfflineLibrary: false,
   playUpload: false,
 };
 await writeFile("mobile/review-www/review-build.json", JSON.stringify(descriptor, null, 2));

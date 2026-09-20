@@ -103,6 +103,15 @@ test("explicit offline logout revokes identity and the active pack owner", async
   expect(state.forget).toHaveBeenCalled();
   expect(state.owner).toHaveBeenCalledWith(null);
 });
+test("native offline status wins over a stale online navigator during cold start", async () => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+  await render();
+  await act(async () => state.notify?.("INITIAL_SESSION", null));
+  expect(current.user?.id).toBe("student-a");
+  expect(current.profile?.full_name).toBe("طالبة");
+  expect(state.owner).not.toHaveBeenCalledWith(null);
+  expect(state.from).not.toHaveBeenCalled();
+});
 test("a late local identity read cannot restore the account after sign-out", async () => {
   let finish!: (value: typeof identity) => void;
   state.saved.mockReturnValue(

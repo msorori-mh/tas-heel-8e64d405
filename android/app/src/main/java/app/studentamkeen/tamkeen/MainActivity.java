@@ -12,6 +12,9 @@ public class MainActivity extends BridgeActivity {
         // OFFLINE-04 — hash-verified lesson content for the bundled cold-start entry.
         registerPlugin(TamkeenOfflineContentPlugin.class);
         super.onCreate(savedInstanceState);
+        if (getBridge().getConfig().getServerUrl() == null) {
+            getBridge().setWebViewClient(new TamkeenBundledAppClient(getBridge()));
+        }
         LessonPinchZoom.install(getBridge().getWebView());
     }
 }

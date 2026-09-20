@@ -142,13 +142,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let receivedAuthEvent = false;
     let initialized = false;
+    let authEventSequence = 0;
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const queuedLoads = new Set<number>();
+    // Resolve native connectivity before a null SDK snapshot can clear the owner.
+    const startupNetwork = getNetworkState();
+    let startupOnline = true;
 
     const acceptSession = (sess: Session | null, refresh = false) => {
       if (!mounted) return;
       // A missing SDK session during an offline refresh is not an explicit sign-out.
-      if (!sess && !navigator.onLine) {
+      if (!sess && !startupOnline) {
         setLoading(false);
         return;
       }
@@ -187,10 +191,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // can wait for a network that does not exist on an airplane-mode cold start.
     const bootstrapGeneration = generation.current;
     void (async () => {
-      if ((await getNetworkState()).online) return;
+      startupOnline = (await startupNetwork).online;
+      if (startupOnline) return;
       const saved = await readStudentIdentity();
-      if (!mounted || navigator.onLine || !saved) {
-        if (mounted && !navigator.onLine) setLoading(false);
+      if (!mounted || !saved) {
+        if (mounted) setLoading(false);
         return;
       }
       if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
@@ -229,17 +234,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void setActiveOfflineOwner(null).catch(() => undefined);
       }
       receivedAuthEvent = true;
-      acceptSession(sess, event === "SIGNED_IN" || event === "USER_UPDATED");
+      const eventGeneration = generation.current;
+      const eventSequence = ++authEventSequence;
+      void getNetworkState().then((network) => {
+        startupOnline = network.online;
+        if (
+          mounted &&
+          generation.current === eventGeneration &&
+          authEventSequence === eventSequence
+        )
+          acceptSession(sess, event === "SIGNED_IN" || event === "USER_UPDATED");
+      });
     });
 
     // INITIAL_SESSION normally handles bootstrap. The snapshot is a fallback;
     // it must never duplicate it or overwrite a more recent sign-out/sign-in.
     void supabase.auth
       .getSession()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
+        startupOnline = (await getNetworkState()).online;
         if (!receivedAuthEvent) acceptSession(data.session);
       })
-      .catch(() => {
+      .catch(async () => {
+        startupOnline = (await getNetworkState()).online;
         if (!receivedAuthEvent) acceptSession(null);
       });
 

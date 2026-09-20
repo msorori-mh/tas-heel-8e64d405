@@ -41,6 +41,8 @@ android/keystore.properties
 android/*.jks
 android/app/build/
 android/.gradle/
+mobile/app-www/
+mobile/review-www/
 
 # Content Factory generated bundles
 content-packages/*/dist/
