@@ -1,3 +1,7 @@
+import { useStudentView } from "@/hooks/use-student-view";
+import { useConnectivity } from "@/hooks/use-connectivity";
+import { readSavedSubjects } from "@/lib/offline/student-shell-cache";
+import { ConnectionRequired } from "@/components/offline/ConnectionRequired";
 import { LessonCapabilityTabs } from "@/components/lessons/LessonCapabilityTabs";
 import { QuestionFigure } from "@/components/lessons/QuestionFigure";
 import { parseQuestionImage, type QuestionImage } from "@/lib/lessons/question-image";
@@ -218,7 +222,8 @@ function LessonPage() {
   const { lessonId } = Route.useParams();
   const { preview } = Route.useSearch();
   const { profile, isContentStaff } = useAuth();
-  const { data: offlineContent } = useQuery({
+  const online = useConnectivity();
+  const { data: offlineContent, isLoading: loadingOfflineContent } = useQuery({
     enabled: !!profile?.user_id,
     queryKey: ["offline-lesson-content", profile?.user_id, lessonId],
     queryFn: () => readOfflineLessonContent(profile!.user_id, lessonId),
@@ -594,7 +599,10 @@ function LessonPage() {
   });
 
   // Sibling lessons for previous/next navigation inside the same subject.
-  const { data: siblings } = useQuery({
+  const { data: siblings } = useStudentView({
+    offline: async (): Promise<{ id: string; title: string; sort_order: number }[]> =>
+      (await readSavedSubjects(profile!.user_id)).find((s) => s.id === lesson?.subject_id)
+        ?.lessons ?? [],
     enabled: !!lesson?.subject_id && accessible === true,
     queryKey: ["lesson-siblings", lesson?.subject_id],
     queryFn: async () => {
@@ -712,14 +720,18 @@ function LessonPage() {
       r.id !== primaryResource?.id,
   );
 
-  if (loadingLesson && !lesson) {
+  if ((loadingLesson || loadingOfflineContent) && !lesson) {
     return <StateMessage variant="loading">جارٍ تحميل الدرس…</StateMessage>;
   }
   if (!lesson) {
     return (
       <div className="space-y-4">
         <Breadcrumbs subjectName={null} subjectId={null} lessonName={null} />
-        <StateMessage>هذا الدرس غير متاح.</StateMessage>
+        {online ? (
+          <StateMessage>هذا الدرس غير متاح.</StateMessage>
+        ) : (
+          <ConnectionRequired message="هذا الدرس غير محفوظ على جهازك. اتصل بالإنترنت لتنزيله، أو تابع أحد الدروس المحفوظة." />
+        )}
         <BackToApp />
       </div>
     );
@@ -728,7 +740,11 @@ function LessonPage() {
     return (
       <div className="space-y-4">
         <Breadcrumbs subjectName={null} subjectId={null} lessonName={null} />
-        <StateMessage>هذا الدرس غير متاح.</StateMessage>
+        {online ? (
+          <StateMessage>هذا الدرس غير متاح.</StateMessage>
+        ) : (
+          <ConnectionRequired message="هذا الدرس غير محفوظ على جهازك. اتصل بالإنترنت لتنزيله، أو تابع أحد الدروس المحفوظة." />
+        )}
         <BackToApp />
       </div>
     );
@@ -958,6 +974,10 @@ function LessonPage() {
         );
 
       case "VIDEO":
+        if (!online)
+          return (
+            <ConnectionRequired message="فيديو الدرس يحتاج اتصالًا بالإنترنت. يمكنك الآن متابعة النص والأسئلة المحفوظة." />
+          );
         return (
           <ul className="space-y-2">
             {videos.map((r) => (
@@ -985,6 +1005,10 @@ function LessonPage() {
         );
 
       case "OFFICIAL_QUESTIONS":
+        if (!online && effectiveOfficialQuestions.length === 0)
+          return (
+            <ConnectionRequired message="أسئلة هذا الدرس غير محفوظة على جهازك بعد. اتصل بالإنترنت لاستكمال تنزيل المادة." />
+          );
         return (
           <div className="space-y-4">
             {loadingOfficialQuestions && effectiveOfficialQuestions.length === 0 && (
@@ -1023,6 +1047,10 @@ function LessonPage() {
         );
 
       case "SELF_TEST":
+        if (!online && effectiveSelfTestQuestions.length === 0)
+          return (
+            <ConnectionRequired message="أسئلة اختبر فهمك غير محفوظة بعد. اتصل بالإنترنت لاستكمال تنزيل المادة." />
+          );
         return (
           <div className="space-y-4">
             {loadingSelfTestQuestions && effectiveSelfTestQuestions.length === 0 && (
@@ -1140,7 +1168,10 @@ function LessonPage() {
         )}
       </header>
 
-      {primaryUnavailable && (
+      {primaryUnavailable && !online && (
+        <ConnectionRequired message="نص الدرس غير محفوظ على جهازك. اتصل بالإنترنت لاستكمال تنزيله، أو تابع الأجزاء المحفوظة أدناه." />
+      )}
+      {primaryUnavailable && online && (
         <section
           role="status"
           className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card"

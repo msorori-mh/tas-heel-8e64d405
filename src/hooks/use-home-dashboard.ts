@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useStudentView } from "@/hooks/use-student-view";
+import { readSavedSubjects } from "@/lib/offline/student-shell-cache";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { computeStudyStreak } from "@/lib/home/streak";
@@ -39,7 +40,10 @@ export function useHomeDashboard() {
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
   const trackId = profile?.curriculum_track_id ?? null;
 
-  const statsQ = useQuery({
+  const statsQ = useStudentView({
+    offline: async (): Promise<HomeStats | null> => null,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     enabled: !!user?.id,
     queryKey: ["home-stats", user?.id, gradeKey, trackId],
     queryFn: async (): Promise<HomeStats> => {
@@ -98,7 +102,23 @@ export function useHomeDashboard() {
     },
   });
 
-  const continueQ = useQuery({
+  const continueQ = useStudentView({
+    offline: async (): Promise<ContinueItem[]> =>
+      (await readSavedSubjects(user!.id)).flatMap((s) =>
+        s.lessons.slice(0, 1).map((l) => ({
+          lessonId: l.id,
+          lessonTitle: l.title,
+          subjectId: s.id,
+          subjectName: s.name,
+          subjectColor: null,
+          semester: s.semester,
+          completed: false,
+          quizScore: 0,
+          updatedAt: "",
+        })),
+      ),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     enabled: !!user?.id,
     queryKey: ["home-continue", user?.id],
     queryFn: async (): Promise<ContinueItem[]> => {
@@ -143,7 +163,10 @@ export function useHomeDashboard() {
     },
   });
 
-  const badgesQ = useQuery({
+  const badgesQ = useStudentView({
+    offline: async (): Promise<EarnedBadge[]> => [],
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     enabled: !!user?.id,
     queryKey: ["home-badges", user?.id],
     queryFn: async () => {
@@ -210,7 +233,7 @@ export function useHomeDashboard() {
   });
 
   return {
-    stats: statsQ.data,
+    stats: statsQ.data ?? undefined,
     statsLoading: statsQ.isLoading,
     continueItems: continueQ.data ?? [],
     continueLoading: continueQ.isLoading,
