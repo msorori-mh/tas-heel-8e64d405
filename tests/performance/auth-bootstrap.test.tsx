@@ -17,6 +17,11 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: api.from, rpc: api.rpc, auth: api },
 }));
 vi.mock("@/lib/offline/offline-state-store", () => ({ setActiveOfflineOwner: api.owner }));
+vi.mock("@/lib/offline/student-shell-cache", () => ({
+  rememberStudentIdentity: vi.fn().mockResolvedValue(undefined),
+  readStudentIdentity: vi.fn().mockResolvedValue(null),
+  forgetStudentIdentity: vi.fn().mockResolvedValue(undefined),
+}));
 function deferred<T = any>() {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;
   const promise = new Promise<T>((yes, no) => {
@@ -138,6 +143,7 @@ it("an explicit refresh supersedes a pre-save profile read", async () => {
   await emit("INITIAL_SESSION", session("student"));
   const older = pending.slice();
   const refresh = state.refreshProfile();
+  await tick();
   expect(pending).toHaveLength(6);
   await act(async () => {
     for (const item of pending.slice(3))
@@ -170,6 +176,7 @@ it("still rechecks roles on subsequent sign-in and allows profile refresh after 
   expect(pending).toHaveLength(6);
   await finish("student");
   const refresh = state.refreshProfile();
+  await tick();
   expect(pending).toHaveLength(9);
   await finish("student");
   await refresh;
@@ -229,6 +236,7 @@ it("returns the refreshed persisted profile and retains content-staff roles", as
   await emit("INITIAL_SESSION", session("student"));
   await finish("student");
   const refreshed = state.refreshProfile();
+  await tick();
   let result;
   await act(async () => {
     for (const p of pending.slice(3))
@@ -249,6 +257,7 @@ it("rejects an explicit refresh when the persisted profile cannot be read", asyn
   await emit("INITIAL_SESSION", session("student"));
   await finish("student");
   const refreshed = state.refreshProfile().catch((error) => error);
+  await tick();
   let result;
   await act(async () => {
     for (const p of pending.slice(3))

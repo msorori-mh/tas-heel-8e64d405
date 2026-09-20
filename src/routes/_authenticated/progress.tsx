@@ -1,3 +1,4 @@
+import { useConnectivity } from "@/hooks/use-connectivity";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BarChart3, ClipboardList } from "lucide-react";
 import { Breadcrumbs } from "@/components/student/Breadcrumbs";
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/progress")({
 function ProgressPage() {
   const { stats, statsLoading, badges, badgesLoading } = useHomeDashboard();
   const percent = stats?.progressPercent ?? 0;
+  const online = useConnectivity();
 
   return (
     <div className="space-y-5" dir="rtl">
@@ -28,16 +30,25 @@ function ProgressPage() {
         </p>
       </header>
 
-      <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-card">
-        <div className="mb-1.5 flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">التقدم العام</span>
-          <span className="font-bold text-foreground">{percent}%</span>
-        </div>
-        <Progress value={percent} className="h-2.5" />
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          {stats?.completedLessons ?? 0} درسًا مكتملًا من {stats?.totalLessons ?? 0}.
+      {!online && (
+        <p role="status" className="rounded-xl bg-primary/5 p-3 text-sm text-muted-foreground">
+          {stats
+            ? "هذا آخر تقدم تمت مزامنته. إجاباتك الجديدة محفوظة وستُزامن عند عودة الإنترنت."
+            : "إجاباتك محفوظة على الجهاز. اتصل بالإنترنت لإظهار إحصاءات التقدم المزامنة."}
         </p>
-      </section>
+      )}
+      {(online || stats) && (
+        <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-card">
+          <div className="mb-1.5 flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">التقدم العام</span>
+            <span className="font-bold text-foreground">{percent}%</span>
+          </div>
+          <Progress value={percent} className="h-2.5" />
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {stats?.completedLessons ?? 0} درسًا مكتملًا من {stats?.totalLessons ?? 0}.
+          </p>
+        </section>
+      )}
 
       <ProgressSummary stats={stats} loading={statsLoading} />
 

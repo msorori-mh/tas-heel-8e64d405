@@ -5,7 +5,10 @@
  * tabs AND the subjects together (no empty intermediate screen).
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useStudentView } from "@/hooks/use-student-view";
+import { useConnectivity } from "@/hooks/use-connectivity";
+import { readSavedSubjects } from "@/lib/offline/student-shell-cache";
+import { ConnectionRequired } from "@/components/offline/ConnectionRequired";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
@@ -32,9 +35,10 @@ type Subject = {
 
 export function SemesterSubjectsView({ semester }: { semester: Semester }) {
   const { profile, user, isContentStaff } = useAuth();
+  const online = useConnectivity();
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useStudentView({
     enabled: !!gradeKey,
     queryKey: [
       "semester-subjects",
@@ -45,6 +49,15 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       isContentStaff === true,
     ],
     staleTime: 5 * 60 * 1000,
+    offline: async () => {
+      const subjects = await readSavedSubjects(user!.id, semester);
+      return {
+        subjects,
+        meta: Object.fromEntries(
+          subjects.map((s) => [s.id, { lessons: s.lessons.length, completed: 0 }]),
+        ) as Record<string, SubjectMeta>,
+      };
+    },
     queryFn: async () => {
       const { data: rows, error: subjectsError } = await supabase
         .from("subjects")
@@ -152,9 +165,14 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
         </div>
       )}
 
-      {!error && subjects && subjects.length === 0 && (
-        <StateMessage>لا توجد مواد مضافة لهذا الفصل بعد. يمكنك اختيار الفصل الآخر.</StateMessage>
-      )}
+      {!error &&
+        subjects &&
+        subjects.length === 0 &&
+        (online ? (
+          <StateMessage>لا توجد مواد مضافة لهذا الفصل بعد. يمكنك اختيار الفصل الآخر.</StateMessage>
+        ) : (
+          <ConnectionRequired message="لم تُحفظ مواد لهذا الفصل على جهازك بعد. اتصل بالإنترنت واختر المواد التي تريد تنزيلها من إعدادات المحتوى دون إنترنت." />
+        ))}
 
       {subjects && subjects.length > 0 && (
         <>
