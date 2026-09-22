@@ -20,6 +20,7 @@ async function setup(
     contentError?: { table: string; code: string; message: string };
     copies?: number;
     maxLegacyRows?: number;
+    resources?: Record<string, unknown>[];
   } = {},
 ) {
   const metadata = await fingerprintOfflineText("<html>درس</html>");
@@ -58,7 +59,7 @@ async function setup(
     ),
     lesson_explanations: [],
     lesson_summaries: [],
-    lesson_resources: [],
+    lesson_resources: options.resources ?? [],
     subject_textbooks: [],
   };
   const rpc = vi.fn((name: string, args: { _lesson_ids?: string[]; _lesson_id?: string }) => {
@@ -76,7 +77,7 @@ async function setup(
                   .map(({ content: _content, ...header }) => header),
                 explanations: [],
                 summaries: [],
-                resources: [],
+                resources: (options.resources ?? []).map(({ description: _body, ...row }) => row),
               },
               error: null,
             }
@@ -319,3 +320,31 @@ it("prepared source RPC produces identical artifacts without text or lifecycle q
     ),
   ).toBe(false);
 });
+
+it.each([{ legacy: true }, { prepared: true }, {}])(
+  "includes published kind-shaped maps and experiments via %j",
+  async (options) => {
+    const body = "<html>خريطة وتجربة محفوظة</html>";
+    const metadata = await fingerprintOfflineText(body);
+    const resources = ["mindmap", "experiment"].map((kind, index) => ({
+      id: id(500 + index),
+      lesson_id: id(100),
+      resource_type: kind,
+      html_resource_type: kind,
+      url: `lesson-internal://html/${kind}`,
+      title: kind,
+      description: body,
+      offline_metadata_v1: metadata,
+      metadata: { cf11_render_mode: "INTERACTIVE", cf11_body_sha256: metadata.sha256 },
+      created_at: "2026-09-01T00:00:00Z",
+      sort_order: index,
+    }));
+    await setup(1, false, { ...options, resources });
+    const response = await call();
+    expect(response.status).toBe(200);
+    const { manifest } = await response.json();
+    expect(manifest.artifacts.map((a: { resourceId: string }) => a.resourceId)).toEqual(
+      expect.arrayContaining([`mind-map:${id(500)}`, `lab-experiment:${id(501)}`]),
+    );
+  },
+);

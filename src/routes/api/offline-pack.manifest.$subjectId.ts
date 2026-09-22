@@ -15,7 +15,7 @@ import {
   type OfflineTextSource,
   type OfflineTextbookSource,
 } from "@/lib/offline/offline-pack-manifest";
-import { isInlineHtmlResourceUrl } from "@/lib/lessons/inline-html-resource";
+import { isOfflineInteractiveResource } from "@/lib/offline/offline-inline-resource";
 
 import {
   readOfflineContent,
@@ -293,7 +293,7 @@ async function handle(request: Request, subjectId: string): Promise<Response> {
       });
     }
     for (const row of resources) {
-      if (!isInlineHtmlResourceUrl(row.url) || row.html_resource_type !== "INTERACTIVE") {
+      if (!isOfflineInteractiveResource(row)) {
         continue;
       }
       textSources.push({
