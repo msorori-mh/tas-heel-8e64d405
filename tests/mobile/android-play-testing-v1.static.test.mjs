@@ -20,8 +20,8 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   it("freezes the Play identity and offline testing release version", () => {
     expect(capacitor).toContain('appId: "app.studentamkeen.tamkeen"');
     expect(gradle).toContain('applicationId "app.studentamkeen.tamkeen"');
-    expect(gradle).toContain("versionCode 5");
-    expect(gradle).toContain('versionName "1.1.0"');
+    expect(gradle).toContain("versionCode 6");
+    expect(gradle).toContain('versionName "1.1.1"');
   });
 
   it("loads only the production HTTPS origin and refuses cleartext", () => {
@@ -66,10 +66,10 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(workflow).not.toContain("CHANGE_ME");
   });
 
-  it("builds the signed 1.1.0 bundle after an Android main release merge", () => {
+  it("builds the signed 1.1.1 bundle after an Android main release merge", () => {
     expect(workflow).toContain(
       "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
     );
-    expect(workflow).toContain("tamkeen-play-testing-1.1.0-code-5-signed-aab");
+    expect(workflow).toContain("tamkeen-play-1.1.1-code-6-signed-aab");
   });
 });
