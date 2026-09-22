@@ -8,7 +8,12 @@ vi.mock("@/lib/offline/offline-api.server", async (original) => ({
 }));
 import { Route } from "../../src/routes/api/offline-pack.artifact.$resourceId";
 const id = "00000000-0000-4000-8000-000000000001";
-const handlers = (Route.options as any).server.handlers;
+type Handler = (context: { request: Request; params: { resourceId: string } }) => Promise<Response>;
+const handlers = (
+  Route.options as unknown as {
+    server: { handlers: Record<"GET" | "HEAD", Handler> };
+  }
+).server.handlers;
 const row = (kind = "mindmap") => ({
   lesson_id: id,
   description: "<html>محتوى تفاعلي</html>",
@@ -23,10 +28,15 @@ async function deliver(
   resource: ReturnType<typeof row>,
   allowed = true,
   ready = true,
-  method = "GET",
+  method: "GET" | "HEAD" = "GET",
 ) {
   const from = () => {
-    const chain: any = {
+    type Query = {
+      select: () => Query;
+      eq: () => Query;
+      maybeSingle: () => Promise<{ data: typeof resource; error: null }>;
+    };
+    const chain: Query = {
       select: () => chain,
       eq: () => chain,
       maybeSingle: async () => ({ data: resource, error: null }),
