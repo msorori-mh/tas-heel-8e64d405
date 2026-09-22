@@ -8,7 +8,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ANSWER_LEAK_PATTERNS } from "@/lib/lessons/html-content-standard";
-import { isInlineHtmlResourceUrl } from "@/lib/lessons/inline-html-resource";
+import { isOfflineInteractiveResource } from "@/lib/offline/offline-inline-resource";
 import { createOfflineCaller, offlineApiError } from "@/lib/offline/offline-api.server";
 import { loadOfflineAssessmentSource } from "@/lib/offline/offline-assessment-source.server";
 import {
@@ -178,11 +178,7 @@ async function loadBody(
     .eq("resource_type", expectedType)
     .maybeSingle();
   if (error) throw new Error("OFFLINE_ARTIFACT_LOOKUP_FAILED");
-  if (
-    !data?.description ||
-    !isInlineHtmlResourceUrl(data.url) ||
-    data.html_resource_type !== "INTERACTIVE"
-  ) {
+  if (!data?.description || !isOfflineInteractiveResource(data)) {
     return null;
   }
   return {
