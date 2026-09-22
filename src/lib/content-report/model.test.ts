@@ -3,7 +3,7 @@ import {
   buildLessonCapabilityContract,
   applyLifecycleOverlay,
 } from "@/lib/lessons/lesson-content-contract";
-import { reportCells, reportSummary } from "./model";
+import { componentReportSummary, reportCells, reportSummary } from "./model";
 const base = () =>
   buildLessonCapabilityContract({
     bookContents: [{ content: "<p>نص درس حقيقي</p>" }],
@@ -46,5 +46,46 @@ describe("content completion truth", () => {
     const c = reportCells(base(), {}, {}, true).find((c) => c.key === "labExperimentHtml")!;
     expect(c.status).toBe("missing");
     expect(c.required).toBe(false);
+  });
+});
+
+
+describe("seven-component operational summaries", () => {
+  it("reports upload and remaining counts per component without treating NA as a gap", () => {
+    const first = reportCells(base(), { labExperimentHtml: "NA" }, {}, true);
+    const second = reportCells(base(), {}, {}, true, {
+      tamkeenExplanationHtml: 1,
+      labExperimentHtml: 1,
+    });
+    const summaries = componentReportSummary([
+      { id: "1", title: "الأول", semester: 1, updatedAt: "2026-09-15", cells: first },
+      { id: "2", title: "الثاني", semester: 1, updatedAt: "2026-09-15", cells: second },
+    ]);
+
+    const book = summaries.find((item) => item.key === "officialBookContent")!;
+    expect(book.applicable).toBe(2);
+    expect(book.uploaded).toBe(2);
+    expect(book.remainingUpload).toBe(0);
+    expect(book.uploadPercent).toBe(100);
+
+    const explanation = summaries.find((item) => item.key === "tamkeenExplanationHtml")!;
+    expect(explanation.applicable).toBe(2);
+    expect(explanation.uploaded).toBe(1);
+    expect(explanation.remainingUpload).toBe(1);
+    expect(explanation.invalid).toBe(1);
+
+    const lab = summaries.find((item) => item.key === "labExperimentHtml")!;
+    expect(lab.applicable).toBe(1);
+    expect(lab.optional).toBe(1);
+    expect(lab.notApplicable).toBe(1);
+    expect(lab.uploaded).toBe(1);
+    expect(lab.remainingUpload).toBe(0);
+  });
+
+  it("returns null percentages when no observed row makes a component applicable", () => {
+    const summaries = componentReportSummary([]);
+    expect(summaries).toHaveLength(7);
+    expect(summaries.every((item) => item.uploadPercent === null)).toBe(true);
+    expect(summaries.every((item) => item.publishPercent === null)).toBe(true);
   });
 });
