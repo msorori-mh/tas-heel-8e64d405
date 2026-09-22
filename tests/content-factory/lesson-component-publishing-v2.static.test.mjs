@@ -26,6 +26,10 @@ const phetWrapperUpgrade = readFileSync(
   "supabase/migrations/20260918030000_phet_wrapper_attribution_links.sql",
   "utf8",
 );
+const labRuntimeCspFix = readFileSync(
+  "supabase/migrations/20260922043000_lab_runtime_wrapper_csp_contract.sql",
+  "utf8",
+);
 const errorMessages = readFileSync(
   "src/lib/content-factory/lesson-component-publishing-v2-errors.ts",
   "utf8",
@@ -164,6 +168,22 @@ test("server verification pins uploaded bytes and uses private intake RPCs", () 
   assert.match(server, /lesson_component_verify_intake_v2/);
   assert.match(server, /lcpv2:\$\{data\.intakeId\}:publish/);
   assert.match(rehearsal, /lesson-component-publishing-v2-pg17\.sql/);
+});
+
+test("offline laboratory HTML relies on the central runtime CSP instead of authored CSP", () => {
+  assert.match(rehearsal, /20260922043000_lab_runtime_wrapper_csp_contract\.sql/);
+  assert.match(labRuntimeCspFix, /'enforcement', 'RUNTIME_WRAPPER'/);
+  assert.match(labRuntimeCspFix, /'sandbox', 'allow-scripts'/);
+  assert.match(labRuntimeCspFix, /'network', 'none'/);
+  assert.match(labRuntimeCspFix, /script-src ''unsafe-inline''/);
+  assert.match(labRuntimeCspFix, /connect-src ''none''/);
+  assert.match(labRuntimeCspFix, /onclick="window\.count=/);
+  assert.doesNotMatch(labRuntimeCspFix, /CF11_LAB_CSP_MISSING/);
+  assert.doesNotMatch(labRuntimeCspFix, /CF11_LAB_CSP_SCRIPT_HASH_MISMATCH/);
+  assert.match(labRuntimeCspFix, /CF11_INTERACTIVE_EXTERNAL_SCRIPT/);
+  assert.match(labRuntimeCspFix, /CF11_INTERACTIVE_DYNAMIC_EXECUTION/);
+  assert.match(labRuntimeCspFix, /externalProvider', 'PHET'/);
+  assert.match(labRuntimeCspFix, /LAB_PHET_ALLOWLIST_REGRESSION/);
 });
 
 test("PhET exception is lab-only, exact-host and online-only", () => {
