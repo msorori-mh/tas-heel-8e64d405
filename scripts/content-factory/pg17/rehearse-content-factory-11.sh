@@ -97,4 +97,5 @@ psql "$db_url" -v ON_ERROR_STOP=1 \
   -f "$root_dir/scripts/content-factory/pg17/mindmap-contract-before-fix-pg17.sql" \
   -f "$root_dir/supabase/migrations/20260919020000_separate_mindmap_publication_contract.sql" \
   -f "$root_dir/supabase/migrations/20260919020000_separate_mindmap_publication_contract.sql" \
-  -f "$root_dir/scripts/content-factory/pg17/mindmap-contract-after-fix-pg17.sql"
+  -f "$root_dir/scripts/content-factory/pg17/mindmap-contract-after-fix-pg17.sql" \
+  -f "$root_dir/supabase/migrations/20260922043000_lab_runtime_wrapper_csp_contract.sql"

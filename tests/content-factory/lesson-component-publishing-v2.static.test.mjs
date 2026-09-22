@@ -26,6 +26,10 @@ const phetWrapperUpgrade = readFileSync(
   "supabase/migrations/20260918030000_phet_wrapper_attribution_links.sql",
   "utf8",
 );
+const labRuntimeCspFix = readFileSync(
+  "supabase/migrations/20260922043000_lab_runtime_wrapper_csp_contract.sql",
+  "utf8",
+);
 const errorMessages = readFileSync(
   "src/lib/content-factory/lesson-component-publishing-v2-errors.ts",
   "utf8",
@@ -164,6 +168,28 @@ test("server verification pins uploaded bytes and uses private intake RPCs", () 
   assert.match(server, /lesson_component_verify_intake_v2/);
   assert.match(server, /lcpv2:\$\{data\.intakeId\}:publish/);
   assert.match(rehearsal, /lesson-component-publishing-v2-pg17\.sql/);
+});
+
+test("offline laboratory HTML relies on the central runtime CSP instead of authored CSP", () => {
+  assert.match(rehearsal, /20260922043000_lab_runtime_wrapper_csp_contract\.sql/);
+  const fnStart = labRuntimeCspFix.indexOf(
+    "CREATE OR REPLACE FUNCTION public.cf11_assert_interactive_contract",
+  );
+  const fnEnd = labRuntimeCspFix.indexOf("$function$;", fnStart) + "$function$;".length;
+  const functionBody = labRuntimeCspFix.slice(fnStart, fnEnd);
+  assert.ok(fnStart >= 0 && fnEnd > fnStart);
+  assert.match(functionBody, /'enforcement', 'RUNTIME_WRAPPER'/);
+  assert.match(functionBody, /'sandbox', 'allow-scripts'/);
+  assert.match(functionBody, /'network', 'none'/);
+  assert.match(functionBody, /script-src ''unsafe-inline''/);
+  assert.match(functionBody, /connect-src ''none''/);
+  assert.doesNotMatch(functionBody, /CF11_LAB_CSP_MISSING/);
+  assert.doesNotMatch(functionBody, /CF11_LAB_CSP_SCRIPT_HASH_MISMATCH/);
+  assert.match(functionBody, /CF11_INTERACTIVE_EXTERNAL_SCRIPT/);
+  assert.match(functionBody, /CF11_INTERACTIVE_DYNAMIC_EXECUTION/);
+  assert.match(functionBody, /externalProvider', 'PHET'/);
+  assert.match(labRuntimeCspFix, /onclick="window\.count=/);
+  assert.match(labRuntimeCspFix, /LAB_PHET_ALLOWLIST_REGRESSION/);
 });
 
 test("PhET exception is lab-only, exact-host and online-only", () => {
