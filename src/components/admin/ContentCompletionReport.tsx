@@ -533,7 +533,10 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-4 space-y-4" aria-label="مسار اكتمال المحتوى">
+          <section
+            className="rounded-xl border bg-card p-4 space-y-4"
+            aria-label="مسار اكتمال المحتوى"
+          >
             <div>
               <h2 className="text-lg font-bold">مسار المكونات الإلزامية</h2>
               <p className="text-xs text-muted-foreground">
@@ -551,7 +554,9 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
                   <div key={String(label)} className="rounded-xl bg-muted/50 p-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <strong>{label}</strong>
-                      <span className="text-sm font-bold">{percent === null ? "—" : `${percent}%`}</span>
+                      <span className="text-sm font-bold">
+                        {percent === null ? "—" : `${percent}%`}
+                      </span>
                     </div>
                     <div
                       className="h-2 overflow-hidden rounded-full bg-background"
@@ -579,8 +584,8 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
             <div>
               <h2 className="text-lg font-bold">الرفع والمتبقي لكل مكون من مكونات الدرس السبعة</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                يحسب كل مكون بصورة مستقلة على الدروس القابلة للتطبيق. «غير مطلوب» مستبعد، بينما
-                يظهر الاختياري منفصلًا حتى لا يُحتسب كنقص إلزامي.
+                يحسب كل مكون بصورة مستقلة على الدروس القابلة للتطبيق. «غير مطلوب» مستبعد، بينما يظهر
+                الاختياري منفصلًا حتى لا يُحتسب كنقص إلزامي.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -696,9 +701,9 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
           </section>
 
           <p className="text-sm text-muted-foreground">
-            النسب العامة للمكونات الإلزامية فقط؛ أما تقرير المكونات السبعة فيوضح المطلوب
-            والاختياري بصورة منفصلة. «منشور» يعني أن قواعد المحتوى تسمح بعرضه، ولا يضمن وحده
-            سلامة كل إجابة أو اكتمال تنزيل المورد دون إنترنت.
+            النسب العامة للمكونات الإلزامية فقط؛ أما تقرير المكونات السبعة فيوضح المطلوب والاختياري
+            بصورة منفصلة. «منشور» يعني أن قواعد المحتوى تسمح بعرضه، ولا يضمن وحده سلامة كل إجابة أو
+            اكتمال تنزيل المورد دون إنترنت.
           </p>
           <div className="flex flex-wrap gap-3">
             <input
@@ -802,24 +807,24 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
                     {r.cells
                       .filter((cell) => visibleCapabilities.includes(cell.key as V3CapabilityKey))
                       .map((c) => (
-                      <td key={c.key} className="p-3">
-                        <span
-                          className={
-                            c.status === "published"
-                              ? "text-emerald-700"
-                              : c.status === "missing" || c.status === "invalid"
-                                ? "text-destructive"
-                                : ""
-                          }
-                        >
-                          {labels[c.status]}
-                        </span>
-                        {!c.required && c.status !== "na" ? (
-                          <small className="block">اختياري</small>
-                        ) : null}
-                        <small className="block">{c.count} عنصر</small>
-                      </td>
-                    ))}
+                        <td key={c.key} className="p-3">
+                          <span
+                            className={
+                              c.status === "published"
+                                ? "text-emerald-700"
+                                : c.status === "missing" || c.status === "invalid"
+                                  ? "text-destructive"
+                                  : ""
+                            }
+                          >
+                            {labels[c.status]}
+                          </span>
+                          {!c.required && c.status !== "na" ? (
+                            <small className="block">اختياري</small>
+                          ) : null}
+                          <small className="block">{c.count} عنصر</small>
+                        </td>
+                      ))}
                     <td className="p-3 min-w-64">
                       {r.cells
                         .filter(
