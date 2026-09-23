@@ -65,7 +65,45 @@ vi.mock("@tanstack/react-query", () => ({
         }
       : o.queryKey[0] === "content-report-books"
         ? { data: [], isError: false, isPending: false }
-        : {
+        : o.queryKey[0] === "content-overview"
+          ? {
+              data: [
+                {
+                  id: "iron",
+                  title: "الحديد",
+                  subjectId: "s",
+                  semester: 1,
+                  updatedAt: "2026-09-15",
+                  managed: true,
+                  visible: false,
+                  components: [
+                    {
+                      key: "officialBookContent",
+                      label: "محتوى الكتاب",
+                      applicability: "REQUIRED",
+                      entered: true,
+                      status: "READY",
+                      ready: true,
+                      published: false,
+                    },
+                    {
+                      key: "lessonSummaryHtml",
+                      label: "ملخص الدرس",
+                      applicability: "REQUIRED",
+                      entered: false,
+                      status: "MISSING",
+                      ready: false,
+                      published: false,
+                    },
+                  ],
+                },
+              ],
+              isError: false,
+              isPending: false,
+              isFetching: false,
+              refetch: vi.fn(),
+            }
+          : {
             data: fixture.error
               ? undefined
               : [
@@ -113,6 +151,14 @@ afterEach(() => {
   cleanup();
   fixture.error = false;
 });
+it("shows the general content report before a subject is selected", () => {
+  render(<ContentCompletionReport enabled />);
+  expect(host.querySelector('[aria-label="التقرير العام للمحتوى"]')).toBeTruthy();
+  expect(screen.getByText("التقرير العام للمحتوى")).toBeTruthy();
+  expect(screen.getByText("التحليل التفصيلي العام")).toBeTruthy();
+  expect(screen.queryByText("تصدير Excel")).toBeNull();
+});
+
 it("shows actionable missing work and scopes by semester and lesson name", () => {
   render(<ContentCompletionReport enabled />);
   fireEvent.change(screen.getByLabelText("المادة"), { target: { value: "s" } });
