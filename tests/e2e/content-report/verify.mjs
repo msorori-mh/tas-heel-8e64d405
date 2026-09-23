@@ -25,7 +25,7 @@ try {
     await overviewDownload.saveAs(overviewFile);
     const overviewBook = new ExcelJS.Workbook();
     await overviewBook.xlsx.readFile(overviewFile);
-    assert.equal(overviewBook.worksheets.length, 7);
+    assert.equal(overviewBook.worksheets.length, 8);
     assert.equal(overviewBook.getWorksheet("نظرة عامة").getCell("A2").value, "إجمالي الدروس");
     assert.equal(
       overviewBook.getWorksheet("المكونات السبعة العامة").getCell("A2").value,
