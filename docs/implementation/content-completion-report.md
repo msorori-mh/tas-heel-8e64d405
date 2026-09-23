@@ -13,3 +13,31 @@ Excel export contains lesson matrix, full textbooks, and primary textbook covera
 Validation: model/pagination/abort/error/UI tests, TypeScript, ESLint and production build. Dedicated Chromium fixture checks 390/1280px overflow, actual edit link navigation and the generated workbook's three sheets. Fixtures do not replace real-account acceptance. Screenshot review and CI required before release.
 
 Recovery: revert application commit and republish. No database rollback needed. The review APK branches are separate and are not merged by this change.
+
+
+## Seven-component operational reporting upgrade
+
+The admin page now exposes a separate operational summary for each canonical lesson component:
+`officialBookContent`, `tamkeenExplanationHtml`, `lessonSummaryHtml`, `mindMapHtml`,
+`labExperimentHtml`, `officialBookQuestions`, and `selfTest`.
+
+For every component the report shows:
+- applicable lesson count, split into REQUIRED / OPTIONAL / NA;
+- uploaded count and remaining-to-upload count;
+- ready and published counts;
+- remaining-to-publish count;
+- review, invalid/correction and draft counts;
+- upload percentage and publication percentage.
+
+"Remaining to upload" is calculated only across applicable rows (REQUIRED + OPTIONAL). NA is never counted as a gap. OPTIONAL remains visibly separate so, for example, an optional lab experiment is not presented as a mandatory curriculum defect.
+
+The lesson table can now be filtered by a specific component as well as lifecycle state. The per-component cards provide a direct "show lessons remaining to upload" action. Selecting one component reduces the matrix to that component while retaining the lesson remediation link.
+
+Excel export now contains five worksheets:
+1. `اكتمال المحتوى` — lesson matrix.
+2. `كتب المادة الكاملة` — registered subject books.
+3. `نواقص كتب المادة` — primary textbook coverage.
+4. `ملخص المكونات السبعة` — one operational row per component.
+5. `المتبقي حسب المكون` — actionable lesson/component backlog with upload state, publication state and remediation URL.
+
+This upgrade is application-only. It adds no table, migration, service-role path or content write.
