@@ -126,6 +126,25 @@ it("shows actionable missing work and scopes by semester and lesson name", () =>
   fireEvent.change(screen.getByLabelText("بحث باسم الدرس"), { target: { value: "لا يوجد" } });
   expect(screen.getByText("لا توجد دروس مطابقة للفلاتر.")).toBeTruthy();
 });
+it("shows an independent upload report for each lesson component and can focus one component", () => {
+  render(<ContentCompletionReport enabled />);
+  fireEvent.change(screen.getByLabelText("المادة"), { target: { value: "s" } });
+
+  expect(host.querySelector('[aria-label="تقرير المكونات السبعة"]')).toBeTruthy();
+  expect(host.querySelector('[data-component-key="officialBookContent"]')).toBeTruthy();
+  expect(host.querySelector('[data-component-key="lessonSummaryHtml"]')).toBeTruthy();
+
+  const summaryCard = host.querySelector('[data-component-key="lessonSummaryHtml"]') as HTMLElement;
+  expect(summaryCard.textContent).toContain("المتبقي للرفع");
+  expect(summaryCard.textContent).toContain("1");
+
+  fireEvent.change(screen.getByLabelText("المكون"), {
+    target: { value: "lessonSummaryHtml" },
+  });
+  fireEvent.change(screen.getByLabelText("حالة المكون"), { target: { value: "missing" } });
+  expect(screen.getByText("الحديد")).toBeTruthy();
+  expect(screen.queryByText("النحاس")).toBeNull();
+});
 it("clears the selected scope when the grade changes", () => {
   render(<ContentCompletionReport enabled />);
   fireEvent.change(screen.getByLabelText("المادة"), { target: { value: "s" } });

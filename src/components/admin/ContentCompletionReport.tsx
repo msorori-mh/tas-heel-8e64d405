@@ -9,14 +9,20 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { allRows, loadReport } from "@/lib/content-report/load";
-import { labels, reportSummary } from "@/lib/content-report/model";
-import { V3_LABEL_AR, V3_CAPABILITIES } from "@/lib/lessons/content-v3";
+import { componentReportSummary, labels, reportSummary } from "@/lib/content-report/model";
+import {
+  V3_CAPABILITIES,
+  V3_ICON,
+  V3_LABEL_AR,
+  type V3CapabilityKey,
+} from "@/lib/lessons/content-v3";
 export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
   const [grade, setGrade] = useState("");
   const [track, setTrack] = useState("");
   const [subject, setSubject] = useState("");
   const [semester, setSemester] = useState("");
   const [status, setStatus] = useState("");
+  const [component, setComponent] = useState<V3CapabilityKey | "">("");
   const [search, setSearch] = useState("");
   const [exportError, setExportError] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -113,11 +119,17 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
       );
   const coverage = textbookCoverage(books, reportTracks, terms);
   const scope = (report.data ?? []).filter((r) => !semester || String(r.semester) === semester);
-  const filtered = scope.filter(
-    (r) =>
+  const componentStats = componentReportSummary(scope);
+  const filtered = scope.filter((r) => {
+    const relevantCells = component ? r.cells.filter((c) => c.key === component) : r.cells;
+    return (
       (!search || r.title.includes(search)) &&
-      (!status || r.cells.some((c) => c.status === status)),
-  );
+      (!status || relevantCells.some((c) => c.status === status))
+    );
+  });
+  const visibleCapabilities = component
+    ? V3_CAPABILITIES.filter((key) => key === component)
+    : V3_CAPABILITIES;
   const summary = reportSummary(scope);
   const current = catalog.data?.subjects.find((s) => s.id === subject);
   const subjects =
@@ -209,6 +221,101 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
           c.covered ? "موجود ومفعّل" : "ينقص كتاب أساسي مفعّل",
         ]),
       );
+
+      const componentSheet = book.addWorksheet("ملخص المكونات السبعة", {
+        views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }],
+      });
+      componentSheet.addRow([
+        "المكون",
+        "الدروس القابلة للتطبيق",
+        "مطلوب",
+        "اختياري",
+        "غير مطلوب",
+        "مرفوع",
+        "المتبقي للرفع",
+        "نسبة الرفع",
+        "جاهز",
+        "منشور",
+        "المتبقي للنشر",
+        "قيد المراجعة",
+        "يحتاج تصحيحًا",
+        "مسودة",
+        "نسبة النشر",
+      ]);
+      componentStats.forEach((item) =>
+        componentSheet.addRow([
+          item.label,
+          item.applicable,
+          item.required,
+          item.optional,
+          item.notApplicable,
+          item.uploaded,
+          item.remainingUpload,
+          item.uploadPercent === null ? "" : `${item.uploadPercent}%`,
+          item.ready,
+          item.published,
+          item.remainingPublish,
+          item.review,
+          item.invalid,
+          item.draft,
+          item.publishPercent === null ? "" : `${item.publishPercent}%`,
+        ]),
+      );
+      componentSheet.columns.forEach((column, index) => {
+        column.width = index === 0 ? 28 : 18;
+      });
+      componentSheet.getRow(1).font = { bold: true };
+      componentSheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: 15 },
+      };
+
+      const remainingSheet = book.addWorksheet("المتبقي حسب المكون", {
+        views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }],
+      });
+      remainingSheet.addRow([
+        "المكون",
+        "الدرس",
+        "الفصل",
+        "الإلزام",
+        "حالة الرفع",
+        "حالة النشر",
+        "الإجراء المطلوب",
+        "رابط المعالجة",
+      ]);
+      scope.forEach((row) => {
+        row.cells
+          .filter((cell) => cell.status !== "na" && cell.status !== "published")
+          .forEach((cell) => {
+            remainingSheet.addRow([
+              cell.label,
+              row.title,
+              row.semester ?? "غير محدد",
+              cell.required ? "مطلوب" : "اختياري",
+              cell.uploaded ? "مرفوع" : "متبقي للرفع",
+              labels[cell.status],
+              !cell.uploaded
+                ? "رفع المكون"
+                : cell.status === "invalid"
+                  ? "تصحيح المحتوى"
+                  : cell.status === "review"
+                    ? "استكمال المراجعة"
+                    : cell.status === "ready"
+                      ? "إتاحة/نشر للطالب"
+                      : "استكمال دورة النشر",
+              `${location.origin}/admin/lesson-content/${row.id}`,
+            ]);
+          });
+      });
+      remainingSheet.columns.forEach((column, index) => {
+        column.width = index === 1 ? 40 : index === 7 ? 48 : 22;
+      });
+      remainingSheet.getRow(1).font = { bold: true };
+      remainingSheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: 8 },
+      };
+
       const bytes = await book.xlsx.writeBuffer();
       const url = URL.createObjectURL(
         new Blob([new Uint8Array(bytes)], {
@@ -397,38 +504,206 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
         </p>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["الدروس", summary.lessons],
-              ["الدروس المكتملة المنشورة", summary.complete],
-              ["مكونات مطلوبة لم تُرفع", summary.missing],
-              ["مكونات تنتظر المراجعة", summary.review],
-            ].map(([label, n]) => (
-              <div key={label} className="rounded-xl border p-4">
-                <p>{label}</p>
-                <strong className="text-2xl">{n}</strong>
+          <section className="space-y-3" aria-label="ملخص اكتمال المادة">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-bold">ملخص اكتمال المادة</h2>
+                <p className="text-xs text-muted-foreground">
+                  الأرقام التالية تخص المادة والفصل المحددين فقط.
+                </p>
               </div>
-            ))}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              ["الرفع", summary.uploaded],
-              ["الجاهزية", summary.ready],
-              ["النشر", summary.published],
-            ].map(([label, n]) => (
-              <div key={label} className="rounded-xl bg-muted p-3">
-                {label}:{" "}
-                <strong>
-                  {summary.percent(Number(n)) === null ? "—" : `${summary.percent(Number(n))}%`}
-                </strong>{" "}
-                ({n}/{summary.required})
-              </div>
-            ))}
-          </div>
+              <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+                {current?.name ?? "المادة"} • {semester ? `الفصل ${semester}` : "كل الفصول"}
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {[
+                ["إجمالي الدروس", summary.lessons, "كل الدروس ضمن النطاق"],
+                ["دروس مكتملة ومنشورة", summary.complete, "كل المطلوب ظاهر للطالب"],
+                ["متبقي رفع مطلوب", summary.missing, "مكونات إلزامية لم تُرفع"],
+                ["بانتظار المراجعة", summary.review, "مكونات إلزامية قيد المراجعة"],
+                ["تحتاج تصحيحًا", summary.invalid, "مكونات مرفوعة غير صالحة بعد"],
+              ].map(([label, n, hint]) => (
+                <div key={String(label)} className="rounded-xl border bg-card p-4 shadow-sm">
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <strong className="mt-1 block text-2xl">{n}</strong>
+                  <small className="text-xs text-muted-foreground">{hint}</small>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section
+            className="rounded-xl border bg-card p-4 space-y-4"
+            aria-label="مسار اكتمال المحتوى"
+          >
+            <div>
+              <h2 className="text-lg font-bold">مسار المكونات الإلزامية</h2>
+              <p className="text-xs text-muted-foreground">
+                الرفع ثم الجاهزية ثم النشر. المقام هو عدد المكونات الإلزامية فقط.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                ["الرفع", summary.uploaded, "تم إدخال محتوى للمكون"],
+                ["الجاهزية", summary.ready, "اجتاز دورة المراجعة أو نُشر"],
+                ["النشر", summary.published, "ظاهر للطالب وفق بوابة المحتوى"],
+              ].map(([label, n, hint]) => {
+                const percent = summary.percent(Number(n));
+                return (
+                  <div key={String(label)} className="rounded-xl bg-muted/50 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <strong>{label}</strong>
+                      <span className="text-sm font-bold">
+                        {percent === null ? "—" : `${percent}%`}
+                      </span>
+                    </div>
+                    <div
+                      className="h-2 overflow-hidden rounded-full bg-background"
+                      role="progressbar"
+                      aria-label={String(label)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={percent ?? 0}
+                    >
+                      <div
+                        className="h-full rounded-full bg-primary transition-[width]"
+                        style={{ width: `${percent ?? 0}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {n}/{summary.required} • {hint}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-4" aria-label="تقرير المكونات السبعة">
+            <div>
+              <h2 className="text-lg font-bold">الرفع والمتبقي لكل مكون من مكونات الدرس السبعة</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                يحسب كل مكون بصورة مستقلة على الدروس القابلة للتطبيق. «غير مطلوب» مستبعد، بينما يظهر
+                الاختياري منفصلًا حتى لا يُحتسب كنقص إلزامي.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {componentStats.map((item) => (
+                <article
+                  key={item.key}
+                  className="rounded-xl border bg-card p-4 shadow-sm"
+                  data-component-key={item.key}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xl" aria-hidden>
+                        {V3_ICON[item.key]}
+                      </p>
+                      <h3 className="font-bold">{item.label}</h3>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+                      {item.uploadPercent === null ? "—" : `${item.uploadPercent}% رفع`}
+                    </span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width]"
+                      style={{ width: `${item.uploadPercent ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-lg bg-muted/60 p-2">
+                      <span className="block text-xs text-muted-foreground">مرفوع</span>
+                      <strong>{item.uploaded}</strong>
+                    </div>
+                    <div className="rounded-lg bg-muted/60 p-2">
+                      <span className="block text-xs text-muted-foreground">المتبقي للرفع</span>
+                      <strong>{item.remainingUpload}</strong>
+                    </div>
+                    <div className="rounded-lg bg-muted/60 p-2">
+                      <span className="block text-xs text-muted-foreground">منشور</span>
+                      <strong>{item.published}</strong>
+                    </div>
+                    <div className="rounded-lg bg-muted/60 p-2">
+                      <span className="block text-xs text-muted-foreground">المتبقي للنشر</span>
+                      <strong>{item.remainingPublish}</strong>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    قابل للتطبيق {item.applicable} • مطلوب {item.required} • اختياري {item.optional}
+                    {item.notApplicable ? ` • غير مطلوب ${item.notApplicable}` : ""}
+                  </p>
+                  {(item.review > 0 || item.invalid > 0) && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      مراجعة {item.review} • يحتاج تصحيحًا {item.invalid}
+                    </p>
+                  )}
+                  {item.remainingUpload > 0 && (
+                    <button
+                      type="button"
+                      className="mt-3 text-xs font-semibold text-primary hover:underline"
+                      onClick={() => {
+                        setComponent(item.key);
+                        setStatus("missing");
+                        setSearch("");
+                      }}
+                    >
+                      عرض الدروس المتبقية للرفع
+                    </button>
+                  )}
+                </article>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border" tabIndex={0}>
+              <table className="w-full min-w-[980px] text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="p-3 text-right">المكون</th>
+                    <th className="p-3">قابل للتطبيق</th>
+                    <th className="p-3">مرفوع</th>
+                    <th className="p-3">متبقي للرفع</th>
+                    <th className="p-3">جاهز</th>
+                    <th className="p-3">منشور</th>
+                    <th className="p-3">متبقي للنشر</th>
+                    <th className="p-3">مراجعة</th>
+                    <th className="p-3">تصحيح</th>
+                    <th className="p-3">نسبة الرفع</th>
+                    <th className="p-3">نسبة النشر</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {componentStats.map((item) => (
+                    <tr key={item.key} className="border-t">
+                      <th className="p-3 text-right whitespace-nowrap">
+                        {V3_ICON[item.key]} {item.label}
+                      </th>
+                      <td className="p-3 text-center">{item.applicable}</td>
+                      <td className="p-3 text-center">{item.uploaded}</td>
+                      <td className="p-3 text-center font-bold">{item.remainingUpload}</td>
+                      <td className="p-3 text-center">{item.ready}</td>
+                      <td className="p-3 text-center">{item.published}</td>
+                      <td className="p-3 text-center">{item.remainingPublish}</td>
+                      <td className="p-3 text-center">{item.review}</td>
+                      <td className="p-3 text-center">{item.invalid}</td>
+                      <td className="p-3 text-center">
+                        {item.uploadPercent === null ? "—" : `${item.uploadPercent}%`}
+                      </td>
+                      <td className="p-3 text-center">
+                        {item.publishPercent === null ? "—" : `${item.publishPercent}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           <p className="text-sm text-muted-foreground">
-            النسب للمكونات الإلزامية فقط؛ الاختياري وغير المطلوب مستبعدان. الجاهزية تشمل المنشور.
-            «منشور» يعني أن قواعد المحتوى تسمح بعرضه، ولا يضمن صلاحية كل إجابة أو تنزيل كل ملف دون
-            إنترنت.
+            النسب العامة للمكونات الإلزامية فقط؛ أما تقرير المكونات السبعة فيوضح المطلوب والاختياري
+            بصورة منفصلة. «منشور» يعني أن قواعد المحتوى تسمح بعرضه، ولا يضمن وحده سلامة كل إجابة أو
+            اكتمال تنزيل المورد دون إنترنت.
           </p>
           <div className="flex flex-wrap gap-3">
             <input
@@ -438,6 +713,19 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
               onChange={(e) => setSearch(e.target.value)}
               className={cls}
             />
+            <select
+              aria-label="المكون"
+              value={component}
+              onChange={(e) => setComponent(e.target.value as V3CapabilityKey | "")}
+              className={cls}
+            >
+              <option value="">كل المكونات السبعة</option>
+              {V3_CAPABILITIES.map((key) => (
+                <option value={key} key={key}>
+                  {V3_LABEL_AR[key]}
+                </option>
+              ))}
+            </select>
             <select
               aria-label="حالة المكون"
               value={status}
@@ -468,6 +756,16 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
             <button className={cls} disabled={report.isFetching} onClick={() => report.refetch()}>
               تحديث التقرير
             </button>
+            <button
+              className={cls}
+              onClick={() => {
+                setSearch("");
+                setStatus("");
+                setComponent("");
+              }}
+            >
+              مسح فلاتر الجدول
+            </button>
           </div>
           {exportError ? <p role="alert">{exportError}</p> : null}
           <p className="text-sm">
@@ -483,7 +781,7 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
               <thead>
                 <tr>
                   <th className="p-3 text-right">الدرس</th>
-                  {V3_CAPABILITIES.map((k) => (
+                  {visibleCapabilities.map((k) => (
                     <th className="p-3 whitespace-nowrap" key={k}>
                       {V3_LABEL_AR[k]}
                     </th>
@@ -506,31 +804,39 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
                         آخر تحديث للدرس: {new Date(r.updatedAt).toLocaleDateString("ar")}
                       </p>
                     </th>
-                    {r.cells.map((c) => (
-                      <td key={c.key} className="p-3">
-                        <span
-                          className={
-                            c.status === "published"
-                              ? "text-emerald-700"
-                              : c.status === "missing" || c.status === "invalid"
-                                ? "text-destructive"
-                                : ""
-                          }
-                        >
-                          {labels[c.status]}
-                        </span>
-                        {!c.required && c.status !== "na" ? (
-                          <small className="block">اختياري</small>
-                        ) : null}
-                        <small className="block">{c.count} عنصر</small>
-                      </td>
-                    ))}
+                    {r.cells
+                      .filter((cell) => visibleCapabilities.includes(cell.key as V3CapabilityKey))
+                      .map((c) => (
+                        <td key={c.key} className="p-3">
+                          <span
+                            className={
+                              c.status === "published"
+                                ? "text-emerald-700"
+                                : c.status === "missing" || c.status === "invalid"
+                                  ? "text-destructive"
+                                  : ""
+                            }
+                          >
+                            {labels[c.status]}
+                          </span>
+                          {!c.required && c.status !== "na" ? (
+                            <small className="block">اختياري</small>
+                          ) : null}
+                          <small className="block">{c.count} عنصر</small>
+                        </td>
+                      ))}
                     <td className="p-3 min-w-64">
                       {r.cells
-                        .filter((c) => c.required && c.status !== "published")
-                        .map((c) => (
-                          <p key={c.key}>
-                            {c.label}: {labels[c.status]}
+                        .filter(
+                          (cell) =>
+                            cell.status !== "published" &&
+                            cell.status !== "na" &&
+                            (component ? cell.key === component : cell.required),
+                        )
+                        .map((cell) => (
+                          <p key={cell.key}>
+                            {cell.label}: {labels[cell.status]}
+                            {!cell.required ? " (اختياري)" : ""}
                           </p>
                         ))}
                       <Link
