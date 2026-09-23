@@ -31,6 +31,7 @@ const dimensionLabels: Record<OverviewDimension, string> = {
   track: "المنهج",
   semester: "الفصل",
   subject: "المادة",
+  lesson: "الدرس",
 };
 
 function percentLabel(value: number | null) {
@@ -92,7 +93,7 @@ export function ContentOverviewReport({
     if (dimension === "grade") onGradeChange(rowId);
     else if (dimension === "track") onTrackChange(rowId);
     else if (dimension === "semester") onSemesterChange(rowId === "unknown" ? "" : rowId);
-    else onSubjectChange(rowId);
+    else if (dimension === "subject") onSubjectChange(rowId);
   }
 
   async function downloadOverview() {
@@ -167,7 +168,7 @@ export function ContentOverviewReport({
       });
       componentSheet.getRow(1).font = { bold: true };
 
-      for (const d of ["grade", "track", "semester", "subject"] as OverviewDimension[]) {
+      for (const d of ["grade", "track", "semester", "subject", "lesson"] as OverviewDimension[]) {
         const sheet = book.addWorksheet(`تحليل ${dimensionLabels[d]}`, {
           views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }],
         });
@@ -473,13 +474,23 @@ export function ContentOverviewReport({
                         {percentLabel(row.summary.readinessPercent)}
                       </td>
                       <td className="p-3 text-center">
-                        <button
-                          type="button"
-                          className="text-primary underline"
-                          onClick={() => drill(row.id)}
-                        >
-                          تصفية بهذا {dimensionLabels[dimension]}
-                        </button>
+                        {dimension === "lesson" ? (
+                          <Link
+                            to="/admin/lesson-content/$lessonId"
+                            params={{ lessonId: row.id }}
+                            className="text-primary underline"
+                          >
+                            فتح الدرس
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-primary underline"
+                            onClick={() => drill(row.id)}
+                          >
+                            تصفية بهذا {dimensionLabels[dimension]}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
