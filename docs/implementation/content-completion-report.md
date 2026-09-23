@@ -41,3 +41,35 @@ Excel export now contains five worksheets:
 5. `المتبقي حسب المكون` — actionable lesson/component backlog with upload state, publication state and remediation URL.
 
 This upgrade is application-only. It adds no table, migration, service-role path or content write.
+
+
+## General platform overview and hierarchical analytics
+
+The page now starts with a platform-wide operational overview before a subject is selected. It reads the lesson catalog, editorial lifecycle rows, and the existing batch student-visibility gate in paginated/batched calls; it does not issue the expensive per-lesson content reads used by the deep subject report.
+
+The general overview shows:
+- total lessons in the selected scope;
+- editorially managed versus legacy/unmanaged lessons;
+- lessons visible to students;
+- managed lessons whose REQUIRED lifecycle capabilities are all READY;
+- managed lessons that still need work;
+- REQUIRED capability backlog and readiness/publication percentages;
+- a seven-component lifecycle summary across managed lessons.
+
+Legacy/unmanaged lessons are reported separately and are excluded from lifecycle gap denominators. This prevents old content from being misclassified as missing merely because it predates the editorial lifecycle table.
+
+The general analytics can be switched between five dimensions: grade, curriculum track, semester, subject, and lesson. Each row reports lesson counts, managed/visible counts, completed/attention counts, required-capability backlog and readiness percentage. Grade/track/semester/subject rows can be used as drill-down filters; lesson rows link directly to the lesson remediation workspace.
+
+A separate attention table ranks up to 25 managed lessons by the number of REQUIRED components that are not READY and identifies missing, review, and draft components.
+
+The general Excel export is independent from the subject export and contains eight sheets:
+1. `نظرة عامة`
+2. `المكونات السبعة العامة`
+3. `تحليل الصف`
+4. `تحليل المنهج`
+5. `تحليل الفصل`
+6. `تحليل المادة`
+7. `تحليل الدرس`
+8. `الدروس التي تحتاج معالجة`
+
+The deep subject report remains unchanged in purpose: once a subject is selected it performs the direct content-table validation, textbook coverage, per-component upload/publication matrix, and per-lesson remediation links. The general report is deliberately lifecycle/visibility-oriented and never substitutes inferred global counts for the deeper content validation.
