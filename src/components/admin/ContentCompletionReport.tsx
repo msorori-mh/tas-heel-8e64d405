@@ -453,7 +453,10 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
       )}
 
       {subject && (
-        <section className="space-y-3 border-t border-border pt-5" aria-label="التقرير التفصيلي للمادة">
+        <section
+          className="space-y-3 border-t border-border pt-5"
+          aria-label="التقرير التفصيلي للمادة"
+        >
           <div>
             <h2 className="text-xl font-bold">التقرير التفصيلي للمادة والدروس</h2>
             <p className="text-sm text-muted-foreground">
@@ -525,7 +528,10 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
         </section>
       )}
       {!subject ? (
-        <p role="status" className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+        <p
+          role="status"
+          className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground"
+        >
           {catalog.isPending
             ? "جارٍ تحميل الفلاتر…"
             : "التقرير العام أعلاه يشمل النطاق المحدد. اختر مادة عندما تريد الانتقال إلى الفحص التفصيلي لكل درس ومكون."}
