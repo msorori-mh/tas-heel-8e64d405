@@ -134,9 +134,7 @@ it("shows an independent upload report for each lesson component and can focus o
   expect(host.querySelector('[data-component-key="officialBookContent"]')).toBeTruthy();
   expect(host.querySelector('[data-component-key="lessonSummaryHtml"]')).toBeTruthy();
 
-  const summaryCard = host.querySelector(
-    '[data-component-key="lessonSummaryHtml"]',
-  ) as HTMLElement;
+  const summaryCard = host.querySelector('[data-component-key="lessonSummaryHtml"]') as HTMLElement;
   expect(summaryCard.textContent).toContain("المتبقي للرفع");
   expect(summaryCard.textContent).toContain("1");
 
