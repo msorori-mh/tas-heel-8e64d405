@@ -18,7 +18,9 @@ try {
     await page.goto("http://127.0.0.1:4392");
     await page.getByLabel("المادة", { exact: true }).selectOption("s");
     await page.getByText("فتح مساحة المعالجة", { exact: true }).waitFor();
-    await page.getByText("الرفع والمتبقي لكل مكون من مكونات الدرس السبعة", { exact: true }).waitFor();
+    await page
+      .getByText("الرفع والمتبقي لكل مكون من مكونات الدرس السبعة", { exact: true })
+      .waitFor();
     assert.equal(await page.getByText("كتاب الكيمياء الكامل", { exact: true }).count(), 1);
     assert.equal(await page.locator("[data-component-key]").count(), 7);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
