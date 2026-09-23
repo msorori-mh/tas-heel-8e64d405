@@ -16,6 +16,22 @@ try {
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("http://127.0.0.1:4392");
+    await page.getByText("التقرير العام للمحتوى", { exact: true }).waitFor();
+    assert.equal(await page.locator("[data-overview-component]").count(), 7);
+    const overviewPending = page.waitForEvent("download");
+    await page.getByRole("button", { name: "تصدير التقرير العام", exact: true }).click();
+    const overviewDownload = await overviewPending;
+    const overviewFile = `artifacts/content-report/overview-${width}.xlsx`;
+    await overviewDownload.saveAs(overviewFile);
+    const overviewBook = new ExcelJS.Workbook();
+    await overviewBook.xlsx.readFile(overviewFile);
+    assert.equal(overviewBook.worksheets.length, 7);
+    assert.equal(overviewBook.getWorksheet("نظرة عامة").getCell("A2").value, "إجمالي الدروس");
+    assert.equal(
+      overviewBook.getWorksheet("المكونات السبعة العامة").getCell("A2").value,
+      "محتوى الكتاب",
+    );
+
     await page.getByLabel("المادة", { exact: true }).selectOption("s");
     await page.getByText("فتح مساحة المعالجة", { exact: true }).waitFor();
     await page
@@ -46,7 +62,7 @@ try {
     await page.getByText("فتح مساحة المعالجة", { exact: true }).click();
     await page.getByText("مساحة معالجة الدرس التجريبية", { exact: true }).waitFor();
     assert.deepEqual(errors, []);
-    console.log(`PASS content report, links, XLSX and viewport ${width}`);
+    console.log(`PASS general + detailed content reports, links, XLSX and viewport ${width}`);
     await page.close();
   }
 } finally {
