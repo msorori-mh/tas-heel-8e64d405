@@ -5,6 +5,7 @@ on:
       [
         "src/lib/content-report/**",
         "src/components/admin/ContentCompletionReport*",
+        "src/components/admin/ContentOverviewReport*",
         "src/routes/_authenticated/admin.academic.tsx",
         "tests/e2e/content-report/**",
         ".github/workflows/content-report.yml",

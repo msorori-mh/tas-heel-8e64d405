@@ -10,6 +10,7 @@ import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { allRows, loadReport } from "@/lib/content-report/load";
 import { componentReportSummary, labels, reportSummary } from "@/lib/content-report/model";
+import { ContentOverviewReport } from "@/components/admin/ContentOverviewReport";
 import {
   V3_CAPABILITIES,
   V3_ICON,
@@ -347,8 +348,8 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
         </div>
         <h1 className="text-2xl font-bold">متابعة اكتمال المحتوى</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          اختر المادة لمعرفة ما رُفع وما اعتُمد وما أصبح ظاهرًا للطالب. الأرقام تخص المادة والفصل
-          المحددين، وليست جميع المنصة.
+          ابدأ من التقرير العام للمنصة، ثم استخدم الصف والمنهج والفصل والمادة للوصول إلى التحليل
+          التفصيلي لكل درس ومكون.
         </p>
       </header>
       {catalog.isError ? (
@@ -429,6 +430,43 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
           </select>
         </label>
       </div>
+
+      {catalog.data && (
+        <ContentOverviewReport
+          enabled={enabled}
+          catalog={catalog.data}
+          grade={grade}
+          track={track}
+          subject={subject}
+          semester={semester}
+          onGradeChange={(value) => {
+            setGrade(value);
+            setSubject("");
+          }}
+          onTrackChange={(value) => {
+            setTrack(value);
+            setSubject("");
+          }}
+          onSubjectChange={(value) => setSubject(value)}
+          onSemesterChange={(value) => setSemester(value)}
+        />
+      )}
+
+      {subject && (
+        <section
+          className="space-y-3 border-t border-border pt-5"
+          aria-label="التقرير التفصيلي للمادة"
+        >
+          <div>
+            <h2 className="text-xl font-bold">التقرير التفصيلي للمادة والدروس</h2>
+            <p className="text-sm text-muted-foreground">
+              هنا يبدأ الفحص العميق لمحتوى المادة المختارة: الكتب، المكونات السبعة، حالة كل درس،
+              والنواقص القابلة للمعالجة.
+            </p>
+          </div>
+        </section>
+      )}
+
       {subject && (
         <section className="rounded-xl border p-4 space-y-3" aria-label="كتب المادة الكاملة">
           <div className="flex flex-wrap justify-between gap-3">
@@ -490,8 +528,13 @@ export function ContentCompletionReport({ enabled }: { enabled: boolean }) {
         </section>
       )}
       {!subject ? (
-        <p role="status">
-          {catalog.isPending ? "جارٍ تحميل الفلاتر…" : "اختر مادة لعرض كشف كامل لكل دروسها."}
+        <p
+          role="status"
+          className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground"
+        >
+          {catalog.isPending
+            ? "جارٍ تحميل الفلاتر…"
+            : "التقرير العام أعلاه يشمل النطاق المحدد. اختر مادة عندما تريد الانتقال إلى الفحص التفصيلي لكل درس ومكون."}
         </p>
       ) : report.isPending ? (
         <p role="status">جارٍ فحص مكونات الدروس…</p>

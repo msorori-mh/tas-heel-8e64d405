@@ -7,6 +7,7 @@ const tables: Record<string, unknown[]> = {
     {
       id: "iron",
       title: "الحديد",
+      subject_id: "s",
       semester: 1,
       updated_at: "2026-09-15",
       content_text: null,
@@ -21,7 +22,17 @@ const tables: Record<string, unknown[]> = {
   lesson_resources: [],
   lesson_simulations: [],
   questions: [],
-  lesson_capability_lifecycle: [],
+  lesson_capability_lifecycle: [
+    {
+      lesson_id: "iron",
+      capability: "officialBookContent",
+      status: "READY",
+      applicability: "REQUIRED",
+      ready_at: "2026-09-15",
+      draft_updated_at: "2026-09-15",
+      reviewed_at: "2026-09-15",
+    },
+  ],
   subject_textbooks: [
     {
       id: "tb",
@@ -76,5 +87,12 @@ class Query {
 }
 export const supabase = {
   from: (table: string) => new Query(table),
-  rpc: () => ({ abortSignal: () => Promise.resolve({ data: { visible: true }, error: null }) }),
+  rpc: (name: string) => ({
+    abortSignal: () =>
+      Promise.resolve(
+        name === "lessons_student_visible"
+          ? { data: [{ lesson_id: "iron", managed: true, visible: false }], error: null }
+          : { data: { visible: true }, error: null },
+      ),
+  }),
 };
