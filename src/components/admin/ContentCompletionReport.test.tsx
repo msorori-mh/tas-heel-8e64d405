@@ -53,98 +53,102 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: (o: { queryKey: string[] }) =>
-    o.queryKey[0] === "content-report-catalog"
-      ? {
-          data: {
-            subjects: [{ id: "s", name: "الكيمياء", grade_id: "g", curriculum_track_id: "t" }],
-            grades: [{ id: "g", name: "الثالث الثانوي" }],
-            tracks: [{ id: "t", track_name: "عدن" }],
-            links: [],
+  useQuery: (o: { queryKey: string[] }) => {
+    if (o.queryKey[0] === "content-report-catalog") {
+      return {
+        data: {
+          subjects: [{ id: "s", name: "الكيمياء", grade_id: "g", curriculum_track_id: "t" }],
+          grades: [{ id: "g", name: "الثالث الثانوي" }],
+          tracks: [{ id: "t", track_name: "عدن" }],
+          links: [],
+        },
+      };
+    }
+    if (o.queryKey[0] === "content-report-books") {
+      return { data: [], isError: false, isPending: false };
+    }
+    if (o.queryKey[0] === "content-overview") {
+      return {
+        data: [
+          {
+            id: "iron",
+            title: "الحديد",
+            subjectId: "s",
+            semester: 1,
+            updatedAt: "2026-09-15",
+            managed: true,
+            visible: false,
+            components: [
+              {
+                key: "officialBookContent",
+                label: "محتوى الكتاب",
+                applicability: "REQUIRED",
+                entered: true,
+                status: "READY",
+                ready: true,
+                published: false,
+              },
+              {
+                key: "lessonSummaryHtml",
+                label: "ملخص الدرس",
+                applicability: "REQUIRED",
+                entered: false,
+                status: "MISSING",
+                ready: false,
+                published: false,
+              },
+            ],
           },
-        }
-      : o.queryKey[0] === "content-report-books"
-        ? { data: [], isError: false, isPending: false }
-        : o.queryKey[0] === "content-overview"
-          ? {
-              data: [
+        ],
+        isError: false,
+        isPending: false,
+        isFetching: false,
+        refetch: vi.fn(),
+      };
+    }
+    return {
+      data: fixture.error
+        ? undefined
+        : [
+            {
+              id: "iron",
+              title: "الحديد",
+              semester: 1,
+              updatedAt: "2026-09-15",
+              cells: [
                 {
-                  id: "iron",
-                  title: "الحديد",
-                  subjectId: "s",
-                  semester: 1,
-                  updatedAt: "2026-09-15",
-                  managed: true,
-                  visible: false,
-                  components: [
-                    {
-                      key: "officialBookContent",
-                      label: "محتوى الكتاب",
-                      applicability: "REQUIRED",
-                      entered: true,
-                      status: "READY",
-                      ready: true,
-                      published: false,
-                    },
-                    {
-                      key: "lessonSummaryHtml",
-                      label: "ملخص الدرس",
-                      applicability: "REQUIRED",
-                      entered: false,
-                      status: "MISSING",
-                      ready: false,
-                      published: false,
-                    },
-                  ],
+                  key: "officialBookContent",
+                  label: "محتوى الكتاب",
+                  status: "published",
+                  required: true,
+                  uploaded: true,
+                  count: 1,
+                },
+                {
+                  key: "lessonSummaryHtml",
+                  label: "ملخص الدرس",
+                  status: "missing",
+                  required: true,
+                  uploaded: false,
+                  count: 0,
                 },
               ],
-              isError: false,
-              isPending: false,
-              isFetching: false,
-              refetch: vi.fn(),
-            }
-          : {
-            data: fixture.error
-              ? undefined
-              : [
-                  {
-                    id: "iron",
-                    title: "الحديد",
-                    semester: 1,
-                    updatedAt: "2026-09-15",
-                    cells: [
-                      {
-                        key: "officialBookContent",
-                        label: "محتوى الكتاب",
-                        status: "published",
-                        required: true,
-                        uploaded: true,
-                        count: 1,
-                      },
-                      {
-                        key: "lessonSummaryHtml",
-                        label: "ملخص الدرس",
-                        status: "missing",
-                        required: true,
-                        uploaded: false,
-                        count: 0,
-                      },
-                    ],
-                  },
-                  {
-                    id: "copper",
-                    title: "النحاس",
-                    semester: 2,
-                    updatedAt: "2026-09-15",
-                    cells: [],
-                  },
-                ],
-            isError: fixture.error,
-            isPending: false,
-            isFetching: false,
-            dataUpdatedAt: 1,
-            refetch: vi.fn(),
-          },
+            },
+            {
+              id: "copper",
+              title: "النحاس",
+              semester: 2,
+              updatedAt: "2026-09-15",
+              cells: [],
+            },
+          ],
+      isError: fixture.error,
+      isPending: false,
+      isFetching: false,
+      dataUpdatedAt: 1,
+      refetch: vi.fn(),
+    };
+  },
 }));
 import { ContentCompletionReport } from "./ContentCompletionReport";
 afterEach(() => {
