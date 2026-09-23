@@ -243,7 +243,10 @@ export async function loadContentOverview(signal: AbortSignal): Promise<Overview
   return buildOverviewFacts(lessons, lifecycle, gates);
 }
 
-export function subjectTrackIds(subject: OverviewSubject, catalog: ContentOverviewCatalog): string[] {
+export function subjectTrackIds(
+  subject: OverviewSubject,
+  catalog: ContentOverviewCatalog,
+): string[] {
   const ids = new Set<string>();
   if (subject.curriculum_track_id) ids.add(subject.curriculum_track_id);
   for (const link of catalog.links) {
@@ -264,7 +267,8 @@ export function scopeOverviewFacts(
     if (filters.gradeId && subject.grade_id !== filters.gradeId) return false;
     if (filters.subjectId && subject.id !== filters.subjectId) return false;
     if (filters.semester && String(fact.semester ?? "") !== filters.semester) return false;
-    if (filters.trackId && !subjectTrackIds(subject, catalog).includes(filters.trackId)) return false;
+    if (filters.trackId && !subjectTrackIds(subject, catalog).includes(filters.trackId))
+      return false;
     return true;
   });
 }
@@ -305,9 +309,7 @@ export function overviewSummary(facts: OverviewLessonFact[]): OverviewSummary {
   };
 }
 
-export function overviewComponentSummary(
-  facts: OverviewLessonFact[],
-): OverviewComponentSummary[] {
+export function overviewComponentSummary(facts: OverviewLessonFact[]): OverviewComponentSummary[] {
   const managed = facts.filter((fact) => fact.managed);
   return V3_CAPABILITIES.map((key) => {
     const cells = managed
@@ -413,9 +415,7 @@ export function overviewAttentionRows(
           .filter((component) => component.status === "REVIEW")
           .map((component) => component.label),
         draftLabels: required
-          .filter(
-            (component) => component.status === "DRAFT" || component.status === "OTHER",
-          )
+          .filter((component) => component.status === "DRAFT" || component.status === "OTHER")
           .map((component) => component.label),
       };
     })
@@ -423,7 +423,11 @@ export function overviewAttentionRows(
     .sort((a, b) => {
       const gapA = a.requiredTotal - a.requiredReady;
       const gapB = b.requiredTotal - b.requiredReady;
-      return gapB - gapA || a.subject.localeCompare(b.subject, "ar") || a.title.localeCompare(b.title, "ar");
+      return (
+        gapB - gapA ||
+        a.subject.localeCompare(b.subject, "ar") ||
+        a.title.localeCompare(b.title, "ar")
+      );
     })
     .slice(0, limit);
 }
