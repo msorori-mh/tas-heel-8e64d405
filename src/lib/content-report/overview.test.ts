@@ -48,7 +48,12 @@ describe("general content overview", () => {
       [
         ready("iron", "officialBookContent"),
         ready("iron", "tamkeenExplanation"),
-        { lesson_id: "iron", capability: "quickReview", status: "REVIEW", applicability: "REQUIRED" },
+        {
+          lesson_id: "iron",
+          capability: "quickReview",
+          status: "REVIEW",
+          applicability: "REQUIRED",
+        },
       ],
       [
         { lesson_id: "iron", managed: true, visible: false },
@@ -78,10 +83,7 @@ describe("general content overview", () => {
           updated_at: "2026-09-23",
         },
       ],
-      [
-        ready("iron", "officialBookContent"),
-        ready("iron", "simulation", "NA"),
-      ],
+      [ready("iron", "officialBookContent"), ready("iron", "simulation", "NA")],
       [{ lesson_id: "iron", managed: true, visible: false }],
     );
     const components = overviewComponentSummary(facts);
