@@ -112,7 +112,7 @@ export type OverviewComponentSummary = {
   publicationPercent: number | null;
 };
 
-export type OverviewDimension = "grade" | "track" | "semester" | "subject";
+export type OverviewDimension = "grade" | "track" | "semester" | "subject" | "lesson";
 
 export type OverviewBreakdownRow = {
   id: string;
@@ -366,6 +366,8 @@ export function overviewBreakdown(
       addToGroup(groups, subject.grade_id, gradeById.get(subject.grade_id) ?? "صف غير معروف", fact);
     } else if (dimension === "subject") {
       addToGroup(groups, subject.id, subject.name, fact);
+    } else if (dimension === "lesson") {
+      addToGroup(groups, fact.id, `${subject.name} — ${fact.title}`, fact);
     } else if (dimension === "semester") {
       const id = fact.semester == null ? "unknown" : String(fact.semester);
       const label = fact.semester == null ? "فصل غير محدد" : `الفصل ${fact.semester}`;
