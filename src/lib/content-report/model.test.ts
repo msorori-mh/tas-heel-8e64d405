@@ -49,7 +49,6 @@ describe("content completion truth", () => {
   });
 });
 
-
 describe("seven-component operational summaries", () => {
   it("reports upload and remaining counts per component without treating NA as a gap", () => {
     const first = reportCells(base(), { labExperimentHtml: "NA" }, {}, true);
