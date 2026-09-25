@@ -64,7 +64,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="student-theme student-app-bg min-h-screen text-foreground" dir="rtl">
+    <div className="student-theme student-app-bg min-h-screen w-full max-w-full overflow-x-hidden text-foreground" dir="rtl">
       <OfflineSyncBridge />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 right-0 z-40 hidden w-60 flex-col border-l border-border/60 bg-card/80 backdrop-blur-md lg:flex">
@@ -171,11 +171,11 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="min-w-0 w-full flex-1 pb-24 pt-4 lg:pr-60 lg:pb-12 lg:pt-8">
+      <main className="min-w-0 w-full max-w-full flex-1 overflow-x-hidden pb-24 pt-4 lg:pr-60 lg:pb-12 lg:pt-8">
         <div
           data-student-canvas={usesWideLearningCanvas ? "wide" : "standard"}
           className={cn(
-            "mx-auto w-full px-4 sm:px-6 lg:px-8",
+            "mx-auto min-w-0 w-full max-w-full overflow-x-hidden px-4 sm:px-6 lg:px-8",
             usesWideLearningCanvas ? "max-w-[1360px]" : "max-w-[1200px]",
           )}
         >
