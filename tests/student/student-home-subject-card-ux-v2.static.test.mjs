@@ -100,7 +100,6 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
       expect(source).not.toMatch(/w-\[\d{3,}px\]/);
     }
   });
-});
 
   it("hard-contains student learning pages to the mobile viewport", () => {
     expect(shell).toContain("overflow-x-hidden");
@@ -113,3 +112,4 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
       expect(source).toContain("max-w-full");
     }
   });
+});
