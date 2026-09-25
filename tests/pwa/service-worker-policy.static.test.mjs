@@ -76,3 +76,12 @@ test("manifest is installable and brand-consistent", () => {
     "missing maskable 512x512",
   );
 });
+
+test("native Android shell never shows the browser install hint", () => {
+  const hint = readFileSync(
+    new URL("../../src/components/pwa/PwaInstallHint.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(hint, /Capacitor\.isNativePlatform\(\)/);
+  assert.match(hint, /if \(Capacitor\.isNativePlatform\(\)\) return/);
+});
