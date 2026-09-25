@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, FileText, FlaskConical, Map as MapIcon, ShieldCheck, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import {
+  BookOpen,
+  FileText,
+  FlaskConical,
+  Map as MapIcon,
+  ShieldCheck,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+} from "lucide-react";
 import {
   buildInlineHtmlDocument,
   inlineHtmlRenderModeForBody,
@@ -120,16 +129,16 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
             </div>
           )}
           <div className="max-w-full overflow-x-auto">
-          <iframe
-            ref={iframeRef}
-            title={title}
-            srcDoc={srcDoc}
-            sandbox={inlineHtmlSandbox(mode)}
-            referrerPolicy="no-referrer"
-            loading="lazy"
-            style={{ height: expanded ? "90vh" : `${contentHeight}px` }}
-            className="mt-2 block w-full max-w-full touch-auto rounded-lg border border-border bg-white transition-[height]"
-          />
+            <iframe
+              ref={iframeRef}
+              title={title}
+              srcDoc={srcDoc}
+              sandbox={inlineHtmlSandbox(mode)}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              style={{ height: expanded ? "90vh" : `${contentHeight}px` }}
+              className="mt-2 block w-full max-w-full touch-auto rounded-lg border border-border bg-white transition-[height]"
+            />
           </div>
           <button
             type="button"
