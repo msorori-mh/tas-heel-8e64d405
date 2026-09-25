@@ -1,8 +1,4 @@
-import {
-  isAuthRetryableFetchError,
-  type Session,
-  type UserResponse,
-} from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type Session, type UserResponse } from "@supabase/supabase-js";
 
 type RestorableAuth = {
   getUser(): Promise<UserResponse>;
