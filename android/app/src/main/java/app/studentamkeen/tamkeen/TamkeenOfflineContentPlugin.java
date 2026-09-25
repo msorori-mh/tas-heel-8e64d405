@@ -544,7 +544,69 @@ public class TamkeenOfflineContentPlugin extends Plugin {
         return label.length() <= 240 ? label : label.substring(0, 240);
     }
 
+
     @PluginMethod
+    public void getOfflineOverview(PluginCall call) {
+        JSONObject state = readState();
+        String ownerId = activeOwner(state);
+        JSObject result = new JSObject();
+        result.put("available", state != null && ownerId != null);
+        result.put("subjectCount", 0);
+        result.put("lessonCount", 0);
+        result.put("attemptCount", 0);
+        result.put("pendingSyncCount", 0);
+        if (state == null || ownerId == null) {
+            call.resolve(result);
+            return;
+        }
+
+        Map<String, Boolean> subjects = new LinkedHashMap<>();
+        Map<String, Boolean> lessons = new LinkedHashMap<>();
+        JSONArray records = state.optJSONArray("packs");
+        for (int recordIndex = 0; records != null && recordIndex < records.length(); recordIndex++) {
+            JSONObject record = records.optJSONObject(recordIndex);
+            if (record == null || !ownerId.equals(record.optString("ownerId", ""))) continue;
+            if (!"ready".equals(record.optString("status", ""))) continue;
+            JSONObject manifest = record.optJSONObject("manifest");
+            JSONObject scope = manifest == null ? null : manifest.optJSONObject("scope");
+            JSONArray artifacts = manifest == null ? null : manifest.optJSONArray("artifacts");
+            if (scope == null || artifacts == null) continue;
+            String subjectId = scope.optString("subjectId", "").trim();
+            if (!subjectId.isEmpty()) subjects.put(subjectId, true);
+            for (int artifactIndex = 0; artifactIndex < artifacts.length(); artifactIndex++) {
+                JSONObject artifact = artifacts.optJSONObject(artifactIndex);
+                if (artifact == null || verifiedArtifactBytes(ownerId, record, artifact) == null) continue;
+                String lessonId = artifact.optString("lessonId", "").trim();
+                if (!lessonId.isEmpty()) lessons.put(lessonId, true);
+            }
+        }
+
+        int attempts = 0;
+        JSONArray learning = state.optJSONArray("learning");
+        for (int index = 0; learning != null && index < learning.length(); index++) {
+            JSONObject record = learning.optJSONObject(index);
+            if (record != null && ownerId.equals(record.optString("ownerId", ""))) attempts++;
+        }
+
+        int pending = 0;
+        JSONArray outbox = state.optJSONArray("outbox");
+        for (int index = 0; outbox != null && index < outbox.length(); index++) {
+            JSONObject record = outbox.optJSONObject(index);
+            if (
+                record != null &&
+                ownerId.equals(record.optString("ownerId", "")) &&
+                !"delivered".equals(record.optString("status", ""))
+            ) pending++;
+        }
+
+        result.put("subjectCount", subjects.size());
+        result.put("lessonCount", lessons.size());
+        result.put("attemptCount", attempts);
+        result.put("pendingSyncCount", pending);
+        call.resolve(result);
+    }
+
+@PluginMethod
     public void listSavedSubjects(PluginCall call) {
         JSONObject state = readState();
         String ownerId = activeOwner(state);
