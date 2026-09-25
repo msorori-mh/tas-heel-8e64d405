@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Download, Share, Smartphone, X } from "lucide-react";
 import {
   getDeferredInstallPrompt,
@@ -23,6 +24,9 @@ export function PwaInstallHint() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // The native Android app is already installed. Never show browser/PWA install UI
+    // inside the Capacitor WebView, even when the remote origin is loaded.
+    if (Capacitor.isNativePlatform()) return;
     if (window.localStorage.getItem(DISMISS_KEY) === "1") return;
     if (isStandaloneDisplay()) return;
     setIos(isIosDevice());
