@@ -23,7 +23,7 @@ export type InlineHtmlRenderMode = "STATIC_NO_SCRIPT" | "SANDBOXED_NO_NETWORK" |
 const MOBILE_ZOOM_VIEWPORT =
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />';
 const MOBILE_ZOOM_STYLE =
-  "<style data-tamkeen-mobile-zoom>*{box-sizing:border-box}html,body{width:100%;max-width:100%;margin:0;overflow-x:auto;touch-action:pan-x pan-y pinch-zoom;-webkit-text-size-adjust:100%;overflow-wrap:anywhere}body{min-width:0}img,svg,canvas,video{max-width:100%!important;height:auto}table{max-width:100%;overflow-x:auto}pre,code{white-space:pre-wrap;overflow-wrap:anywhere}iframe{max-width:100%}</style>";
+  "<style data-tamkeen-mobile-zoom>*{box-sizing:border-box}html{width:100%;max-width:100%;overflow-x:auto;touch-action:pan-x pan-y pinch-zoom;-webkit-text-size-adjust:100%;overflow-wrap:anywhere}body{max-width:100%;min-width:0;touch-action:pan-x pan-y pinch-zoom;-webkit-text-size-adjust:100%;overflow-wrap:anywhere}img,svg,canvas,video{max-width:100%!important;height:auto}table{max-width:100%;overflow-x:auto}pre,code{white-space:pre-wrap;overflow-wrap:anywhere}iframe{max-width:100%}</style>";
 
 function removeAuthoredViewport(document: string): string {
   return document.replace(
