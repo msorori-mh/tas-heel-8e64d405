@@ -23,7 +23,7 @@ export type InlineHtmlRenderMode = "STATIC_NO_SCRIPT" | "SANDBOXED_NO_NETWORK" |
 const MOBILE_ZOOM_VIEWPORT =
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />';
 const MOBILE_ZOOM_STYLE =
-  "<style data-tamkeen-mobile-zoom>html,body{touch-action:pan-x pan-y pinch-zoom;-webkit-text-size-adjust:100%}img,svg,canvas{max-width:100%;height:auto}</style>";
+  "<style data-tamkeen-mobile-zoom>*{box-sizing:border-box}html{width:100%;max-width:100%;overflow-x:auto;touch-action:pan-x pan-y pinch-zoom;-webkit-text-size-adjust:100%;overflow-wrap:anywhere}body{max-width:100%;min-width:0;touch-action:pan-x pan-y pinch-zoom;-webkit-text-size-adjust:100%;overflow-wrap:anywhere}img,svg,canvas,video{max-width:100%!important;height:auto}table{max-width:100%;overflow-x:auto}pre,code{white-space:pre-wrap;overflow-wrap:anywhere}iframe{max-width:100%}</style>";
 
 function removeAuthoredViewport(document: string): string {
   return document.replace(
@@ -84,7 +84,7 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
   ].join("");
   const resizeBridge =
     mode !== "STATIC_NO_SCRIPT"
-      ? `<script>(function(){var send=function(){var d=document.documentElement,b=document.body,h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0,320);parent.postMessage({type:'tamkeen:inline-height',height:h},'*')};addEventListener('load',send);addEventListener('resize',send);new MutationObserver(send).observe(document.documentElement,{subtree:true,childList:true,attributes:true});setTimeout(send,0);setTimeout(send,250)})();</script>`
+      ? `<script>(function(){var scale=1,startDistance=0,startScale=1;var clamp=function(v){return Math.max(1,Math.min(3,v))};var apply=function(v){scale=clamp(v);document.documentElement.style.zoom=String(scale);send()};var send=function(){var d=document.documentElement,b=document.body,h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0,320);parent.postMessage({type:'tamkeen:inline-height',height:h,zoom:scale},'*')};addEventListener('message',function(e){var x=e&&e.data;if(!x||x.type!=='tamkeen:inline-zoom')return;var n=Number(x.scale);if(Number.isFinite(n))apply(n)});addEventListener('touchstart',function(e){if(e.touches.length!==2)return;var a=e.touches[0],b=e.touches[1];startDistance=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);startScale=scale},{passive:true});addEventListener('touchmove',function(e){if(e.touches.length!==2||!startDistance)return;var a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);apply(startScale*(dist/startDistance));e.preventDefault()},{passive:false});addEventListener('touchend',function(e){if(e.touches.length<2)startDistance=0},{passive:true});addEventListener('load',send);addEventListener('resize',send);new MutationObserver(send).observe(document.documentElement,{subtree:true,childList:true,attributes:true});setTimeout(send,0);setTimeout(send,250)})();</script>`
       : "";
   const value = body ?? "";
 

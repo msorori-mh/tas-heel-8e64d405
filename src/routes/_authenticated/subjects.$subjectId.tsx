@@ -259,7 +259,7 @@ function SubjectIndexPage() {
     units[0]?.id;
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="min-w-0 w-full max-w-full overflow-x-hidden space-y-5" dir="rtl">
       <Breadcrumbs items={[...backCrumbs, { label: subject.name }]} />
 
       <header className="rounded-2xl border border-border bg-card p-4 shadow-card">

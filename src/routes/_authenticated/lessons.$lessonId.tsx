@@ -1124,7 +1124,7 @@ function LessonPage() {
 
   return (
     // 19D — route-level Design System V2 opt-in (presentation only).
-    <article className="ds-v2 space-y-3.5" dir="rtl">
+    <article className="ds-v2 min-w-0 w-full max-w-full overflow-x-hidden space-y-3.5" dir="rtl">
       {previewMode && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700">
           وضع المعاينة لفريق المحتوى — يعرض المحتوى المتاح في الصفحة الحالية، بينما تبقى الأسئلة

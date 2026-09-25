@@ -48,6 +48,8 @@ test("lesson HTML always receives one zoomable mobile viewport", () => {
   assert.match(result, /maximum-scale=5/);
   assert.match(result, /user-scalable=yes/);
   assert.match(result, /touch-action:pan-x pan-y pinch-zoom/);
+  assert.match(result, /max-width:100%!important/);
+  assert.match(result, /overflow-wrap:anywhere/);
   assert.doesNotMatch(result, /user-scalable=no/);
 });
 
@@ -113,4 +115,24 @@ test("component publishing resolves a canonical lesson from the selected officia
   assert.match(builder, /track\.trackCode === "sanaa" \|\| track\.trackCode === "aden"/);
   assert.match(builder, /lessonCode: selectedLessonCode/);
   assert.doesNotMatch(builder, /canonicalManifest|packageVersion/);
+});
+
+test("interactive lesson runtime supports two-finger zoom and bounded zoom messages", () => {
+  const result = buildInlineHtmlDocument(
+    '<html dir="rtl"><head></head><body><button onclick="go()">ابدأ</button><script>function go(){}</script></body></html>',
+    "SANDBOXED_NO_NETWORK",
+  );
+  assert.match(result, /tamkeen:inline-zoom/);
+  assert.match(result, /touchstart/);
+  assert.match(result, /touchmove/);
+  assert.match(result, /Math\.max\(1,Math\.min\(3,v\)\)/);
+  assert.match(result, /preventDefault/);
+});
+
+test("inline HTML viewer exposes explicit zoom controls for interactive content", () => {
+  const viewer = readFileSync("src/components/lessons/InlineHtmlResourceViewer.tsx", "utf8");
+  assert.match(viewer, /تكبير/);
+  assert.match(viewer, /تصغير/);
+  assert.match(viewer, /tamkeen:inline-zoom/);
+  assert.match(viewer, /max-w-full overflow-x-auto/);
 });

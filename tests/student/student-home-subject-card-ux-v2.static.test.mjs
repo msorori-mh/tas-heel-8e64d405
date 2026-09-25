@@ -100,4 +100,16 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
       expect(source).not.toMatch(/w-\[\d{3,}px\]/);
     }
   });
+
+  it("hard-contains student learning pages to the mobile viewport", () => {
+    expect(shell).toContain("overflow-x-hidden");
+    expect(shell).toContain("max-w-full");
+    const subject = read("src/routes/_authenticated/subjects.$subjectId.tsx");
+    const lesson = read("src/routes/_authenticated/lessons.$lessonId.tsx");
+    const semester = read("src/routes/_authenticated/semesters.$semester.tsx");
+    for (const source of [subject, lesson, semester]) {
+      expect(source).toContain("overflow-x-hidden");
+      expect(source).toContain("max-w-full");
+    }
+  });
 });

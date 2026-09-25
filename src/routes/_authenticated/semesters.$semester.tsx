@@ -21,7 +21,7 @@ function SemesterSubjectsPage() {
   if (loading) return <StateMessage variant="loading">جارٍ التحميل…</StateMessage>;
 
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="min-w-0 w-full max-w-full overflow-x-hidden space-y-5" dir="rtl">
       <Breadcrumbs
         items={[
           { label: "الرئيسية", to: "/app" },

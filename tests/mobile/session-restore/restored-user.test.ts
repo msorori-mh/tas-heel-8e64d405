@@ -27,3 +27,19 @@ test("a server-verified user can enter the protected route", async () => {
     user,
   );
 });
+
+test("a persisted native session survives a retryable cold-start validation failure", async () => {
+  const user = { id: "persisted-owner" } as User;
+  expect(
+    await getRestoredUser({
+      getSession: async () => ({
+        data: { session: { user } as never },
+        error: null,
+      }),
+      getUser: async () => ({
+        data: { user: null },
+        error: new AuthRetryableFetchError("temporarily unavailable", 503),
+      }),
+    }),
+  ).toBe(user);
+});
