@@ -1,0 +1,3509 @@
+{
+  "package": "QB03-LEGACY-BACKFILL-AND-RUNTIME-CUTOVER-DESIGN-01",
+  "version": "01",
+  "kind": "design_contract_matrix",
+  "migration_changes": 0,
+  "runtime_changes": 0,
+  "sql_execution": false,
+  "deploy": false,
+  "shadow_tolerance": {
+    "correct_answer": 0,
+    "score": 0
+  },
+  "modes": [
+    "LEGACY",
+    "DUAL_READ",
+    "SHADOW_COMPARE",
+    "QB_PRIMARY",
+    "LEGACY_READ_ONLY",
+    "LEGACY_RETIRED"
+  ],
+  "backfill_identity_keys": [
+    "questions.id",
+    "questions.code",
+    "question_id+revision_number=1",
+    "source_payload_hash",
+    "payload_hash",
+    "backfill_version",
+    "target_dedupe_key",
+    "option_code",
+    "media_code",
+    "audit_provenance_key"
+  ],
+  "idempotency_properties": [
+    "deterministic",
+    "resumable",
+    "retry_safe",
+    "fingerprinted",
+    "source_linked",
+    "no_duplicate_revision",
+    "no_duplicate_target"
+  ],
+  "owner_decision_topics": [
+    "batch_size",
+    "production_schedule",
+    "cutover_time",
+    "retention_period",
+    "cleanup",
+    "remote_execution"
+  ],
+  "required_categories": [
+    "clean_migration",
+    "duplicate",
+    "invalid",
+    "orphan",
+    "media",
+    "manual",
+    "mcq",
+    "idempotency",
+    "retries",
+    "interruptions",
+    "partial_batches",
+    "shadow_mismatch",
+    "rollback",
+    "concurrent_student_sessions",
+    "old_exam_sessions",
+    "new_exam_sessions"
+  ],
+  "category_counts": {
+    "clean_migration": 19,
+    "duplicate": 4,
+    "invalid": 15,
+    "orphan": 13,
+    "media": 14,
+    "manual": 14,
+    "mcq": 10,
+    "idempotency": 16,
+    "retries": 11,
+    "interruptions": 10,
+    "partial_batches": 10,
+    "shadow_mismatch": 18,
+    "rollback": 17,
+    "concurrent_student_sessions": 9,
+    "old_exam_sessions": 9,
+    "new_exam_sessions": 10
+  },
+  "case_count": 199,
+  "cases": [
+    {
+      "id": "QB03-TC-001",
+      "category": "clean_migration",
+      "title": "Clean legacy MCQ converts to R1 with options, hash, targets, linkage",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic",
+        "source_linked"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-002",
+      "category": "duplicate",
+      "title": "Duplicate code across different ids held",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "no_duplicate_revision"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-003",
+      "category": "duplicate",
+      "title": "Same id same source hash retries as NOOP",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "retry_safe",
+        "idempotent"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-004",
+      "category": "duplicate",
+      "title": "Same id different source hash reconciliation",
+      "expected_outcome": "HOLD_RECONCILIATION",
+      "tags": [
+        "no_duplicate_revision"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-005",
+      "category": "duplicate",
+      "title": "Duplicate content different codes flagged for review",
+      "expected_outcome": "DUPLICATE_CONTENT_REVIEW",
+      "tags": [
+        "source_linked"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-006",
+      "category": "invalid",
+      "title": "Empty question_text is HOLD_ROW",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "no_corrupt_publish"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-007",
+      "category": "invalid",
+      "title": "Invalid options JSON is HOLD_ROW",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "no_corrupt_publish"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-008",
+      "category": "invalid",
+      "title": "correct_index out of bounds HOLD_ROW",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "correct_index_0_based"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-009",
+      "category": "invalid",
+      "title": "SINGLE_CHOICE without one correct HOLD_ROW",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "correct_index_0_based"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-010",
+      "category": "invalid",
+      "title": "Used invalid still HOLD_ROW not PUBLISHED",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "no_corrupt_publish"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-011",
+      "category": "orphan",
+      "title": "Orphan valid unused becomes DRAFT without targets",
+      "expected_outcome": "R1_DRAFT",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-012",
+      "category": "orphan",
+      "title": "Orphan with usage evidence HOLD_REVIEW for targets",
+      "expected_outcome": "HOLD_REVIEW",
+      "tags": [
+        "source_linked"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-013",
+      "category": "orphan",
+      "title": "Missing lesson FK HOLD_ROW for target materialization",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "no_fabricated_targets"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-014",
+      "category": "media",
+      "title": "Media metadata mapped with deterministic media_code",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-015",
+      "category": "media",
+      "title": "Missing required media blocks row",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "media_links"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-016",
+      "category": "media",
+      "title": "Optional missing media warns and continues",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-017",
+      "category": "media",
+      "title": "No storage bucket created by design package",
+      "expected_outcome": "DESIGN_CONSTRAINT",
+      "tags": [
+        "no_bucket"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-018",
+      "category": "manual",
+      "title": "MANUAL grading_mode preserved",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-019",
+      "category": "manual",
+      "title": "LONG_TEXT requires solution or HOLD",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "manual"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-020",
+      "category": "manual",
+      "title": "CASEFOLD_AR forbidden forces MANUAL path",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-021",
+      "category": "manual",
+      "title": "Old manual attempts stay LEGACY pin",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "no_guessed_revision"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-022",
+      "category": "mcq",
+      "title": "Options A.. by sort_order from JSON array",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-023",
+      "category": "mcq",
+      "title": "correct_index 0 maps to option A is_correct",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-024",
+      "category": "mcq",
+      "title": "Derived legacy cache remains 0-based contract",
+      "expected_outcome": "DESIGN_CONSTRAINT",
+      "tags": [
+        "correct_index_0_based"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-025",
+      "category": "mcq",
+      "title": "Excel 1-based must not be read as DB cache",
+      "expected_outcome": "DESIGN_CONSTRAINT",
+      "tags": [
+        "correct_index_0_based"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-026",
+      "category": "idempotency",
+      "title": "Row fingerprinted and source-linked",
+      "expected_outcome": "NOOP_ON_REPLAY",
+      "tags": [
+        "fingerprinted",
+        "source_linked"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-027",
+      "category": "idempotency",
+      "title": "No duplicate revision_number 1",
+      "expected_outcome": "NO_DUP_REVISION",
+      "tags": [
+        "no_duplicate_revision"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-028",
+      "category": "idempotency",
+      "title": "No duplicate targets on resume",
+      "expected_outcome": "NO_DUP_TARGET",
+      "tags": [
+        "no_duplicate_target"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-029",
+      "category": "idempotency",
+      "title": "Deterministic payload_hash stable",
+      "expected_outcome": "HASH_STABLE",
+      "tags": [
+        "deterministic"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-030",
+      "category": "retries",
+      "title": "Network interrupt mid-batch safe retry",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-031",
+      "category": "retries",
+      "title": "Double submit same fingerprint NOOP",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-032",
+      "category": "retries",
+      "title": "Partial child write rolls forward via resume not dup",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-033",
+      "category": "interruptions",
+      "title": "Process kill after hash before publish resumable",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-034",
+      "category": "interruptions",
+      "title": "Process kill during target upsert no dup targets",
+      "expected_outcome": "NO_DUP_TARGET",
+      "tags": [
+        "no_duplicate_target"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-035",
+      "category": "partial_batches",
+      "title": "Batch 1 committed batch 2 pending resume",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-036",
+      "category": "partial_batches",
+      "title": "Held rows do not block unrelated ids",
+      "expected_outcome": "CONTINUE",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-037",
+      "category": "shadow_mismatch",
+      "title": "Question text mismatch recorded",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-038",
+      "category": "shadow_mismatch",
+      "title": "Options order mismatch recorded",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-039",
+      "category": "shadow_mismatch",
+      "title": "Correct answer mismatch tolerance 0 fails gate",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "tolerance_0"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": 0,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-040",
+      "category": "shadow_mismatch",
+      "title": "Score mismatch tolerance 0 fails gate",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "tolerance_0"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": 0,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-041",
+      "category": "shadow_mismatch",
+      "title": "Explanation mismatch recorded",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-042",
+      "category": "shadow_mismatch",
+      "title": "Lesson linkage mismatch recorded",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-043",
+      "category": "shadow_mismatch",
+      "title": "Exam behavior mismatch blocks exit",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "exam"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-044",
+      "category": "shadow_mismatch",
+      "title": "Practice behavior mismatch blocks exit",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "practice"
+      ],
+      "surfaces": [
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-045",
+      "category": "rollback",
+      "title": "Revert runtime config without deleting revisions",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "preserve_revisions"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-046",
+      "category": "rollback",
+      "title": "Stop writers on rollback",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "stop_writers"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-047",
+      "category": "rollback",
+      "title": "Preserve attempts and answers",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "preserve_attempts"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-048",
+      "category": "rollback",
+      "title": "Restore legacy reads for new sessions",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "restore_legacy_reads"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-049",
+      "category": "rollback",
+      "title": "No delete history scripts allowed",
+      "expected_outcome": "DESIGN_CONSTRAINT",
+      "tags": [
+        "no_history_delete"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-050",
+      "category": "concurrent_student_sessions",
+      "title": "Two students legacy sessions isolated",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-051",
+      "category": "concurrent_student_sessions",
+      "title": "Mode flip does not alter open sessions",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "no_midflight_flip"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-052",
+      "category": "concurrent_student_sessions",
+      "title": "Concurrent submit during shadow safe",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "shadow"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-053",
+      "category": "old_exam_sessions",
+      "title": "Pre-cutover exam stays LEGACY pin",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-054",
+      "category": "old_exam_sessions",
+      "title": "Old selected_index grading unchanged",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions",
+        "correct_index_0_based"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-055",
+      "category": "old_exam_sessions",
+      "title": "No guessed revision backfill on old answers",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "no_guessed_revision"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-056",
+      "category": "new_exam_sessions",
+      "title": "QB_PRIMARY creates REVISION_PINNED snapshots",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-057",
+      "category": "new_exam_sessions",
+      "title": "Snapshot failure aborts full session",
+      "expected_outcome": "NO_PARTIAL_SESSION",
+      "tags": [
+        "sessions"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-058",
+      "category": "new_exam_sessions",
+      "title": "selected_option_code grades MCQ",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions",
+        "mcq"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-059",
+      "category": "new_exam_sessions",
+      "title": "No silent fallback to LEGACY",
+      "expected_outcome": "NO_FALLBACK",
+      "tags": [
+        "sessions"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-060",
+      "category": "mcq",
+      "title": "MCQ correct_index=0 maps to option code sequence",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based",
+        "mcq"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-061",
+      "category": "clean_migration",
+      "title": "Clean migration with 2 options",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic",
+        "clean"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-062",
+      "category": "mcq",
+      "title": "MCQ correct_index=1 maps to option code sequence",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based",
+        "mcq"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-063",
+      "category": "clean_migration",
+      "title": "Clean migration with 3 options",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic",
+        "clean"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-064",
+      "category": "mcq",
+      "title": "MCQ correct_index=2 maps to option code sequence",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based",
+        "mcq"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-065",
+      "category": "clean_migration",
+      "title": "Clean migration with 4 options",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic",
+        "clean"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-066",
+      "category": "mcq",
+      "title": "MCQ correct_index=3 maps to option code sequence",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based",
+        "mcq"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-067",
+      "category": "clean_migration",
+      "title": "Clean migration with 5 options",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic",
+        "clean"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-068",
+      "category": "mcq",
+      "title": "MCQ correct_index=4 maps to option code sequence",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based",
+        "mcq"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-069",
+      "category": "clean_migration",
+      "title": "Clean migration with 6 options",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic",
+        "clean"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-070",
+      "category": "mcq",
+      "title": "MCQ correct_index=5 maps to option code sequence",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "correct_index_0_based",
+        "mcq"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-071",
+      "category": "clean_migration",
+      "title": "Clean migration with 7 options",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "deterministic",
+        "clean"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-072",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=empty_text",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "empty_text"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-073",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=bad_options",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "bad_options"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-074",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=oob_index",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "oob_index"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-075",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=dup_code",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "dup_code"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-076",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=missing_fk",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "missing_fk"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-077",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=multi_correct",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "multi_correct"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-078",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=zero_correct",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "zero_correct"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-079",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=broken_json",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "broken_json"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-080",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=blank_options",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "blank_options"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-081",
+      "category": "invalid",
+      "title": "Invalid legacy content reason=conflicting_code",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "invalid",
+        "conflicting_code"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-082",
+      "category": "media",
+      "title": "Media scenario image_png",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "image_png"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-083",
+      "category": "media",
+      "title": "Media scenario image_jpg",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "image_jpg"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-084",
+      "category": "media",
+      "title": "Media scenario pdf_ref",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "pdf_ref"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-085",
+      "category": "media",
+      "title": "Media scenario audio_ref",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "audio_ref"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-086",
+      "category": "media",
+      "title": "Media scenario missing_optional",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "missing_optional"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-087",
+      "category": "media",
+      "title": "Media scenario missing_required",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "media_links",
+        "missing_required"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-088",
+      "category": "media",
+      "title": "Media scenario duplicate_media_code",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "duplicate_media_code"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-089",
+      "category": "media",
+      "title": "Media scenario alt_text_ar",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "alt_text_ar"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-090",
+      "category": "media",
+      "title": "Media scenario sort_order_stable",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "sort_order_stable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-091",
+      "category": "media",
+      "title": "Media scenario sha256_present",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "media_links",
+        "sha256_present"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-092",
+      "category": "manual",
+      "title": "Manual/text scenario essay",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "essay"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-093",
+      "category": "manual",
+      "title": "Manual/text scenario long_text",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "long_text"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-094",
+      "category": "manual",
+      "title": "Manual/text scenario short_text_to_auto",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "short_text_to_auto"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-095",
+      "category": "manual",
+      "title": "Manual/text scenario numeric_to_auto",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "numeric_to_auto"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-096",
+      "category": "manual",
+      "title": "Manual/text scenario missing_rubric",
+      "expected_outcome": "HOLD_REVIEW",
+      "tags": [
+        "manual",
+        "missing_rubric"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-097",
+      "category": "manual",
+      "title": "Manual/text scenario has_solution",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "has_solution"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-098",
+      "category": "manual",
+      "title": "Manual/text scenario legacy_manual_attempt",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "legacy_manual_attempt"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-099",
+      "category": "manual",
+      "title": "Manual/text scenario grader_capabilities",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "grader_capabilities"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-100",
+      "category": "manual",
+      "title": "Manual/text scenario no_casefold",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "no_casefold"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-101",
+      "category": "manual",
+      "title": "Manual/text scenario max_score_positive",
+      "expected_outcome": "R1_CREATED",
+      "tags": [
+        "manual",
+        "max_score_positive"
+      ],
+      "surfaces": [
+        "backfill",
+        "practice"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-102",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario no_lesson",
+      "expected_outcome": "R1_DRAFT",
+      "tags": [
+        "orphan",
+        "no_lesson"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-103",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario deleted_lesson",
+      "expected_outcome": "HOLD_ROW",
+      "tags": [
+        "orphan",
+        "deleted_lesson"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-104",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario no_unit",
+      "expected_outcome": "R1_DRAFT",
+      "tags": [
+        "orphan",
+        "no_unit"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-105",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario no_subject",
+      "expected_outcome": "R1_DRAFT",
+      "tags": [
+        "orphan",
+        "no_subject"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-106",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario used_in_template",
+      "expected_outcome": "HOLD_REVIEW",
+      "tags": [
+        "orphan",
+        "used_in_template"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-107",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario used_in_assessment",
+      "expected_outcome": "HOLD_REVIEW",
+      "tags": [
+        "orphan",
+        "used_in_assessment"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-108",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario used_in_session",
+      "expected_outcome": "HOLD_REVIEW",
+      "tags": [
+        "orphan",
+        "used_in_session"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-109",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario unverifiable_usage",
+      "expected_outcome": "HOLD_REVIEW",
+      "tags": [
+        "orphan",
+        "unverifiable_usage"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-110",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario draft_without_targets",
+      "expected_outcome": "R1_DRAFT",
+      "tags": [
+        "orphan",
+        "draft_without_targets"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-111",
+      "category": "orphan",
+      "title": "Orphan/missing-lesson scenario hold_review_targets",
+      "expected_outcome": "HOLD_REVIEW",
+      "tags": [
+        "orphan",
+        "hold_review_targets"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-112",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #1",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-113",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #2",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-114",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #3",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-115",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #4",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-116",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #5",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-117",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #6",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-118",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #7",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-119",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #8",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-120",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #9",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-121",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #10",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-122",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #11",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-123",
+      "category": "idempotency",
+      "title": "Idempotent replay pass #12",
+      "expected_outcome": "NOOP",
+      "tags": [
+        "idempotent",
+        "retry_safe",
+        "fingerprinted"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-124",
+      "category": "retries",
+      "title": "Retry after transient failure #1",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-125",
+      "category": "retries",
+      "title": "Retry after transient failure #2",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-126",
+      "category": "retries",
+      "title": "Retry after transient failure #3",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-127",
+      "category": "retries",
+      "title": "Retry after transient failure #4",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-128",
+      "category": "retries",
+      "title": "Retry after transient failure #5",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-129",
+      "category": "retries",
+      "title": "Retry after transient failure #6",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-130",
+      "category": "retries",
+      "title": "Retry after transient failure #7",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-131",
+      "category": "retries",
+      "title": "Retry after transient failure #8",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "retry_safe",
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-132",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #1",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-133",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #2",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-134",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #3",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-135",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #4",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-136",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #5",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-137",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #6",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-138",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #7",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-139",
+      "category": "interruptions",
+      "title": "Interruption checkpoint #8",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-140",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #1",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-141",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #2",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-142",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #3",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-143",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #4",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-144",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #5",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-145",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #6",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-146",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #7",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-147",
+      "category": "partial_batches",
+      "title": "Partial batch boundary #8",
+      "expected_outcome": "RESUME_OK",
+      "tags": [
+        "resumable",
+        "partial_batches"
+      ],
+      "surfaces": [
+        "backfill"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-148",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=question_text",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow",
+        "question_text"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-149",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=options",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow",
+        "options"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-150",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=correct_answer",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "correct_answer",
+        "tolerance_0"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": 0,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-151",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=score",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "score",
+        "tolerance_0"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": 0,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-152",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=explanation",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow",
+        "explanation"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-153",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=lesson_link",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow",
+        "lesson_link"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-154",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=unit_link",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow",
+        "unit_link"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-155",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=exam_behavior",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "exam_behavior"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-156",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=practice_behavior",
+      "expected_outcome": "SHADOW_MISMATCH_BLOCK",
+      "tags": [
+        "shadow",
+        "practice_behavior"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-157",
+      "category": "shadow_mismatch",
+      "title": "Shadow compare field=option_code_map",
+      "expected_outcome": "SHADOW_MISMATCH",
+      "tags": [
+        "shadow",
+        "option_code_map"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "shadow"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-158",
+      "category": "rollback",
+      "title": "Rollback scenario from_dual_read",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "from_dual_read"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-159",
+      "category": "rollback",
+      "title": "Rollback scenario from_shadow",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "from_shadow"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-160",
+      "category": "rollback",
+      "title": "Rollback scenario from_qb_primary",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "from_qb_primary"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-161",
+      "category": "rollback",
+      "title": "Rollback scenario from_legacy_read_only",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "from_legacy_read_only"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-162",
+      "category": "rollback",
+      "title": "Rollback scenario from_retired_break_glass",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "from_retired_break_glass"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-163",
+      "category": "rollback",
+      "title": "Rollback scenario preserve_r1",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "preserve_r1"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-164",
+      "category": "rollback",
+      "title": "Rollback scenario preserve_r2",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "preserve_r2"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-165",
+      "category": "rollback",
+      "title": "Rollback scenario preserve_attempts",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "preserve_attempts"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-166",
+      "category": "rollback",
+      "title": "Rollback scenario stop_legacy_writers",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "stop_legacy_writers"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-167",
+      "category": "rollback",
+      "title": "Rollback scenario stop_qb_writers",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "stop_qb_writers"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-168",
+      "category": "rollback",
+      "title": "Rollback scenario restore_legacy_reads",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "restore_legacy_reads"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-169",
+      "category": "rollback",
+      "title": "Rollback scenario no_midflight_flip",
+      "expected_outcome": "ROLLBACK_OK",
+      "tags": [
+        "rollback",
+        "no_midflight_flip"
+      ],
+      "surfaces": [
+        "exam",
+        "practice",
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-170",
+      "category": "concurrent_student_sessions",
+      "title": "Concurrent students cohort #1",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "concurrent"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-171",
+      "category": "concurrent_student_sessions",
+      "title": "Concurrent students cohort #2",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "concurrent"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-172",
+      "category": "concurrent_student_sessions",
+      "title": "Concurrent students cohort #3",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "concurrent"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-173",
+      "category": "concurrent_student_sessions",
+      "title": "Concurrent students cohort #4",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "concurrent"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-174",
+      "category": "concurrent_student_sessions",
+      "title": "Concurrent students cohort #5",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "concurrent"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-175",
+      "category": "concurrent_student_sessions",
+      "title": "Concurrent students cohort #6",
+      "expected_outcome": "OK",
+      "tags": [
+        "sessions",
+        "concurrent"
+      ],
+      "surfaces": [
+        "exam",
+        "practice"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-176",
+      "category": "old_exam_sessions",
+      "title": "Old exam session fixture #1",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions",
+        "old_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-177",
+      "category": "old_exam_sessions",
+      "title": "Old exam session fixture #2",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions",
+        "old_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-178",
+      "category": "old_exam_sessions",
+      "title": "Old exam session fixture #3",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions",
+        "old_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-179",
+      "category": "old_exam_sessions",
+      "title": "Old exam session fixture #4",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions",
+        "old_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-180",
+      "category": "old_exam_sessions",
+      "title": "Old exam session fixture #5",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions",
+        "old_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-181",
+      "category": "old_exam_sessions",
+      "title": "Old exam session fixture #6",
+      "expected_outcome": "LEGACY_PRESERVED",
+      "tags": [
+        "sessions",
+        "old_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "LEGACY",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-182",
+      "category": "new_exam_sessions",
+      "title": "New exam session fixture #1",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions",
+        "new_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-183",
+      "category": "new_exam_sessions",
+      "title": "New exam session fixture #2",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions",
+        "new_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-184",
+      "category": "new_exam_sessions",
+      "title": "New exam session fixture #3",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions",
+        "new_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-185",
+      "category": "new_exam_sessions",
+      "title": "New exam session fixture #4",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions",
+        "new_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-186",
+      "category": "new_exam_sessions",
+      "title": "New exam session fixture #5",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions",
+        "new_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-187",
+      "category": "new_exam_sessions",
+      "title": "New exam session fixture #6",
+      "expected_outcome": "PINNED",
+      "tags": [
+        "sessions",
+        "new_exam"
+      ],
+      "surfaces": [
+        "exam"
+      ],
+      "pin_mode_expectation": "REVISION_PINNED",
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-188",
+      "category": "clean_migration",
+      "title": "Mode contract presence LEGACY",
+      "expected_outcome": "MODE_DEFINED",
+      "tags": [
+        "modes",
+        "LEGACY"
+      ],
+      "surfaces": [
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-189",
+      "category": "clean_migration",
+      "title": "Mode contract presence DUAL_READ",
+      "expected_outcome": "MODE_DEFINED",
+      "tags": [
+        "modes",
+        "DUAL_READ"
+      ],
+      "surfaces": [
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-190",
+      "category": "clean_migration",
+      "title": "Mode contract presence SHADOW_COMPARE",
+      "expected_outcome": "MODE_DEFINED",
+      "tags": [
+        "modes",
+        "SHADOW_COMPARE"
+      ],
+      "surfaces": [
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-191",
+      "category": "clean_migration",
+      "title": "Mode contract presence QB_PRIMARY",
+      "expected_outcome": "MODE_DEFINED",
+      "tags": [
+        "modes",
+        "QB_PRIMARY"
+      ],
+      "surfaces": [
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-192",
+      "category": "clean_migration",
+      "title": "Mode contract presence LEGACY_READ_ONLY",
+      "expected_outcome": "MODE_DEFINED",
+      "tags": [
+        "modes",
+        "LEGACY_READ_ONLY"
+      ],
+      "surfaces": [
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-193",
+      "category": "clean_migration",
+      "title": "Mode contract presence LEGACY_RETIRED",
+      "expected_outcome": "MODE_DEFINED",
+      "tags": [
+        "modes",
+        "LEGACY_RETIRED"
+      ],
+      "surfaces": [
+        "runtime"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": false,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-194",
+      "category": "clean_migration",
+      "title": "Owner decision required for batch_size",
+      "expected_outcome": "NEEDS_OWNER_DECISION",
+      "tags": [
+        "owner_decision",
+        "batch_size"
+      ],
+      "surfaces": [
+        "ops"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": true,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-195",
+      "category": "clean_migration",
+      "title": "Owner decision required for production_schedule",
+      "expected_outcome": "NEEDS_OWNER_DECISION",
+      "tags": [
+        "owner_decision",
+        "production_schedule"
+      ],
+      "surfaces": [
+        "ops"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": true,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-196",
+      "category": "clean_migration",
+      "title": "Owner decision required for cutover_time",
+      "expected_outcome": "NEEDS_OWNER_DECISION",
+      "tags": [
+        "owner_decision",
+        "cutover_time"
+      ],
+      "surfaces": [
+        "ops"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": true,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-197",
+      "category": "clean_migration",
+      "title": "Owner decision required for retention_period",
+      "expected_outcome": "NEEDS_OWNER_DECISION",
+      "tags": [
+        "owner_decision",
+        "retention_period"
+      ],
+      "surfaces": [
+        "ops"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": true,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-198",
+      "category": "clean_migration",
+      "title": "Owner decision required for cleanup",
+      "expected_outcome": "NEEDS_OWNER_DECISION",
+      "tags": [
+        "owner_decision",
+        "cleanup"
+      ],
+      "surfaces": [
+        "ops"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": true,
+      "design_only": true
+    },
+    {
+      "id": "QB03-TC-199",
+      "category": "clean_migration",
+      "title": "Owner decision required for remote_execution",
+      "expected_outcome": "NEEDS_OWNER_DECISION",
+      "tags": [
+        "owner_decision",
+        "remote_execution"
+      ],
+      "surfaces": [
+        "ops"
+      ],
+      "pin_mode_expectation": null,
+      "tolerance": null,
+      "owner_decision_required": true,
+      "design_only": true
+    }
+  ]
+}
