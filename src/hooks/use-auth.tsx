@@ -255,9 +255,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsContentStaff(false);
       return;
     }
-    if (!offlineUser) return;
-    // Re-enter the normal SDK validation path on reconnect; cached roles never apply.
-    const restoringOwner = offlineUser.id;
+    // Revalidate roles after every reconnect, including sessions that were already
+    // online when the connection dropped. Offline-only identities use the same path.
+    const restoringOwner = offlineUser?.id ?? session?.user.id;
+    if (!restoringOwner) return;
     const restoringGeneration = generation.current;
     void supabase.auth
       .getUser()
@@ -279,7 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => undefined);
-  }, [online, offlineUser, loadProfile]);
+  }, [online, offlineUser, session?.user.id, loadProfile]);
 
   const signOut = useCallback(async () => {
     generation.current += 1;
