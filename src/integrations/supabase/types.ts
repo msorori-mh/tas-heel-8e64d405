@@ -3122,6 +3122,27 @@ export type Database = {
         }
         Relationships: []
       }
+      offline_prepared_descriptors: {
+        Row: {
+          descriptor: Json
+          lesson_id: string
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          descriptor: Json
+          lesson_id: string
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          descriptor?: Json
+          lesson_id?: string
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       payment_methods: {
         Row: {
           account_name: string | null
@@ -5202,6 +5223,20 @@ export type Database = {
         Returns: Json
       }
       _my_mistakes_safe_options: { Args: { _rendered: Json }; Returns: Json }
+      _offline_snapshot_canonical_safe_v1: {
+        Args: { _value: Json }
+        Returns: boolean
+      }
+      _offline_snapshot_descriptor_v1: {
+        Args: {
+          _capability: string
+          _hash: string
+          _lesson: string
+          _snapshot: Json
+        }
+        Returns: Json
+      }
+      _offline_text_descriptor_v1: { Args: { _body: string }; Returns: Json }
       _qb_assert_revision_payload_hash: {
         Args: {
           p_payload_hash: string
@@ -5660,6 +5695,7 @@ export type Database = {
         Args: { _html: string; _label: string }
         Returns: Json
       }
+      cf11_assert_mindmap_contract: { Args: { _html: string }; Returns: Json }
       cf11_assert_no_network: {
         Args: { _html: string; _label: string }
         Returns: undefined
@@ -6552,6 +6588,14 @@ export type Database = {
       }
       normalize_content_code: { Args: { p_code: string }; Returns: string }
       normalize_resource_code: { Args: { p_code: string }; Returns: string }
+      offline_backfill_descriptors_v1: {
+        Args: { _limit?: number; _source: string }
+        Returns: number
+      }
+      offline_manifest_sources_v1: {
+        Args: { _lesson_ids: string[] }
+        Returns: Json
+      }
       pay_subscription_from_wallet: {
         Args: {
           _grade_id?: string

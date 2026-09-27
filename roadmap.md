@@ -1,5 +1,12 @@
 # Roadmap
 
+## Project monitoring findings (2026-09-27)
+
+- [x] Verify profile locality and Google-only login against current behavior; no change needed.
+- [x] Debounce durable question-note writes and cap delivered outbox history.
+- [x] Revalidate staff roles after reconnect and show learning tools two per row on phones.
+- [ ] Published lab correction workflow: requires approval of an audited replacement strategy; do not mutate published resources in place.
+
 ## Done — MINISTERIAL_QUESTION_MEDIA_V1 (code only, no DB apply, no deploy)
 
 - [x] Parser: XLSX or ZIP(XLSX + media/) with optional image columns; ZIP hardening (traversal, bombs, 8MB/50MB, PNG/JPEG/WebP magic bytes, SHA-256, unique names)
