@@ -20,6 +20,8 @@ export type OfflineMutationInput = {
 };
 
 const DEFAULT_LEASE_MS = 60_000;
+// Keep recent local replay tombstones without retaining every delivered payload forever.
+const MAX_DELIVERED_TOMBSTONES_PER_OWNER = 256;
 
 function normalizedMutation(input: OfflineMutationInput) {
   const ownerId = input.ownerId.trim();
@@ -188,6 +190,15 @@ export async function markOfflineMutationDelivered(
     record.lastErrorCode = null;
     record.deliveredAt = record.deliveredAt ?? now;
     record.updatedAt = now;
+    const delivered = snapshot.outbox
+      .filter((candidate) => candidate.ownerId === ownerId && candidate.status === "delivered")
+      .sort((left, right) => (right.deliveredAt ?? "").localeCompare(left.deliveredAt ?? ""));
+    if (delivered.length > MAX_DELIVERED_TOMBSTONES_PER_OWNER) {
+      const keep = new Set(delivered.slice(0, MAX_DELIVERED_TOMBSTONES_PER_OWNER).map((item) => item.id));
+      snapshot.outbox = snapshot.outbox.filter(
+        (candidate) => candidate.ownerId !== ownerId || candidate.status !== "delivered" || keep.has(candidate.id),
+      );
+    }
   }, now);
 }
 
