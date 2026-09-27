@@ -24,6 +24,8 @@ export function useLessonQuestionNotes(lessonId: string, studentId: string | nul
   const queryClient = useQueryClient();
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pending = useRef<Record<string, string>>({});
+  const writes = useRef<Promise<void>>(Promise.resolve());
 
   const { data } = useQuery({
     enabled: Boolean(lessonId && studentId),
@@ -49,18 +51,24 @@ export function useLessonQuestionNotes(lessonId: string, studentId: string | nul
   const notes = data ?? {};
 
   const persist = useCallback(
-    async (questionId: string) => {
+    (questionId: string) => {
       if (!studentId) return;
-      setSavingIds((ids) => (ids.includes(questionId) ? ids : [...ids, questionId]));
-      try {
-        await syncOfflineOutboxForCurrentSession();
-      } catch {
-        /* The durable operation remains queued for reconnect/focus retry. */
-      } finally {
-        setSavingIds((ids) => ids.filter((id) => id !== questionId));
-      }
+      const answerText = pending.current[questionId];
+      if (answerText === undefined) return;
+      delete pending.current[questionId];
+      writes.current = writes.current.catch(() => undefined).then(async () => {
+        setSavingIds((ids) => (ids.includes(questionId) ? ids : [...ids, questionId]));
+        try {
+          await saveOfflineOfficialQuestionNote({ ownerId: studentId, lessonId, questionId, answerText });
+          await syncOfflineOutboxForCurrentSession();
+        } catch {
+          /* Once committed, the durable operation remains queued for reconnect/focus retry. */
+        } finally {
+          setSavingIds((ids) => ids.filter((id) => id !== questionId));
+        }
+      });
     },
-    [studentId],
+    [studentId, lessonId],
   );
 
   /** Debounced autosave (1s) so typing does not hammer the network. */
@@ -71,28 +79,26 @@ export function useLessonQuestionNotes(lessonId: string, studentId: string | nul
         lessonQuestionNotesKey(lessonId, studentId),
         (prev) => ({ ...(prev ?? {}), [questionId]: answerText }),
       );
-      void saveOfflineOfficialQuestionNote({
-        ownerId: studentId,
-        lessonId,
-        questionId,
-        answerText,
-      }).catch(() => undefined);
+      pending.current[questionId] = answerText;
       const existing = timers.current[questionId];
       if (existing) clearTimeout(existing);
       timers.current[questionId] = setTimeout(() => {
         delete timers.current[questionId];
-        void persist(questionId);
+        persist(questionId);
       }, 1000);
     },
     [lessonId, persist, queryClient, studentId],
   );
 
   useEffect(() => {
-    const pending = timers.current;
+    const activeTimers = timers.current;
     return () => {
-      for (const timer of Object.values(pending)) clearTimeout(timer);
+      for (const [questionId, timer] of Object.entries(activeTimers)) {
+        clearTimeout(timer);
+        persist(questionId);
+      }
     };
-  }, []);
+  }, [persist]);
 
   return { notes, saveNote, savingIds };
 }
