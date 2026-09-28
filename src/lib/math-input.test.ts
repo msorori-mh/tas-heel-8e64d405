@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  evaluateArabicMathPreview,
   insertMathToken,
   keysForScienceProfile,
+  mathContextHint,
   scienceInputProfile,
   shouldOfferMathKeyboard,
 } from "./math-input/math-keyboard";
@@ -66,17 +68,32 @@ describe("science math keyboard", () => {
     ).toEqual({ value: "1234", cursor: 4 });
   });
 
-  it("provides Arabic school notation including strict inequalities", () => {
+  it("provides Arabic school notation including inequalities and delimiters", () => {
     const labels = keysForScienceProfile("math").map((key) => key.label);
-    expect(labels).toContain("<");
-    expect(labels).toContain(">");
-    expect(labels).toContain("≤");
-    expect(labels).toContain("≥");
+    for (const label of ["<", ">", "≤", "≥", "[", "]", "{", "}", "−∞"]) {
+      expect(labels).toContain(label);
+    }
     expect(labels).toContain("جا");
     expect(labels).toContain("جتا");
     expect(labels).toContain("ظا");
     expect(labels).toContain("لو");
     expect(labels).toContain("نها");
+  });
+
+  it("shows immediate degree-mode results for Arabic trig input", () => {
+    expect(evaluateArabicMathPreview("جا(30)")).toBe("0.5");
+    expect(evaluateArabicMathPreview("جا(٣٠)")).toBe("0.5");
+    expect(evaluateArabicMathPreview("جتا(60)")).toBe("0.5");
+    expect(evaluateArabicMathPreview("ظا(45)")).toBe("1");
+    expect(evaluateArabicMathPreview("ظا(90)")).toBe("غير معرّف");
+  });
+
+  it("turns math delta into the discriminant formula and provides the contextual law", () => {
+    const delta = keysForScienceProfile("math").find((key) => key.id === "delta");
+    expect(delta?.label).toBe("Δ المميز");
+    expect(delta?.insert).toBe("Δ=ب²−٤أج");
+    expect(mathContextHint("Δ", "math")).toBe("قانون المميز: Δ = ب² − ٤أج");
+    expect(keysForScienceProfile("physics").find((key) => key.id === "delta")?.insert).toBe("Δ");
   });
 
   it("covers chemistry and biology secondary-school notation", () => {
