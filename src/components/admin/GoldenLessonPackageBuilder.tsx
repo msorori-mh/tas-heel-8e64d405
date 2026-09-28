@@ -12,6 +12,7 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import {
+  correctLessonComponentV2Lab,
   createLessonComponentV2Upload,
   getLessonComponentServerPublicationStatus,
   publishLessonComponentV2,
@@ -167,6 +168,9 @@ interface UploadedArtifact {
   rowCount?: number;
   instanceIndex?: number;
   instanceTitle?: string;
+  replaceResourceId?: string;
+  replaceSha256?: string;
+  correctionReason?: string;
 }
 
 interface ArabicFilePickerProps {
@@ -565,6 +569,7 @@ export function GoldenLessonPackageBuilder() {
   const [serverLabPublications, setServerLabPublications] = useState<
     LessonComponentServerPublicationStatus[]
   >([]);
+  const [correctionTarget, setCorrectionTarget] = useState<string>("");
   const [serverPublicationsError, setServerPublicationsError] = useState<string | null>(null);
   const publishedCount = GOLDEN_CAPABILITIES.filter(
     (capability) => serverPublications[capability]?.visibleToStudent,
@@ -748,8 +753,18 @@ export function GoldenLessonPackageBuilder() {
               ...serverLabPublications.map((item) => item.instanceIndex ?? 0),
               ...current.map((item) => item.instanceIndex ?? 0),
             ) + 1;
-          return [...current, { ...verifiedUpload, instanceIndex: nextIndex, instanceTitle: "" }];
+          const target = serverLabPublications.find((item) => item.resourceId === correctionTarget);
+          return [...current, {
+            ...verifiedUpload, instanceIndex: nextIndex,
+            instanceTitle: target?.instanceTitle ?? "",
+            ...(target?.resourceId && target.sourceSha256 ? {
+              replaceResourceId: target.resourceId,
+              replaceSha256: target.sourceSha256,
+              correctionReason: "",
+            } : {}),
+          }];
         });
+        setCorrectionTarget("");
       } else {
         setUploads((current) => ({
           ...current,
@@ -1037,6 +1052,15 @@ export function GoldenLessonPackageBuilder() {
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ فحص الملف…" }));
     await verifyLessonComponentV2Upload({ data: { intakeId: slot.intakeId } });
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ نشر المكوّن…" }));
+    if (source.replaceResourceId && source.replaceSha256 && source.correctionReason) {
+      return await correctLessonComponentV2Lab({ data: {
+        intakeId: slot.intakeId,
+        oldResourceId: source.replaceResourceId,
+        expectedOldSha256: source.replaceSha256,
+        reason: source.correctionReason.trim(),
+      } });
+    }
+    if (source.replaceResourceId) throw new Error("LAB_CORRECTION_REASON_REQUIRED");
     return await publishLessonComponentV2({ data: { intakeId: slot.intakeId } });
   };
 
@@ -1049,6 +1073,10 @@ export function GoldenLessonPackageBuilder() {
           ? [uploads[capability]!]
           : [];
     if (sources.length === 0 || !selectedLessonCode) return;
+    if (sources.some((source) => source.replaceResourceId && (source.correctionReason?.trim().length ?? 0) < 10)) {
+      setCapabilityPublishError((current) => ({ ...current, [capability]: { title: "سبب التصحيح مطلوب", detail: "اكتب سببًا واضحًا لا يقل عن 10 أحرف قبل النشر." } as LessonComponentPublishErrorMessage }));
+      return;
+    }
     setCapabilityPublishBusy(capability);
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ رفع الملف…" }));
     setCapabilityPublishError((current) => {
@@ -1093,6 +1121,7 @@ export function GoldenLessonPackageBuilder() {
           publishedAt: new Date().toISOString(),
           visibleToStudent: true,
           ...(publication.resourceCode ? { resourceCode: publication.resourceCode } : {}),
+          ...(publication.resourceId ? { resourceId: publication.resourceId } : {}),
           ...(publication.instanceIndex !== undefined
             ? { instanceIndex: publication.instanceIndex }
             : {}),
@@ -1103,7 +1132,7 @@ export function GoldenLessonPackageBuilder() {
         setServerPublications((current) => ({ ...current, [capability]: status }));
         if (capability === "labExperimentHtml") {
           setServerLabPublications((current) =>
-            [...current.filter((item) => item.resourceCode !== status.resourceCode), status].sort(
+            [...current.filter((item) => item.resourceId !== source.replaceResourceId && item.resourceCode !== status.resourceCode), status].sort(
               (left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0),
             ),
           );
