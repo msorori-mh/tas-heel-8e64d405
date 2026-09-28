@@ -554,7 +554,7 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
     if (!lesson.data) throw new Error("LCPV2_STATUS_LESSON_NOT_FOUND");
     const lessonId = lesson.data.id;
 
-    const [lifecycleResult, publicationResult, experimentResult] = await Promise.all([
+    const [lifecycleResult, publicationResult, experimentResult, correctionsResult] = await Promise.all([
       admin
         .from("lesson_capability_lifecycle")
         .select("capability,status,ready_hash,ready_at")
@@ -572,6 +572,7 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
         .eq("lesson_id", lessonId)
         .eq("resource_type", "experiment")
         .order("sort_order", { ascending: true }),
+      admin.from("lesson_lab_corrections").select("old_resource_id").eq("lesson_id", lessonId),
     ]);
     if (lifecycleResult.error) {
       throw new Error(`LCPV2_STATUS_LIFECYCLE_READ_FAILED: ${lifecycleResult.error.message}`);
@@ -582,6 +583,8 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
     if (experimentResult.error) {
       throw new Error(`LCPV2_STATUS_EXPERIMENT_READ_FAILED: ${experimentResult.error.message}`);
     }
+    if (correctionsResult.error) throw new Error("LCPV2_STATUS_CORRECTION_READ_FAILED");
+    const replacedIds = new Set((correctionsResult.data ?? []).map((row) => row.old_resource_id));
 
     const lifecycleByCapability = new Map(
       (lifecycleResult.data ?? []).map((row) => [String(row.capability), row]),
