@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Sigma } from "lucide-react";
 import {
   insertMathToken,
   keysForScienceProfile,
+  MATH_GROUP_LABELS,
   scienceInputProfile,
   shouldOfferMathKeyboard,
   type MathKey,
@@ -45,9 +46,16 @@ export function MathAnswerInput({
   const enabled = shouldOfferMathKeyboard({ subjectName, questionText, questionType });
   const profile = scienceInputProfile(subjectName);
   const keys = useMemo(() => keysForScienceProfile(profile), [profile]);
-  const basicKeys = keys.filter((key) => key.group === "basic").slice(0, 10);
-  const extraKeys = keys.filter((key) => !basicKeys.includes(key));
-  const visibleKeys = expanded ? [...basicKeys, ...extraKeys] : basicKeys;
+  const basicKeys = keys.filter((key) => key.group === "basic").slice(0, 14);
+  const groupedKeys = useMemo(
+    () =>
+      Array.from(new Set(keys.map((key) => key.group))).map((group) => ({
+        group,
+        label: MATH_GROUP_LABELS[group],
+        keys: keys.filter((key) => key.group === group),
+      })),
+    [keys],
+  );
 
   const insert = (key: MathKey) => {
     const textarea = textareaRef.current;
@@ -119,23 +127,52 @@ export function MathAnswerInput({
             </button>
           </div>
 
-          <div className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto">
-            {visibleKeys.map((key) => (
-              <button
-                key={key.id}
-                type="button"
-                disabled={disabled}
-                aria-label={key.ariaLabel ?? key.label}
-                title={key.ariaLabel ?? key.label}
-                onClick={() => insert(key)}
-                className="min-h-10 min-w-10 rounded-lg border border-border bg-background px-2.5 text-sm font-bold text-foreground shadow-sm active:scale-95 disabled:opacity-50"
-              >
-                {key.label}
-              </button>
-            ))}
+          <div className="max-h-56 overflow-y-auto">
+            {expanded ? (
+              <div className="space-y-3">
+                {groupedKeys.map((section) => (
+                  <section key={section.group}>
+                    <p className="mb-1.5 text-[10px] font-bold text-muted-foreground">
+                      {section.label}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {section.keys.map((key) => (
+                        <button
+                          key={key.id}
+                          type="button"
+                          disabled={disabled}
+                          aria-label={key.ariaLabel ?? key.label}
+                          title={key.ariaLabel ?? key.label}
+                          onClick={() => insert(key)}
+                          className="min-h-10 min-w-10 rounded-lg border border-border bg-background px-2.5 text-sm font-bold text-foreground shadow-sm active:scale-95 disabled:opacity-50"
+                        >
+                          {key.label}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {basicKeys.map((key) => (
+                  <button
+                    key={key.id}
+                    type="button"
+                    disabled={disabled}
+                    aria-label={key.ariaLabel ?? key.label}
+                    title={key.ariaLabel ?? key.label}
+                    onClick={() => insert(key)}
+                    className="min-h-10 min-w-10 rounded-lg border border-border bg-background px-2.5 text-sm font-bold text-foreground shadow-sm active:scale-95 disabled:opacity-50"
+                  >
+                    {key.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-            اكتب الحرف أولاً ثم اضغط ² أو ³، أو استخدم القوالب للأسس والجذور والكسور والدوال.
+            الرموز مرتبة بحسب المادة والمنهج؛ استخدم «المزيد» لعرض الدوال والهندسة والوحدات والرموز المتخصصة.
           </p>
         </div>
       ) : enabled ? (
