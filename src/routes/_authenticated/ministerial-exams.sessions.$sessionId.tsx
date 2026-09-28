@@ -350,8 +350,9 @@ function MinisterialSessionPage() {
 
         {isTextQuestion ? (
           <div className="mt-4 space-y-2">
-            <Label>اكتب إجابتك</Label>
+            <Label htmlFor={`ministerial-text-${current.session_question_id}`}>اكتب إجابتك</Label>
             <MathAnswerInput
+              id={`ministerial-text-${current.session_question_id}`}
               ariaLabel="إجابة السؤال الوزاري"
               value={currentText}
               rows={6}
