@@ -2572,6 +2572,74 @@ export type Database = {
           },
         ]
       }
+      lesson_lab_corrections: {
+        Row: {
+          corrected_at: string
+          corrected_by: string
+          id: string
+          intake_id: string
+          lesson_id: string
+          new_resource_id: string
+          new_sha256: string
+          old_resource_id: string
+          old_sha256: string
+          reason: string
+        }
+        Insert: {
+          corrected_at?: string
+          corrected_by: string
+          id?: string
+          intake_id: string
+          lesson_id: string
+          new_resource_id: string
+          new_sha256: string
+          old_resource_id: string
+          old_sha256: string
+          reason: string
+        }
+        Update: {
+          corrected_at?: string
+          corrected_by?: string
+          id?: string
+          intake_id?: string
+          lesson_id?: string
+          new_resource_id?: string
+          new_sha256?: string
+          old_resource_id?: string
+          old_sha256?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_lab_corrections_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: true
+            referencedRelation: "lesson_component_intakes_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_lab_corrections_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_lab_corrections_new_resource_id_fkey"
+            columns: ["new_resource_id"]
+            isOneToOne: true
+            referencedRelation: "lesson_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_lab_corrections_old_resource_id_fkey"
+            columns: ["old_resource_id"]
+            isOneToOne: true
+            referencedRelation: "lesson_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lesson_question_notes: {
         Row: {
           answer_text: string
@@ -6283,6 +6351,15 @@ export type Database = {
           _lesson_id: string
           _snapshot?: Json
           _to_status: string
+        }
+        Returns: Json
+      }
+      lesson_component_correct_lab_v2: {
+        Args: {
+          _expected_old_sha256: string
+          _intake_id: string
+          _old_resource_id: string
+          _reason: string
         }
         Returns: Json
       }
