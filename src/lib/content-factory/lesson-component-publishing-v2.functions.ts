@@ -76,6 +76,12 @@ const CreateInput = z
 const VerifyInput = z.object({ intakeId: z.string().uuid() });
 const PublishInput = z.object({ intakeId: z.string().uuid() });
 const PublicationStatusInput = z.object({ lessonCode: z.string().min(1).max(160) });
+const CorrectLabInput = z.object({
+  intakeId: z.string().uuid(),
+  oldResourceId: z.string().uuid(),
+  expectedOldSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  reason: z.string().trim().min(10).max(500),
+});
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type Rpc = (name: string, args: Record<string, unknown>) => PromiseLike<RpcResult>;
@@ -128,6 +134,7 @@ export interface LessonComponentV2Publication {
   idempotent: boolean;
   writesPerformed: number;
   resourceCode?: string;
+  resourceId?: string;
   instanceIndex?: number;
   instanceCount?: number;
   instanceTitle?: string | null;
@@ -143,6 +150,7 @@ export interface LessonComponentServerPublicationStatus {
   publishedAt: string | null;
   visibleToStudent: true;
   resourceCode?: string;
+  resourceId?: string;
   instanceIndex?: number;
   instanceTitle?: string | null;
   sortOrder?: number;
