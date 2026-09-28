@@ -1074,7 +1074,7 @@ export function GoldenLessonPackageBuilder() {
           : [];
     if (sources.length === 0 || !selectedLessonCode) return;
     if (sources.some((source) => source.replaceResourceId && (source.correctionReason?.trim().length ?? 0) < 10)) {
-      setCapabilityPublishError((current) => ({ ...current, [capability]: { title: "سبب التصحيح مطلوب", detail: "اكتب سببًا واضحًا لا يقل عن 10 أحرف قبل النشر." } as LessonComponentPublishErrorMessage }));
+      setCapabilityPublishError((current) => ({ ...current, [capability]: { message: "سبب التصحيح مطلوب", action: "اكتب سببًا واضحًا لا يقل عن 10 أحرف قبل النشر.", technicalDetail: "LAB_CORRECTION_REASON_REQUIRED" } }));
       return;
     }
     setCapabilityPublishBusy(capability);
