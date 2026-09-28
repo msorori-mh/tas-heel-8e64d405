@@ -8,7 +8,7 @@ import { MinisterialMediaImage } from "@/components/ministerial/MinisterialMedia
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
+import { MathAnswerInput } from "@/components/questions/MathAnswerInput";
 import {
   answerMinisterialQuestion,
   answerMinisterialTextQuestion,
@@ -351,17 +351,20 @@ function MinisterialSessionPage() {
         {isTextQuestion ? (
           <div className="mt-4 space-y-2">
             <Label htmlFor={`ministerial-text-${current.session_question_id}`}>اكتب إجابتك</Label>
-            <Textarea
+            <MathAnswerInput
               id={`ministerial-text-${current.session_question_id}`}
+              ariaLabel="إجابة السؤال الوزاري"
               value={currentText}
               rows={6}
               maxLength={8000}
               disabled={questionLocked || textAnswerMutation.isPending}
+              subjectName={data.model?.subject_name ?? null}
+              questionText={current.question_text}
               placeholder="اكتب إجابتك هنا، ثم احفظها أو اعرض الإجابة النموذجية للتأكد."
-              onChange={(event) =>
+              onChange={(value) =>
                 setTextAnswers((previous) => ({
                   ...previous,
-                  [current.session_question_id]: event.target.value,
+                  [current.session_question_id]: value,
                 }))
               }
             />
