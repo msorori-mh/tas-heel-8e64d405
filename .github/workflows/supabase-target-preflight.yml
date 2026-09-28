@@ -84,10 +84,14 @@ jobs:
               connection = re.sub(r'@\[([a-z0-9.-]+\.pooler\.supabase\.com)\](?=[:/])',
                                   r'@\1', pooler.read_text().strip())
               try:
-                  url = urllib.parse.urlsplit(connection)
+                  scheme, rest = connection.split('://', 1)
+                  userinfo, address = rest.rsplit('@', 1)
+                  username = urllib.parse.unquote(userinfo.split(':', 1)[0])
+                  # CLI may include a literal [YOUR-PASSWORD] placeholder.
+                  # Discard all URI credentials; use only the supplied secret.
+                  url = urllib.parse.urlsplit(scheme + '://' + address)
               except ValueError:
                   fail('Invalid pooler URL format; connection string not logged.')
-              username = urllib.parse.unquote(url.username or '')
               if ref not in username and url.hostname != 'db.' + ref + '.supabase.co':
                   fail('Database connection does not identify the approved target.')
               # Credentials stay in environment variables, never command arguments.
