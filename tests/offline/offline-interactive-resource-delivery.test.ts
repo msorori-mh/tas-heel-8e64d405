@@ -51,6 +51,8 @@ async function deliver(
         data:
           name === "can_access_lesson"
             ? allowed
+             : name === "is_replaced_lab_resource"
+               ? false
             : {
                 visible: true,
                 managed: true,
