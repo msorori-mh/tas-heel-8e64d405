@@ -134,6 +134,20 @@
         border-radius:12px; background:var(--wash); padding:11px; font-size:13px;
         line-height:1.8; white-space:pre-wrap; margin-top:10px;
       }
+      .math-keyboard {
+        position:sticky; bottom:calc(72px + env(safe-area-inset-bottom)); z-index:18;
+        display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 10px; padding:8px;
+        border:1px solid #dbe1fa; border-radius:12px; background:rgba(255,255,255,.97);
+        box-shadow:0 8px 24px rgba(30,42,99,.12); backdrop-filter:blur(10px);
+      }
+      .math-keyboard button {
+        min-width:40px; min-height:40px; padding:7px 10px;
+        background:var(--wash); color:var(--ink); border:1px solid var(--line);
+        font-weight:800;
+      }
+      .math-keyboard-label {
+        width:100%; margin:0; font-size:11px; color:var(--primary); font-weight:800;
+      }
       .screen { width:100%; max-width:100%; min-width:0; }
       .screen[hidden], [hidden] { display:none !important; }
       .bottom-nav {
@@ -377,7 +391,7 @@
             button.appendChild(name);
             button.appendChild(count);
             button.addEventListener("click", function () {
-              openLesson(lesson.lessonId, button);
+              openLesson(lesson.lessonId, button, false, subject.title || null);
             });
             list.appendChild(button);
           });
@@ -442,7 +456,7 @@
               appendText(button, "strong", "", lesson.title || "درس محفوظ");
               appendText(button, "small", "", "أسئلة الدرس");
               button.addEventListener("click", function () {
-                openLesson(lesson.lessonId, button, true);
+                openLesson(lesson.lessonId, button, true, subject.title || null);
               });
               list.appendChild(button);
             });
@@ -604,7 +618,50 @@
           return { element:list, selected:function(){ return selected; }, buttons:buttons };
         }
 
-        function renderOfficialQuestion(content, lessonId, question, index) {
+        function scienceMathKeys(subjectTitle) {
+          var title = String(subjectTitle || "");
+          var science = /رياضيات|جبر|هندسة|تفاضل|تكامل|فيزياء|كيمياء/.test(title);
+          if (!science) return [];
+          var common = [
+            ["²", "²"], ["³", "³"], ["سⁿ", "^()"], ["√", "√()"], ["كسر", "()/()"],
+            ["π", "π"], ["±", "±"], ["×", "×"], ["÷", "÷"], ["≤", "≤"], ["≥", "≥"],
+            ["≠", "≠"], ["≈", "≈"], ["∞", "∞"], ["Δ", "Δ"]
+          ];
+          if (/رياضيات|جبر|هندسة|تفاضل|تكامل|فيزياء/.test(title)) {
+            common.push(["log", "log()"], ["ln", "ln()"], ["sin", "sin()"], ["cos", "cos()"], ["tan", "tan()"], ["θ", "θ"]);
+          }
+          if (/كيمياء/.test(title)) {
+            common.push(["→", "→"], ["⇌", "⇌"], ["₂", "₂"], ["₃", "₃"], ["⁺", "⁺"], ["⁻", "⁻"], ["(aq)", "(aq)"]);
+          }
+          return common;
+        }
+
+        function attachMathKeyboard(input, subjectTitle) {
+          var keys = scienceMathKeys(subjectTitle);
+          if (!keys.length) return null;
+          var keyboard = document.createElement("div");
+          keyboard.className = "math-keyboard";
+          appendText(keyboard, "p", "math-keyboard-label", "لوحة الرموز العلمية");
+          keys.forEach(function (entry) {
+            var button = document.createElement("button");
+            button.type = "button";
+            button.textContent = entry[0];
+            button.addEventListener("click", function () {
+              var start = typeof input.selectionStart === "number" ? input.selectionStart : input.value.length;
+              var end = typeof input.selectionEnd === "number" ? input.selectionEnd : start;
+              var token = entry[1];
+              input.value = input.value.slice(0, start) + token + input.value.slice(end);
+              var cursor = start + token.length;
+              if (/\(\)$/.test(token)) cursor -= 1;
+              input.focus();
+              input.setSelectionRange(cursor, cursor);
+            });
+            keyboard.appendChild(button);
+          });
+          return keyboard;
+        }
+
+        function renderOfficialQuestion(content, lessonId, question, index, subjectTitle) {
           var card = document.createElement("section");
           card.className = "question-card";
           appendText(card, "p", "question-text", "س" + index + ": " + question.questionText);
@@ -620,6 +677,8 @@
             input.setAttribute("aria-label", "إجابة السؤال " + index);
             input.value = question.savedAnswer || "";
             card.appendChild(input);
+            var mathKeyboard = attachMathKeyboard(input, subjectTitle);
+            if (mathKeyboard) card.appendChild(mathKeyboard);
           }
           var reveal = document.createElement("button");
           reveal.type = "button";
@@ -707,7 +766,7 @@
           return card;
         }
 
-        function renderAssessments(content, lessonId, data) {
+        function renderAssessments(content, lessonId, data, subjectTitle) {
           assessmentsEl.replaceChildren();
           var official = data.officialQuestions || [];
           var selfTest = data.selfTestQuestions || [];
@@ -715,7 +774,7 @@
           if (official.length) {
             appendText(assessmentsEl, "h2", "", "أسئلة الكتاب");
             official.forEach(function (question, index) {
-              assessmentsEl.appendChild(renderOfficialQuestion(content, lessonId, question, index + 1));
+              assessmentsEl.appendChild(renderOfficialQuestion(content, lessonId, question, index + 1, subjectTitle));
             });
           }
           if (selfTest.length) {
@@ -726,7 +785,7 @@
           }
         }
 
-        function openLesson(lessonId, button, focusAssessments) {
+        function openLesson(lessonId, button, focusAssessments, subjectTitle) {
           var content = plugin("TamkeenOfflineContent");
           lessonErrorEl.textContent = "";
           if (!content || !lessonId) {
@@ -743,7 +802,7 @@
             var lesson = values[0];
             lessonTitleEl.textContent = lesson.title || "الدرس المحفوظ";
             renderComponents(lesson.components || []);
-            renderAssessments(content, lessonId, values[1] || {});
+            renderAssessments(content, lessonId, values[1] || {}, subjectTitle);
             showScreen("lesson-view");
             if (focusAssessments && assessmentsEl.childNodes.length) {
               setTimeout(function(){ assessmentsEl.scrollIntoView({ behavior:"smooth", block:"start" }); }, 0);
