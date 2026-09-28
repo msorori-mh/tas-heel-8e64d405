@@ -76,6 +76,12 @@ const CreateInput = z
 const VerifyInput = z.object({ intakeId: z.string().uuid() });
 const PublishInput = z.object({ intakeId: z.string().uuid() });
 const PublicationStatusInput = z.object({ lessonCode: z.string().min(1).max(160) });
+const CorrectLabInput = z.object({
+  intakeId: z.string().uuid(),
+  oldResourceId: z.string().uuid(),
+  expectedOldSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  reason: z.string().trim().min(10).max(500),
+});
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type Rpc = (name: string, args: Record<string, unknown>) => PromiseLike<RpcResult>;
@@ -128,6 +134,7 @@ export interface LessonComponentV2Publication {
   idempotent: boolean;
   writesPerformed: number;
   resourceCode?: string;
+  resourceId?: string;
   instanceIndex?: number;
   instanceCount?: number;
   instanceTitle?: string | null;
@@ -143,6 +150,7 @@ export interface LessonComponentServerPublicationStatus {
   publishedAt: string | null;
   visibleToStudent: true;
   resourceCode?: string;
+  resourceId?: string;
   instanceIndex?: number;
   instanceTitle?: string | null;
   sortOrder?: number;
@@ -491,6 +499,44 @@ export const publishLessonComponentV2 = createServerFn({ method: "POST" })
     };
   });
 
+/** Atomic, audited lab replacement; the original resource remains immutable. */
+export const correctLessonComponentV2Lab = createServerFn({ method: "POST" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => CorrectLabInput.parse(input))
+  .handler(async ({ data, context }): Promise<LessonComponentV2Publication> => {
+    const { supabase, isFullAdmin } = context as ContentStaffAuthContext;
+    if (!isFullAdmin) throw new Error("LAB_CORRECTION_NOT_AUTHORIZED");
+    const published = assertRpc(
+      await (supabase as unknown as { rpc: Rpc }).rpc("lesson_component_correct_lab_v2", {
+        _intake_id: data.intakeId,
+        _old_resource_id: data.oldResourceId,
+        _expected_old_sha256: data.expectedOldSha256,
+        _reason: data.reason,
+      }),
+      "LAB_CORRECTION_FAILED",
+    );
+    if (published["student_can_see_this_component"] !== true) throw new Error("LAB_CORRECTION_NOT_VISIBLE");
+    return {
+      intakeId: String(published["intake_id"]),
+      lessonId: String(published["lesson_id"]),
+      capability: "labExperimentHtml",
+      lifecycleCapability: String(published["lifecycle_capability"]),
+      publicationVersion: Number(published["publication_version"]),
+      sourceSha256: String(published["source_sha256"]),
+      status: "READY", studentCanSeeThisComponent: true,
+      idempotent: false, writesPerformed: Number(published["writes_performed"]),
+      resourceCode: String(published["resource_code"]),
+      resourceId: String(published["new_resource_id"]),
+      instanceIndex: Number(published["instance_index"]),
+      instanceTitle: String(published["instance_title"]),
+      steps: [
+        { key: "upload", label: "رفع الملف", detail: "تم" },
+        { key: "verify", label: "فحص الملف", detail: "تم" },
+        { key: "publish", label: "اعتماد التصحيح", detail: "تم — النسخة السابقة محفوظة للتدقيق" },
+      ],
+    };
+  });
+
 /** Read-only server truth for the seven components currently visible to students. */
 export const getLessonComponentServerPublicationStatus = createServerFn({ method: "GET" })
   .middleware([requireContentStaffAuth])
@@ -508,7 +554,7 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
     if (!lesson.data) throw new Error("LCPV2_STATUS_LESSON_NOT_FOUND");
     const lessonId = lesson.data.id;
 
-    const [lifecycleResult, publicationResult, experimentResult] = await Promise.all([
+    const [lifecycleResult, publicationResult, experimentResult, correctionsResult] = await Promise.all([
       admin
         .from("lesson_capability_lifecycle")
         .select("capability,status,ready_hash,ready_at")
@@ -522,10 +568,11 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
         .order("publication_version", { ascending: false }),
       admin
         .from("lesson_resources")
-        .select("resource_code,title,sort_order,metadata")
+         .select("id,resource_code,title,sort_order,metadata")
         .eq("lesson_id", lessonId)
         .eq("resource_type", "experiment")
         .order("sort_order", { ascending: true }),
+      admin.from("lesson_lab_corrections").select("old_resource_id").eq("lesson_id", lessonId),
     ]);
     if (lifecycleResult.error) {
       throw new Error(`LCPV2_STATUS_LIFECYCLE_READ_FAILED: ${lifecycleResult.error.message}`);
@@ -536,6 +583,8 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
     if (experimentResult.error) {
       throw new Error(`LCPV2_STATUS_EXPERIMENT_READ_FAILED: ${experimentResult.error.message}`);
     }
+    if (correctionsResult.error) throw new Error("LCPV2_STATUS_CORRECTION_READ_FAILED");
+    const replacedIds = new Set((correctionsResult.data ?? []).map((row) => row.old_resource_id));
 
     const lifecycleByCapability = new Map(
       (lifecycleResult.data ?? []).map((row) => [String(row.capability), row]),
@@ -563,6 +612,7 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
       return [
         {
           resourceCode,
+          resourceId: row.id,
           instanceIndex,
           instanceTitle: row.title ? String(row.title) : null,
           sortOrder: Number(row.sort_order ?? 5 + instanceIndex),
@@ -579,8 +629,8 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
       const lifecycle = lifecycleByCapability.get(lifecycleCapability);
       if (lifecycle?.status !== "READY") return [];
       const publication = latestPublication.get(capability);
-      if (capability === "labExperimentHtml" && managedExperiments.length > 0) {
-        return managedExperiments.map((experiment) => ({
+       if (capability === "labExperimentHtml" && managedExperiments.length > 0) {
+         return managedExperiments.filter((experiment) => !replacedIds.has(experiment.resourceId)).map((experiment) => ({
           lessonId: String(lessonId),
           capability,
           lifecycleCapability,

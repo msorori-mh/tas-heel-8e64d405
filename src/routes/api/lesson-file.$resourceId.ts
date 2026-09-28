@@ -77,6 +77,12 @@ async function authorize(request: Request, resourceId: string) {
   }
   if (!row) return { error: deny(404, "not_found") };
 
+  if (row.resource_type === "experiment") {
+    const { data: replaced, error: replacedError } = await supabase.rpc("is_replaced_lab_resource", { _resource_id: resourceId });
+    if (replacedError) return { error: deny(500, "replacement_check_failed") };
+    if (replaced) return { error: deny(404, "not_found") };
+  }
+
   const resource = row as unknown as ResourceRow;
 
   // Track / grade / publication gate — SECURITY DEFINER RPC, evaluated as the caller.

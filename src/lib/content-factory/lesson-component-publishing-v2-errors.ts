@@ -10,6 +10,16 @@ const ERROR_MESSAGES: Array<{
   action: string;
 }> = [
   {
+    pattern: /LAB_CORRECTION_(?:STALE_TARGET|SLOT_OCCUPIED)/i,
+    message: "تغيّرت التجربة المنشورة أو أصبح موضع النسخة الجديدة مشغولًا.",
+    action: "حدّث الصفحة وتحقق من التجربة المقصودة قبل إعادة رفع الملف.",
+  },
+  {
+    pattern: /LAB_CORRECTION_(?:REASON_REQUIRED|INSTANCE_INVALID|UNMANAGED_TARGET|INTAKE_INVALID)/i,
+    message: "تعذّر اعتماد التصحيح؛ لم تُستبدل التجربة المنشورة.",
+    action: "تحقق من سبب التصحيح والملف المختار، ثم أعد المحاولة.",
+  },
+  {
     pattern: /LCPV2_LAB_PUBLISHED_RESOURCE_IMMUTABLE_CONFLICT/i,
     message: "يوجد في هذا الموضع مورد تجربة منشور ببصمة أو عنوان مختلف.",
     action:

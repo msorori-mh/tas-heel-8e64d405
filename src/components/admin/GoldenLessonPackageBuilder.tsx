@@ -12,6 +12,7 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import {
+  correctLessonComponentV2Lab,
   createLessonComponentV2Upload,
   getLessonComponentServerPublicationStatus,
   publishLessonComponentV2,
@@ -167,6 +168,9 @@ interface UploadedArtifact {
   rowCount?: number;
   instanceIndex?: number;
   instanceTitle?: string;
+  replaceResourceId?: string;
+  replaceSha256?: string;
+  correctionReason?: string;
 }
 
 interface ArabicFilePickerProps {
@@ -565,6 +569,7 @@ export function GoldenLessonPackageBuilder() {
   const [serverLabPublications, setServerLabPublications] = useState<
     LessonComponentServerPublicationStatus[]
   >([]);
+  const [correctionTarget, setCorrectionTarget] = useState<string>("");
   const [serverPublicationsError, setServerPublicationsError] = useState<string | null>(null);
   const publishedCount = GOLDEN_CAPABILITIES.filter(
     (capability) => serverPublications[capability]?.visibleToStudent,
@@ -748,8 +753,18 @@ export function GoldenLessonPackageBuilder() {
               ...serverLabPublications.map((item) => item.instanceIndex ?? 0),
               ...current.map((item) => item.instanceIndex ?? 0),
             ) + 1;
-          return [...current, { ...verifiedUpload, instanceIndex: nextIndex, instanceTitle: "" }];
+          const target = serverLabPublications.find((item) => item.resourceId === correctionTarget);
+          return [...current, {
+            ...verifiedUpload, instanceIndex: nextIndex,
+            instanceTitle: target?.instanceTitle ?? "",
+            ...(target?.resourceId && target.sourceSha256 ? {
+              replaceResourceId: target.resourceId,
+              replaceSha256: target.sourceSha256,
+              correctionReason: "",
+            } : {}),
+          }];
         });
+        setCorrectionTarget("");
       } else {
         setUploads((current) => ({
           ...current,
@@ -1037,6 +1052,15 @@ export function GoldenLessonPackageBuilder() {
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ فحص الملف…" }));
     await verifyLessonComponentV2Upload({ data: { intakeId: slot.intakeId } });
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ نشر المكوّن…" }));
+    if (source.replaceResourceId && source.replaceSha256 && source.correctionReason) {
+      return await correctLessonComponentV2Lab({ data: {
+        intakeId: slot.intakeId,
+        oldResourceId: source.replaceResourceId,
+        expectedOldSha256: source.replaceSha256,
+        reason: source.correctionReason.trim(),
+      } });
+    }
+    if (source.replaceResourceId) throw new Error("LAB_CORRECTION_REASON_REQUIRED");
     return await publishLessonComponentV2({ data: { intakeId: slot.intakeId } });
   };
 
@@ -1049,6 +1073,10 @@ export function GoldenLessonPackageBuilder() {
           ? [uploads[capability]!]
           : [];
     if (sources.length === 0 || !selectedLessonCode) return;
+    if (sources.some((source) => source.replaceResourceId && (source.correctionReason?.trim().length ?? 0) < 10)) {
+      setCapabilityPublishError((current) => ({ ...current, [capability]: { message: "سبب التصحيح مطلوب", action: "اكتب سببًا واضحًا لا يقل عن 10 أحرف قبل النشر.", technicalDetail: "LAB_CORRECTION_REASON_REQUIRED" } }));
+      return;
+    }
     setCapabilityPublishBusy(capability);
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ رفع الملف…" }));
     setCapabilityPublishError((current) => {
@@ -1093,6 +1121,7 @@ export function GoldenLessonPackageBuilder() {
           publishedAt: new Date().toISOString(),
           visibleToStudent: true,
           ...(publication.resourceCode ? { resourceCode: publication.resourceCode } : {}),
+          ...(publication.resourceId ? { resourceId: publication.resourceId } : {}),
           ...(publication.instanceIndex !== undefined
             ? { instanceIndex: publication.instanceIndex }
             : {}),
@@ -1103,7 +1132,7 @@ export function GoldenLessonPackageBuilder() {
         setServerPublications((current) => ({ ...current, [capability]: status }));
         if (capability === "labExperimentHtml") {
           setServerLabPublications((current) =>
-            [...current.filter((item) => item.resourceCode !== status.resourceCode), status].sort(
+            [...current.filter((item) => item.resourceId !== source.replaceResourceId && item.resourceCode !== status.resourceCode), status].sort(
               (left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0),
             ),
           );
@@ -1466,6 +1495,22 @@ export function GoldenLessonPackageBuilder() {
                         تنزيل القالب المعتمد
                       </Button>
                     )}
+                    {capability === "labExperimentHtml" && serverLabPublications.length > 0 && (
+                      <div className="space-y-1">
+                        <Label>نوع الرفع</Label>
+                        <Select value={correctionTarget || "new"} onValueChange={(value) => setCorrectionTarget(value === "new" ? "" : value)}>
+                          <SelectTrigger aria-label="نوع رفع التجربة"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">إضافة تجربة جديدة</SelectItem>
+                            {serverLabPublications.filter((row) => row.resourceId && row.sourceSha256).map((row) => (
+                              <SelectItem key={row.resourceId} value={row.resourceId ?? ""}>
+                                تصحيح: {row.instanceTitle || row.resourceCode}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <ArabicFilePicker
                       id={`golden-artifact-${capability}`}
                       accept={
@@ -1552,6 +1597,15 @@ export function GoldenLessonPackageBuilder() {
                               </div>
                               {capability === "labExperimentHtml" && (
                                 <div className="mt-2 space-y-1">
+                                  {item.replaceResourceId && (
+                                    <div className="space-y-1">
+                                      <Label htmlFor={`lab-reason-${itemIndex}`}>سبب التصحيح</Label>
+                                      <Input id={`lab-reason-${itemIndex}`} maxLength={500}
+                                        value={item.correctionReason ?? ""}
+                                        placeholder="ما الذي تغير في التجربة؟"
+                                        onChange={(event) => setLabExperiments((current) => current.map((entry, index) => index === itemIndex ? { ...entry, correctionReason: event.target.value } : entry))} />
+                                    </div>
+                                  )}
                                   <Label htmlFor={`lab-title-${item.instanceIndex ?? itemIndex}`}>
                                     عنوان التجربة (اختياري)
                                   </Label>

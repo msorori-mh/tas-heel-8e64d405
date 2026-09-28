@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const owner = useRef<string | null>(null);
   const generation = useRef(0);
   const inFlight = useRef<{ generation: number; promise: Promise<Profile | null> } | null>(null);
+  const wasOffline = useRef(false);
 
   const loadProfile = useCallback((userId: string, force = false): Promise<Profile | null> => {
     if (owner.current !== userId) return Promise.resolve(null);
@@ -250,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!online) {
+      wasOffline.current = true;
       setIsAdmin(false);
       setIsContentManager(false);
       setIsContentStaff(false);
@@ -257,6 +259,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     // Revalidate roles after every reconnect, including sessions that were already
     // online when the connection dropped. Offline-only identities use the same path.
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
     const restoringOwner = offlineUser?.id ?? session?.user.id;
     if (!restoringOwner) return;
     const restoringGeneration = generation.current;

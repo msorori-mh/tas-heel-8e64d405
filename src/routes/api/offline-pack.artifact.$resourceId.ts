@@ -216,6 +216,11 @@ async function handle(
     return offlineApiError(500, "artifact_lookup_failed");
   }
   if (!loaded) return offlineApiError(404, "not_found");
+  if (parsed.sourceType === "lab-experiment") {
+    const { data: replaced, error: replacedError } = await caller.supabase.rpc("is_replaced_lab_resource", { _resource_id: parsed.sourceId });
+    if (replacedError) return offlineApiError(500, "replacement_check_failed");
+    if (replaced) return offlineApiError(404, "not_found");
+  }
 
   const { data: allowed, error: accessError } = await caller.supabase.rpc("can_access_lesson", {
     _lesson_id: loaded.lessonId,
