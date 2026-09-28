@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type Props = {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   subjectName?: string | null;
@@ -25,6 +26,7 @@ type Props = {
 };
 
 export function MathAnswerInput({
+  id,
   value,
   onChange,
   subjectName,
@@ -63,6 +65,8 @@ export function MathAnswerInput({
     <div className="space-y-2">
       <textarea
         ref={textareaRef}
+        id={id}
+        dir="auto"
         aria-label={ariaLabel}
         value={value}
         onChange={(event) => onChange(event.target.value)}
