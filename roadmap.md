@@ -5,7 +5,7 @@
 - [x] Verify profile locality and Google-only login against current behavior; no change needed.
 - [x] Debounce durable question-note writes and cap delivered outbox history.
 - [x] Revalidate staff roles after reconnect and show learning tools two per row on phones.
-- [ ] Published lab correction workflow: requires approval of an audited replacement strategy; do not mutate published resources in place.
+- [x] Published lab correction workflow: audited immutable replacement with explicit target and reason; no production publish.
 
 ## Done — MINISTERIAL_QUESTION_MEDIA_V1 (code only, no DB apply, no deploy)
 
