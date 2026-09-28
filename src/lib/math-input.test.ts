@@ -15,11 +15,12 @@ describe("science math keyboard", () => {
   });
 
   it("offers the keyboard for mathematical prompts even without subject metadata", () => {
+    expect(shouldOfferMathKeyboard({ questionText: "أوجد حل المعادلة س² - 4 = 0" })).toBe(true);
     expect(
-      shouldOfferMathKeyboard({ questionText: "أوجد حل المعادلة س² - 4 = 0" }),
-    ).toBe(true);
-    expect(
-      shouldOfferMathKeyboard({ questionText: "اشرح الفكرة بأسلوبك", subjectName: "اللغة العربية" }),
+      shouldOfferMathKeyboard({
+        questionText: "اشرح الفكرة بأسلوبك",
+        subjectName: "اللغة العربية",
+      }),
     ).toBe(false);
   });
 
