@@ -15,6 +15,13 @@
       "when": 1790562740040,
       "tag": "0001_audited_lab_experiment_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790562834877,
+      "tag": "0002_enforce_lab_correction_visibility",
+      "breakpoints": true
     }
   ]
 }

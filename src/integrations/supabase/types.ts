@@ -6340,6 +6340,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      is_replaced_lab_resource: {
+        Args: { _resource_id: string }
+        Returns: boolean
+      }
       lesson_capability_ready: {
         Args: { _capability: string; _lesson_id: string }
         Returns: boolean
