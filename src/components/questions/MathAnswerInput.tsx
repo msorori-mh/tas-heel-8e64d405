@@ -68,7 +68,10 @@ export function MathAnswerInput({
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={(event) => {
-          if (event.relatedTarget instanceof HTMLElement && event.relatedTarget.closest("[data-math-keyboard]")) {
+          if (
+            event.relatedTarget instanceof HTMLElement &&
+            event.relatedTarget.closest("[data-math-keyboard]")
+          ) {
             return;
           }
           setFocused(false);
@@ -103,7 +106,11 @@ export function MathAnswerInput({
               className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
               onClick={() => setExpanded((current) => !current)}
             >
-              {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+              {expanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronUp className="h-3.5 w-3.5" />
+              )}
               {expanded ? "أقل" : "المزيد"}
             </button>
           </div>
