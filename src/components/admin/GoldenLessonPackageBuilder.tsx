@@ -1495,6 +1495,22 @@ export function GoldenLessonPackageBuilder() {
                         تنزيل القالب المعتمد
                       </Button>
                     )}
+                    {capability === "labExperimentHtml" && serverLabPublications.length > 0 && (
+                      <div className="space-y-1">
+                        <Label>نوع الرفع</Label>
+                        <Select value={correctionTarget || "new"} onValueChange={(value) => setCorrectionTarget(value === "new" ? "" : value)}>
+                          <SelectTrigger aria-label="نوع رفع التجربة"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">إضافة تجربة جديدة</SelectItem>
+                            {serverLabPublications.filter((row) => row.resourceId && row.sourceSha256).map((row) => (
+                              <SelectItem key={row.resourceId} value={row.resourceId ?? ""}>
+                                تصحيح: {row.instanceTitle || row.resourceCode}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <ArabicFilePicker
                       id={`golden-artifact-${capability}`}
                       accept={
@@ -1581,6 +1597,15 @@ export function GoldenLessonPackageBuilder() {
                               </div>
                               {capability === "labExperimentHtml" && (
                                 <div className="mt-2 space-y-1">
+                                  {item.replaceResourceId && (
+                                    <div className="space-y-1">
+                                      <Label htmlFor={`lab-reason-${itemIndex}`}>سبب التصحيح</Label>
+                                      <Input id={`lab-reason-${itemIndex}`} maxLength={500}
+                                        value={item.correctionReason ?? ""}
+                                        placeholder="ما الذي تغير في التجربة؟"
+                                        onChange={(event) => setLabExperiments((current) => current.map((entry, index) => index === itemIndex ? { ...entry, correctionReason: event.target.value } : entry))} />
+                                    </div>
+                                  )}
                                   <Label htmlFor={`lab-title-${item.instanceIndex ?? itemIndex}`}>
                                     عنوان التجربة (اختياري)
                                   </Label>
