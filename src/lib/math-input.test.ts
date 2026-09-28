@@ -11,6 +11,7 @@ describe("science math keyboard", () => {
     expect(scienceInputProfile("الرياضيات")).toBe("math");
     expect(scienceInputProfile("فيزياء 3 ثانوي")).toBe("physics");
     expect(scienceInputProfile("الكيمياء")).toBe("chemistry");
+    expect(scienceInputProfile("الأحياء")).toBe("biology");
     expect(scienceInputProfile("اللغة العربية")).toBeNull();
   });
 
@@ -65,11 +66,32 @@ describe("science math keyboard", () => {
     ).toEqual({ value: "1234", cursor: 4 });
   });
 
-  it("provides chemistry-specific notation without dropping common math keys", () => {
-    const labels = keysForScienceProfile("chemistry").map((key) => key.label);
-    expect(labels).toContain("²");
-    expect(labels).toContain("→");
-    expect(labels).toContain("⇌");
-    expect(labels).toContain("₂");
+  it("provides Arabic school notation including strict inequalities", () => {
+    const labels = keysForScienceProfile("math").map((key) => key.label);
+    expect(labels).toContain("<");
+    expect(labels).toContain(">");
+    expect(labels).toContain("≤");
+    expect(labels).toContain("≥");
+    expect(labels).toContain("جا");
+    expect(labels).toContain("جتا");
+    expect(labels).toContain("ظا");
+    expect(labels).toContain("لو");
+    expect(labels).toContain("نها");
+  });
+
+  it("covers chemistry and biology secondary-school notation", () => {
+    const chemistry = keysForScienceProfile("chemistry").map((key) => key.label);
+    expect(chemistry).toContain("→");
+    expect(chemistry).toContain("⇌");
+    expect(chemistry).toContain("₂");
+    expect(chemistry).toContain("²⁺");
+    expect(chemistry).toContain("(ص)");
+    expect(chemistry).toContain("الرقم الهيدروجيني pH");
+
+    const biology = keysForScienceProfile("biology").map((key) => key.label);
+    expect(biology).toContain("أنثى ♀");
+    expect(biology).toContain("ذكر ♂");
+    expect(biology).toContain("DNA");
+    expect(biology).toContain("ATP");
   });
 });
