@@ -96,9 +96,9 @@ jobs:
       - name: Synchronize Capacitor Android project
         run: node node_modules/@capacitor/cli/bin/capacitor sync android
 
-      - name: Build debug app bundle
+      - name: Build debug app bundle and installable APK
         working-directory: android
-        run: ./gradlew bundleDebug --stacktrace
+        run: ./gradlew bundleDebug assembleDebug --stacktrace
 
       - name: Verify Play bundle structure and 16 KB native-library gate
         run: bash scripts/mobile/verify-play-aab.sh android/app/build/outputs/bundle/debug/app-debug.aab
@@ -108,6 +108,14 @@ jobs:
         with:
           name: tamkeen-android-debug-aab
           path: android/app/build/outputs/bundle/debug/app-debug.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamkeen-android-test-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
