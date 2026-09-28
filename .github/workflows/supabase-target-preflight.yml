@@ -1,0 +1,129 @@
+name: Supabase target read-only preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths: [".github/workflows/supabase-target-preflight.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  target-read-only:
+    if: >-
+      github.repository == 'msorori-mh/tas-heel-8e64d405' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.head_ref == 'feat/independent-build') ||
+       (github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/feat/independent-build'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      # No checkout: this probe never executes application code with secrets.
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.39.2
+
+      - name: Verify target identity and read-only database access
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TARGET_PROJECT_REF: yjpirilbpqxtmnayruht
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re, shutil, subprocess, sys, tempfile
+          import urllib.error, urllib.request, urllib.parse
+
+          ref = os.environ['TARGET_PROJECT_REF']
+          assert ref == 'yjpirilbpqxtmnayruht'
+          def fail(message):
+              print('::error::' + message)
+              sys.exit(1)
+          for key in ('SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD'):
+              if not os.environ.get(key, '').strip():
+                  fail('Missing repository secret: ' + key)
+
+          request = urllib.request.Request(
+              'https://api.supabase.com/v1/projects/' + ref,
+              headers={'Authorization': 'Bearer ' + os.environ['SUPABASE_ACCESS_TOKEN']})
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  project = json.load(response)
+          except urllib.error.HTTPError as error:
+              fail('Management API HTTP ' + str(error.code) + '; check token project scope and Project Settings read permission.')
+          except Exception:
+              fail('Management API connection failed; no response body or credentials logged.')
+          if project.get('id') != ref:
+              fail('Target project identity mismatch.')
+          print('PASS management access and target identity: ' + ref)
+          if not shutil.which('psql'):
+              fail('PostgreSQL client is unavailable on runner.')
+
+          with tempfile.TemporaryDirectory(prefix='tamkeen-preflight-') as directory:
+              # Fresh local CLI metadata only. No application migrations are present.
+              commands = [
+                  ['supabase', 'init'],
+                  ['supabase', 'link', '--project-ref', ref],
+              ]
+              for command in commands:
+                  result = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=150)
+                  if result.returncode:
+                      message = (result.stdout + result.stderr).lower()
+                      reason = ('authentication rejected' if any(x in message for x in ('password authentication', 'sasl', 'invalid password'))
+                                else 'access denied' if any(x in message for x in ('403', 'forbidden', 'permission'))
+                                else 'connection timeout' if 'timeout' in message else 'CLI step failed')
+                      fail(command[1] + ': ' + reason + '; raw output suppressed to protect credentials.')
+              pooler = pathlib.Path(directory, 'supabase', '.temp', 'pooler-url')
+              if not pooler.is_file():
+                  fail('CLI did not produce a pooler URL; no database query executed.')
+              # Some CLI versions bracket DNS pooler names as if they were IPv6.
+              connection = re.sub(r'@\[([a-z0-9.-]+\.pooler\.supabase\.com)\](?=[:/])',
+                                  r'@\1', pooler.read_text().strip())
+              try:
+                  scheme, rest = connection.split('://', 1)
+                  userinfo, address = rest.rsplit('@', 1)
+                  username = urllib.parse.unquote(userinfo.split(':', 1)[0])
+                  # CLI may include a literal [YOUR-PASSWORD] placeholder.
+                  # Discard all URI credentials; use only the supplied secret.
+                  url = urllib.parse.urlsplit(scheme + '://' + address)
+              except ValueError:
+                  fail('Invalid pooler URL format; connection string not logged.')
+              if ref not in username and url.hostname != 'db.' + ref + '.supabase.co':
+                  fail('Database connection does not identify the approved target.')
+              # Credentials stay in environment variables, never command arguments.
+              env = dict(os.environ, PGHOST=url.hostname, PGPORT=str(url.port or 5432),
+                         PGUSER=username, PGDATABASE=url.path.lstrip('/') or 'postgres',
+                         PGPASSWORD=os.environ['SUPABASE_DB_PASSWORD'], PGSSLMODE='require',
+                         PGCONNECT_TIMEOUT='20',
+                         PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=15000')
+              query = """
+              BEGIN READ ONLY;
+              SELECT json_build_object(
+                'read_only', current_setting('transaction_read_only'),
+                'public_tables', (SELECT count(*) FROM pg_tables WHERE schemaname='public'),
+                'academy_tables', (SELECT count(*) FROM pg_tables WHERE schemaname='academy'),
+                'auth_users', (SELECT count(*) FROM auth.users),
+                'storage_objects', (SELECT count(*) FROM storage.objects)
+              );
+              ROLLBACK;
+              """
+              result = subprocess.run(['psql', '-X', '-q', '-A', '-t', '-v', 'ON_ERROR_STOP=1'],
+                                      input=query, env=env, capture_output=True, text=True, timeout=45)
+              if result.returncode:
+                  fail('Read-only PostgreSQL connection/query failed; check the new project database password and connectivity.')
+              try:
+                  counts = json.loads(result.stdout.strip())
+                  assert counts['read_only'] == 'on'
+                  assert all(isinstance(counts[key], int) for key in ('public_tables', 'academy_tables', 'auth_users', 'storage_objects'))
+              except Exception:
+                  fail('Unexpected preflight response; raw output suppressed.')
+              print('PASS read-only database probe: ' + json.dumps(counts, sort_keys=True))
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                  summary.write('Target: `' + ref + '`\n\nRead-only preflight: PASS\n\n')
+                  summary.write('```json\n' + json.dumps(counts, indent=2) + '\n```\n')
+                  summary.write('\nNo migrations, imports, resets, or application writes were executed.\n')
+          PY

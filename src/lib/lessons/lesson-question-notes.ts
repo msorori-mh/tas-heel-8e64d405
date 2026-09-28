@@ -56,17 +56,24 @@ export function useLessonQuestionNotes(lessonId: string, studentId: string | nul
       const answerText = pending.current[questionId];
       if (answerText === undefined) return;
       delete pending.current[questionId];
-      writes.current = writes.current.catch(() => undefined).then(async () => {
-        setSavingIds((ids) => (ids.includes(questionId) ? ids : [...ids, questionId]));
-        try {
-          await saveOfflineOfficialQuestionNote({ ownerId: studentId, lessonId, questionId, answerText });
-          await syncOfflineOutboxForCurrentSession();
-        } catch {
-          /* Once committed, the durable operation remains queued for reconnect/focus retry. */
-        } finally {
-          setSavingIds((ids) => ids.filter((id) => id !== questionId));
-        }
-      });
+      writes.current = writes.current
+        .catch(() => undefined)
+        .then(async () => {
+          setSavingIds((ids) => (ids.includes(questionId) ? ids : [...ids, questionId]));
+          try {
+            await saveOfflineOfficialQuestionNote({
+              ownerId: studentId,
+              lessonId,
+              questionId,
+              answerText,
+            });
+            await syncOfflineOutboxForCurrentSession();
+          } catch {
+            /* Once committed, the durable operation remains queued for reconnect/focus retry. */
+          } finally {
+            setSavingIds((ids) => ids.filter((id) => id !== questionId));
+          }
+        });
     },
     [studentId, lessonId],
   );

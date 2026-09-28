@@ -106,6 +106,9 @@ jobs:
           npm run build
           npm run academy:build
 
+      - name: Smoke test the independent Node production server
+        run: npm run test:independent-server
+
   teacher-academy-pg17:
     name: Teacher Academy MVP PG17 contract
     runs-on: ubuntu-latest

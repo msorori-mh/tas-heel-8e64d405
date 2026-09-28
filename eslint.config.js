@@ -9,7 +9,9 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "dist-academy",
       ".output",
+      ".nitro",
       ".vinxi",
       // Supabase CLI output; formatting it would be overwritten on the next schema generation.
       "src/integrations/supabase/types.ts",
