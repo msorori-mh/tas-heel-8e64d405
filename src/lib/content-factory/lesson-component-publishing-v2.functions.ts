@@ -499,6 +499,44 @@ export const publishLessonComponentV2 = createServerFn({ method: "POST" })
     };
   });
 
+/** Atomic, audited lab replacement; the original resource remains immutable. */
+export const correctLessonComponentV2Lab = createServerFn({ method: "POST" })
+  .middleware([requireContentStaffAuth])
+  .inputValidator((input) => CorrectLabInput.parse(input))
+  .handler(async ({ data, context }): Promise<LessonComponentV2Publication> => {
+    const { supabase, isFullAdmin } = context as ContentStaffAuthContext;
+    if (!isFullAdmin) throw new Error("LAB_CORRECTION_NOT_AUTHORIZED");
+    const published = assertRpc(
+      await (supabase as unknown as { rpc: Rpc }).rpc("lesson_component_correct_lab_v2", {
+        _intake_id: data.intakeId,
+        _old_resource_id: data.oldResourceId,
+        _expected_old_sha256: data.expectedOldSha256,
+        _reason: data.reason,
+      }),
+      "LAB_CORRECTION_FAILED",
+    );
+    if (published["student_can_see_this_component"] !== true) throw new Error("LAB_CORRECTION_NOT_VISIBLE");
+    return {
+      intakeId: String(published["intake_id"]),
+      lessonId: String(published["lesson_id"]),
+      capability: "labExperimentHtml",
+      lifecycleCapability: String(published["lifecycle_capability"]),
+      publicationVersion: Number(published["publication_version"]),
+      sourceSha256: String(published["source_sha256"]),
+      status: "READY", studentCanSeeThisComponent: true,
+      idempotent: false, writesPerformed: Number(published["writes_performed"]),
+      resourceCode: String(published["resource_code"]),
+      resourceId: String(published["new_resource_id"]),
+      instanceIndex: Number(published["instance_index"]),
+      instanceTitle: String(published["instance_title"]),
+      steps: [
+        { key: "upload", label: "رفع الملف", detail: "تم" },
+        { key: "verify", label: "فحص الملف", detail: "تم" },
+        { key: "publish", label: "اعتماد التصحيح", detail: "تم — النسخة السابقة محفوظة للتدقيق" },
+      ],
+    };
+  });
+
 /** Read-only server truth for the seven components currently visible to students. */
 export const getLessonComponentServerPublicationStatus = createServerFn({ method: "GET" })
   .middleware([requireContentStaffAuth])
@@ -530,7 +568,7 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
         .order("publication_version", { ascending: false }),
       admin
         .from("lesson_resources")
-        .select("resource_code,title,sort_order,metadata")
+         .select("id,resource_code,title,sort_order,metadata")
         .eq("lesson_id", lessonId)
         .eq("resource_type", "experiment")
         .order("sort_order", { ascending: true }),
@@ -571,6 +609,7 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
       return [
         {
           resourceCode,
+          resourceId: row.id,
           instanceIndex,
           instanceTitle: row.title ? String(row.title) : null,
           sortOrder: Number(row.sort_order ?? 5 + instanceIndex),
@@ -587,8 +626,8 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
       const lifecycle = lifecycleByCapability.get(lifecycleCapability);
       if (lifecycle?.status !== "READY") return [];
       const publication = latestPublication.get(capability);
-      if (capability === "labExperimentHtml" && managedExperiments.length > 0) {
-        return managedExperiments.map((experiment) => ({
+       if (capability === "labExperimentHtml" && managedExperiments.length > 0) {
+         return managedExperiments.filter((experiment) => !replacedIds.has(experiment.resourceId)).map((experiment) => ({
           lessonId: String(lessonId),
           capability,
           lifecycleCapability,
