@@ -20,6 +20,8 @@ describe("scientific answer keyboard wiring", () => {
     expect(component).toContain("setSelectionRange");
     expect(component).toContain("لوحة الرموز العلمية");
     expect(component).toContain("إظهار الرموز الرياضية");
+    expect(component).toContain("الناتج مباشرة:");
+    expect(component).toContain("evaluateArabicMathPreview");
   });
 
   it("passes subject and question context so non-science text answers stay simple", () => {
@@ -35,6 +37,12 @@ describe("scientific answer keyboard wiring", () => {
     expect(offline).toContain("لوحة الرموز العلمية");
     expect(offline).toContain('["<", "<"]');
     expect(offline).toContain('[" >", ">"]'.replace(" ", ""));
+    expect(offline).toContain('["[", "["]');
+    expect(offline).toContain('["{", "{"]');
+    expect(offline).toContain('["−∞", "−∞"]');
+    expect(offline).toContain('["Δ المميز", "Δ=ب²−٤أج"]');
+    expect(offline).toContain("evaluateScienceInput");
+    expect(offline).toContain("الناتج مباشرة:");
     expect(offline).toContain('["جا", "جا()"]');
     expect(offline).toContain('["جتا", "جتا()"]');
     expect(offline).toContain('["ظا", "ظا()"]');

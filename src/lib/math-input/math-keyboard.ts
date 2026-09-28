@@ -132,6 +132,7 @@ export const MATH_KEYS: MathKey[] = [
   { id: "sum", label: "∑", insert: "∑", group: "calculus", profiles: mathPhysics, ariaLabel: "مجموع" },
   { id: "partial", label: "∂", insert: "∂", group: "calculus", profiles: mathPhysics, ariaLabel: "مشتقة جزئية" },
   { id: "infinity", label: "∞", insert: "∞", group: "calculus", profiles: mathPhysics, ariaLabel: "مالانهاية" },
+  { id: "negative-infinity", label: "−∞", insert: "−∞", group: "calculus", profiles: mathPhysics, ariaLabel: "سالب مالانهاية" },
   { id: "delta", label: "Δ", insert: "Δ", group: "calculus", profiles: science, ariaLabel: "دلتا، التغير" },
 
   { id: "angle", label: "∠", insert: "∠", group: "geometry", profiles: mathPhysics, ariaLabel: "زاوية" },
@@ -208,10 +209,106 @@ export const MATH_KEYS: MathKey[] = [
 ];
 
 export function keysForScienceProfile(profile: ScienceInputProfile | null): MathKey[] {
-  if (!profile) {
-    return MATH_KEYS.filter((key) => ["basic", "relations"].includes(key.group)).slice(0, 24);
+  const keys = profile
+    ? MATH_KEYS.filter((key) => !key.profiles || key.profiles.includes(profile))
+    : MATH_KEYS.filter((key) => ["basic", "relations"].includes(key.group)).slice(0, 24);
+
+  if (profile !== "math") return keys;
+  return keys.map((key) =>
+    key.id === "delta"
+      ? {
+          ...key,
+          label: "Δ المميز",
+          insert: "Δ=ب²−٤أج",
+          ariaLabel: "دلتا المميز: ب تربيع ناقص أربعة ألف جيم",
+        }
+      : key,
+  );
+}
+
+const ARABIC_DIGITS: Record<string, string> = {
+  "٠": "0",
+  "١": "1",
+  "٢": "2",
+  "٣": "3",
+  "٤": "4",
+  "٥": "5",
+  "٦": "6",
+  "٧": "7",
+  "٨": "8",
+  "٩": "9",
+  "۰": "0",
+  "۱": "1",
+  "۲": "2",
+  "۳": "3",
+  "۴": "4",
+  "۵": "5",
+  "۶": "6",
+  "۷": "7",
+  "۸": "8",
+  "۹": "9",
+};
+
+function normalizeArabicNumber(value: string): string {
+  return value
+    .replace(/[٠-٩۰-۹]/g, (digit) => ARABIC_DIGITS[digit] ?? digit)
+    .replace(/٫/g, ".")
+    .replace(/−/g, "-")
+    .trim();
+}
+
+function roundedMathResult(value: number): string {
+  if (!Number.isFinite(value)) return "غير معرّف";
+  const normalized = Math.abs(value) < 1e-12 ? 0 : value;
+  return Number(normalized.toFixed(10)).toString();
+}
+
+export function evaluateArabicMathPreview(value: string): string | null {
+  const normalized = normalizeArabicNumber(value);
+  const match = normalized.match(
+    /^(جا|جتا|ظا|ظتا|قا|قتا|لو هـ|لو|√)\s*\(\s*([+-]?\d+(?:\.\d+)?)\s*\)$/,
+  );
+  if (!match) return null;
+
+  const fn = match[1];
+  const input = Number(match[2]);
+  if (!Number.isFinite(input)) return null;
+
+  let result: number;
+  if (fn === "لو") {
+    if (input <= 0) return "غير معرّف";
+    result = Math.log10(input);
+  } else if (fn === "لو هـ") {
+    if (input <= 0) return "غير معرّف";
+    result = Math.log(input);
+  } else if (fn === "√") {
+    if (input < 0) return "غير معرّف";
+    result = Math.sqrt(input);
+  } else {
+    const radians = (input * Math.PI) / 180;
+    if (fn === "جا") result = Math.sin(radians);
+    else if (fn === "جتا") result = Math.cos(radians);
+    else if (fn === "ظا") {
+      if (Math.abs(Math.cos(radians)) < 1e-12) return "غير معرّف";
+      result = Math.tan(radians);
+    } else if (fn === "ظتا") {
+      if (Math.abs(Math.sin(radians)) < 1e-12) return "غير معرّف";
+      result = Math.cos(radians) / Math.sin(radians);
+    } else if (fn === "قا") {
+      if (Math.abs(Math.cos(radians)) < 1e-12) return "غير معرّف";
+      result = 1 / Math.cos(radians);
+    } else {
+      if (Math.abs(Math.sin(radians)) < 1e-12) return "غير معرّف";
+      result = 1 / Math.sin(radians);
+    }
   }
-  return MATH_KEYS.filter((key) => !key.profiles || key.profiles.includes(profile));
+
+  return roundedMathResult(result);
+}
+
+export function mathContextHint(value: string, profile: ScienceInputProfile | null): string | null {
+  if (profile === "math" && /Δ/.test(value)) return "قانون المميز: Δ = ب² − ٤أج";
+  return null;
 }
 
 export function insertMathToken(input: {

@@ -2,8 +2,10 @@ import { useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Sigma } from "lucide-react";
 
 import {
+  evaluateArabicMathPreview,
   insertMathToken,
   keysForScienceProfile,
+  mathContextHint,
   MATH_GROUP_LABELS,
   scienceInputProfile,
   shouldOfferMathKeyboard,
@@ -56,6 +58,8 @@ export function MathAnswerInput({
       })),
     [keys],
   );
+  const liveResult = useMemo(() => evaluateArabicMathPreview(value), [value]);
+  const contextHint = useMemo(() => mathContextHint(value, profile), [value, profile]);
 
   const insert = (key: MathKey) => {
     const textarea = textareaRef.current;
@@ -100,6 +104,18 @@ export function MathAnswerInput({
           className,
         )}
       />
+
+      {enabled && (liveResult !== null || contextHint) ? (
+        <div className="rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs leading-relaxed text-foreground">
+          {liveResult !== null ? (
+            <p>
+              <span className="font-semibold">الناتج مباشرة:</span>{" "}
+              <bdi dir="ltr">{liveResult}</bdi>
+            </p>
+          ) : null}
+          {contextHint ? <p className={liveResult !== null ? "mt-1" : ""}>{contextHint}</p> : null}
+        </div>
+      ) : null}
 
       {enabled && (focused || expanded) ? (
         <div

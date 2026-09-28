@@ -629,7 +629,8 @@
           var common = [
             ["=", "="], ["<", "<"], [">", ">"], ["≤", "≤"], ["≥", "≥"], ["≠", "≠"],
             ["≈", "≈"], ["²", "²"], ["³", "³"], ["√", "√()"], ["كسر", "()/()"],
-            ["(", "("], [")", ")"], ["±", "±"], ["×", "×"], ["÷", "÷"], ["%", "%"],
+            ["(", "("], [")", ")"], ["[", "["], ["]", "]"], ["{", "{"], ["}", "}"],
+            ["±", "±"], ["×", "×"], ["÷", "÷"], ["%", "%"],
             ["₀", "₀"], ["₁", "₁"], ["₂", "₂"], ["₃", "₃"], ["₄", "₄"], ["₅", "₅"],
             ["₆", "₆"], ["₇", "₇"], ["₈", "₈"], ["₉", "₉"]
           ];
@@ -637,20 +638,20 @@
           if (math || physics) {
             common.push(
               ["ط", "ط"], ["جا", "جا()"], ["جتا", "جتا()"], ["ظا", "ظا()"],
-              ["لو", "لو()"], ["لو هـ", "لو هـ()"], ["∞", "∞"], ["Δ", "Δ"],
+              ["لو", "لو()"], ["لو هـ", "لو هـ()"], ["∞", "∞"], ["−∞", "−∞"],
               ["∫", "∫"], ["∑", "∑"], ["∠", "∠"], ["°", "°"], ["θ", "θ"]
             );
           }
           if (math) {
             common.push(
               ["ظتا", "ظتا()"], ["قا", "قا()"], ["قتا", "قتا()"], ["نها", "نها()"],
-              ["د/دس", "د()/دس"], ["∈", "∈"], ["∉", "∉"], ["⊂", "⊂"], ["⊆", "⊆"],
+              ["Δ المميز", "Δ=ب²−٤أج"], ["د/دس", "د()/دس"], ["∈", "∈"], ["∉", "∉"], ["⊂", "⊂"], ["⊆", "⊆"],
               ["∪", "∪"], ["∩", "∩"], ["∅", "∅"], ["∥", "∥"], ["⊥", "⊥"], ["≅", "≅"]
             );
           }
           if (physics) {
             common.push(
-              ["α", "α"], ["β", "β"], ["γ", "γ"], ["λ", "λ"], ["μ", "μ"],
+              ["Δ", "Δ"], ["α", "α"], ["β", "β"], ["γ", "γ"], ["λ", "λ"], ["μ", "μ"],
               ["ρ", "ρ"], ["σ", "σ"], ["ω", "ω"], ["Ω", "Ω"], ["φ", "φ"],
               ["نيوتن N", "N"], ["جول J", "J"], ["واط W", "W"], ["فولت V", "V"],
               ["أمبير A", "A"], ["هرتز Hz", "Hz"]
@@ -659,8 +660,8 @@
           if (chemistry) {
             common.push(
               ["→", "→"], ["⇌", "⇌"], ["↑", "↑"], ["↓", "↓"], ["⁺", "⁺"], ["⁻", "⁻"],
-              ["²⁺", "²⁺"], ["³⁺", "³⁺"], ["²⁻", "²⁻"], ["(ص)", "(s)"], ["(س)", "(l)"],
-              ["(غ)", "(g)"], ["(م)", "(aq)"], ["إلكترون", "e⁻"], ["تسخين", "Δ"],
+              ["²⁺", "²⁺"], ["³⁺", "³⁺"], ["²⁻", "²⁻"], ["(ص)", "(ص)"], ["(س)", "(س)"],
+              ["(غ)", "(غ)"], ["(م)", "(م)"], ["إلكترون", "e⁻"], ["تسخين", "Δ"],
               ["مول mol", "mol"], ["مولاري M", "M"], ["الرقم الهيدروجيني pH", "pH"]
             );
           }
@@ -673,12 +674,80 @@
           return common;
         }
 
+        function normalizeScienceNumber(value) {
+          var digits = {"٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"};
+          return String(value || "").replace(/[٠-٩]/g, function (digit) { return digits[digit] || digit; })
+            .replace(/٫/g, ".").replace(/−/g, "-").trim();
+        }
+
+        function evaluateScienceInput(value) {
+          var normalized = normalizeScienceNumber(value);
+          var match = normalized.match(/^(جا|جتا|ظا|ظتا|قا|قتا|لو هـ|لو|√)\s*\(\s*([+-]?\d+(?:\.\d+)?)\s*\)$/);
+          if (!match) return null;
+          var fn = match[1];
+          var input = Number(match[2]);
+          if (!Number.isFinite(input)) return null;
+          var result;
+          if (fn === "لو") {
+            if (input <= 0) return "غير معرّف";
+            result = Math.log10(input);
+          } else if (fn === "لو هـ") {
+            if (input <= 0) return "غير معرّف";
+            result = Math.log(input);
+          } else if (fn === "√") {
+            if (input < 0) return "غير معرّف";
+            result = Math.sqrt(input);
+          } else {
+            var radians = input * Math.PI / 180;
+            if (fn === "جا") result = Math.sin(radians);
+            else if (fn === "جتا") result = Math.cos(radians);
+            else if (fn === "ظا") {
+              if (Math.abs(Math.cos(radians)) < 1e-12) return "غير معرّف";
+              result = Math.tan(radians);
+            } else if (fn === "ظتا") {
+              if (Math.abs(Math.sin(radians)) < 1e-12) return "غير معرّف";
+              result = Math.cos(radians) / Math.sin(radians);
+            } else if (fn === "قا") {
+              if (Math.abs(Math.cos(radians)) < 1e-12) return "غير معرّف";
+              result = 1 / Math.cos(radians);
+            } else {
+              if (Math.abs(Math.sin(radians)) < 1e-12) return "غير معرّف";
+              result = 1 / Math.sin(radians);
+            }
+          }
+          if (!Number.isFinite(result)) return "غير معرّف";
+          if (Math.abs(result) < 1e-12) result = 0;
+          return String(Number(result.toFixed(10)));
+        }
+
         function attachMathKeyboard(input, subjectTitle) {
           var keys = scienceMathKeys(subjectTitle);
           if (!keys.length) return null;
           var keyboard = document.createElement("div");
           keyboard.className = "math-keyboard";
           appendText(keyboard, "p", "math-keyboard-label", "لوحة الرموز العلمية");
+          var preview = document.createElement("p");
+          preview.className = "math-keyboard-label";
+          preview.style.color = "#0f8f6f";
+          preview.hidden = true;
+          keyboard.appendChild(preview);
+          var updatePreview = function () {
+            var result = evaluateScienceInput(input.value);
+            var isMath = /رياضيات|جبر|هندسة|تفاضل|تكامل|احتمال|إحصاء/.test(String(subjectTitle || ""));
+            var deltaHint = isMath && /Δ/.test(input.value) ? "قانون المميز: Δ = ب² − ٤أج" : "";
+            if (result !== null) {
+              preview.textContent = "الناتج مباشرة: " + result + (deltaHint ? " — " + deltaHint : "");
+              preview.hidden = false;
+            } else if (deltaHint) {
+              preview.textContent = deltaHint;
+              preview.hidden = false;
+            } else {
+              preview.hidden = true;
+              preview.textContent = "";
+            }
+          };
+          input.addEventListener("input", updatePreview);
+          updatePreview();
           keys.forEach(function (entry) {
             var button = document.createElement("button");
             button.type = "button";
@@ -692,6 +761,7 @@
               if (/\(\)$/.test(token)) cursor -= 1;
               input.focus();
               input.setSelectionRange(cursor, cursor);
+              updatePreview();
             });
             keyboard.appendChild(button);
           });
