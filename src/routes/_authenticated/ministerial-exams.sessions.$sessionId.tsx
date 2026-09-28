@@ -359,7 +359,6 @@ function MinisterialSessionPage() {
               disabled={questionLocked || textAnswerMutation.isPending}
               subjectName={data.model?.subject_name ?? null}
               questionText={current.question_text}
-              questionType={current.interaction_type ?? null}
               placeholder="اكتب إجابتك هنا، ثم احفظها أو اعرض الإجابة النموذجية للتأكد."
               onChange={(value) =>
                 setTextAnswers((previous) => ({
