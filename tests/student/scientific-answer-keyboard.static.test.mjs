@@ -33,7 +33,13 @@ describe("scientific answer keyboard wiring", () => {
     expect(offline).toContain("function scienceMathKeys(subjectTitle)");
     expect(offline).toContain("function attachMathKeyboard(input, subjectTitle)");
     expect(offline).toContain("لوحة الرموز العلمية");
-    expect(offline).toContain('common.push(["→", "→"], ["⇌", "⇌"]');
+    expect(offline).toContain('["<", "<"]');
+    expect(offline).toContain('[" >", ">"]'.replace(" ", ""));
+    expect(offline).toContain('["جا", "جا()"]');
+    expect(offline).toContain('["جتا", "جتا()"]');
+    expect(offline).toContain('["ظا", "ظا()"]');
+    expect(offline).toContain('["→", "→"]');
+    expect(offline).toContain('["⇌", "⇌"]');
     expect(offline).toContain("setSelectionRange(cursor, cursor)");
   });
 });
