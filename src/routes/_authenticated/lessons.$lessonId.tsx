@@ -4,6 +4,7 @@ import { readSavedSubjects } from "@/lib/offline/student-shell-cache";
 import { ConnectionRequired } from "@/components/offline/ConnectionRequired";
 import { LessonCapabilityTabs } from "@/components/lessons/LessonCapabilityTabs";
 import { QuestionFigure } from "@/components/lessons/QuestionFigure";
+import { MathAnswerInput } from "@/components/questions/MathAnswerInput";
 import { parseQuestionImage, type QuestionImage } from "@/lib/lessons/question-image";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -1029,6 +1030,7 @@ function LessonPage() {
                     lessonId={lessonId}
                     index={idx + 1}
                     q={q}
+                    subjectName={subject?.name ?? null}
                     savedAnswer={questionNotes.notes[q.id] ?? ""}
                     onAnswerChange={questionNotes.saveNote}
                     saving={questionNotes.savingIds.includes(q.id)}
@@ -1279,6 +1281,7 @@ function OfficialBookQuestionCard({
   lessonId,
   index,
   q,
+  subjectName,
   savedAnswer,
   onAnswerChange,
   saving,
@@ -1287,6 +1290,7 @@ function OfficialBookQuestionCard({
   lessonId: string;
   index: number;
   q: LessonQuestionRow;
+  subjectName: string | null;
   savedAnswer: string;
   onAnswerChange: (questionId: string, answerText: string) => void;
   saving: boolean;
@@ -1411,15 +1415,16 @@ function OfficialBookQuestionCard({
         </div>
       ) : (
         <div className="space-y-1">
-          <textarea
-            aria-label={`إجابة السؤال ${index}`}
+          <MathAnswerInput
+            ariaLabel={`إجابة السؤال ${index}`}
             value={answer}
-            onChange={(event) => handleAnswerInput(event.target.value)}
+            onChange={handleAnswerInput}
+            subjectName={subjectName}
+            questionText={q.question_text}
+            questionType={q.question_type}
             rows={extendedAnswer ? 7 : 4}
             placeholder="اكتب إجابتك هنا…"
-            className={`w-full resize-y rounded-lg border border-border bg-card p-3 text-right text-sm leading-relaxed text-card-foreground outline-none focus:border-primary ${
-              extendedAnswer ? "min-h-40" : "min-h-24"
-            }`}
+            className={extendedAnswer ? "min-h-40" : "min-h-24"}
           />
           <p className="text-[11px] text-muted-foreground">
             {saving ? "جارٍ حفظ إجابتك…" : "تُحفظ إجابتك تلقائيًا ويمكنك مراجعتها لاحقًا."}
