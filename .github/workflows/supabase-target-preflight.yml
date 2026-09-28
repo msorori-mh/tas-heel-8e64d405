@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, shutil, subprocess, sys, tempfile
+          import json, os, pathlib, re, shutil, subprocess, sys, tempfile
           import urllib.error, urllib.request, urllib.parse
 
           ref = os.environ['TARGET_PROJECT_REF']
@@ -80,7 +80,13 @@ jobs:
               pooler = pathlib.Path(directory, 'supabase', '.temp', 'pooler-url')
               if not pooler.is_file():
                   fail('CLI did not produce a pooler URL; no database query executed.')
-              url = urllib.parse.urlsplit(pooler.read_text().strip())
+              # Some CLI versions bracket DNS pooler names as if they were IPv6.
+              connection = re.sub(r'@\[([a-z0-9.-]+\.pooler\.supabase\.com)\](?=[:/])',
+                                  r'@\1', pooler.read_text().strip())
+              try:
+                  url = urllib.parse.urlsplit(connection)
+              except ValueError:
+                  fail('Invalid pooler URL format; connection string not logged.')
               username = urllib.parse.unquote(url.username or '')
               if ref not in username and url.hostname != 'db.' + ref + '.supabase.co':
                   fail('Database connection does not identify the approved target.')
