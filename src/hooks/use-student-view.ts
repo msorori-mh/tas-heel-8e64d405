@@ -24,9 +24,17 @@ export function useStudentView<T>(options: {
         const saved = await readStudentView<T>(user!.id, options.queryKey);
         return saved ?? (await options.offline());
       }
-      const data = await options.queryFn();
-      await rememberStudentView(user!.id, options.queryKey, data).catch(() => undefined);
-      return data;
+      try {
+        const data = await options.queryFn();
+        await rememberStudentView(user!.id, options.queryKey, data).catch(() => undefined);
+        return data;
+      } catch (error) {
+        const saved = await readStudentView<T>(user!.id, options.queryKey);
+        if (saved !== undefined) return saved;
+        const offline = await options.offline();
+        if (offline !== undefined) return offline;
+        throw error;
+      }
     },
   });
 }
