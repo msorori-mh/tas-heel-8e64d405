@@ -65,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const generation = useRef(0);
   const inFlight = useRef<{ generation: number; promise: Promise<Profile | null> } | null>(null);
   const wasOffline = useRef(false);
+  const rememberedIdentity = useRef<Awaited<ReturnType<typeof readStudentIdentity>>>(null);
+  const explicitSignOut = useRef(false);
 
   const loadProfile = useCallback((userId: string, force = false): Promise<Profile | null> => {
     if (owner.current !== userId) return Promise.resolve(null);
@@ -143,11 +145,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const acceptSession = (sess: Session | null, refresh = false) => {
       if (!mounted) return;
-      // A missing SDK session during an offline refresh is not an explicit sign-out.
-      if (!sess && !navigator.onLine) {
+
+      if (!sess && !explicitSignOut.current) {
+        const saved = rememberedIdentity.current;
+        setSession(null);
+        setIsAdmin(false);
+        setIsContentManager(false);
+        setIsContentStaff(false);
+        if (saved) {
+          initialized = true;
+          owner.current = saved.user.id;
+          setOfflineUser(saved.user);
+          setProfile(saved.profile);
+          setLoading(false);
+          void setActiveOfflineOwner(saved.user.id).catch(() => undefined);
+          return;
+        }
+        // A missing SDK session is not by itself proof that the student chose
+        // to sign out. The durable identity bootstrap may still be resolving.
         setLoading(false);
         return;
       }
+
       const uid = sess?.user?.id ?? null;
       const changed = !initialized || owner.current !== uid;
       initialized = true;
@@ -179,17 +198,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       timers.add(timer);
     };
 
-    // Restore the local student identity independently of SDK token refresh, which
-    // can wait for a network that does not exist on an airplane-mode cold start.
+    // Restore the durable student identity on every cold start, online or offline.
+    // This is the long-lived local lease that keeps the student inside the app
+    // while Supabase silently restores/refreshes the network session in parallel.
     const bootstrapGeneration = generation.current;
     void (async () => {
-      if ((await getNetworkState()).online) return;
       const saved = await readStudentIdentity();
-      if (!mounted || navigator.onLine || !saved) {
-        if (mounted && !navigator.onLine) setLoading(false);
+      if (!mounted || !saved || explicitSignOut.current) {
+        if (mounted && !initialized) setLoading(false);
         return;
       }
+      rememberedIdentity.current = saved;
       if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
+      if (session?.user?.id && session.user.id !== saved.user.id) return;
       owner.current = saved.user.id;
       initialized = true;
       setOfflineUser(saved.user);
@@ -198,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(false);
       setIsContentManager(false);
       setIsContentStaff(false);
+      void setActiveOfflineOwner(saved.user.id).catch(() => undefined);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
@@ -211,12 +233,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         /* Storage may be unavailable. */
       }
-      if (event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT" && explicitSignOut.current) {
         setIsAdmin(false);
         setIsContentManager(false);
         setIsContentStaff(false);
         generation.current += 1;
         owner.current = null;
+        rememberedIdentity.current = null;
         setOfflineUser(null);
         setProfile(null);
         setSession(null);
@@ -271,24 +294,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!error && data.user?.id === restoringOwner) {
           await loadProfile(data.user.id, true);
         } else if (error && !isAuthRetryableFetchError(error)) {
-          generation.current += 1;
-          owner.current = null;
-          setOfflineUser(null);
+          // Do not turn a server-side refresh failure into a local logout.
+          // Keep the durable student lease so the app still opens immediately;
+          // authenticated network calls remain protected by Supabase/RLS.
           setSession(null);
-          setProfile(null);
           setIsAdmin(false);
           setIsContentManager(false);
           setIsContentStaff(false);
-          await forgetStudentIdentity();
-          await setActiveOfflineOwner(null).catch(() => undefined);
+          const saved = rememberedIdentity.current ?? (await readStudentIdentity());
+          if (saved && saved.user.id === restoringOwner) {
+            rememberedIdentity.current = saved;
+            owner.current = saved.user.id;
+            setOfflineUser(saved.user);
+            setProfile(saved.profile);
+            setLoading(false);
+            await setActiveOfflineOwner(saved.user.id).catch(() => undefined);
+          }
         }
       })
       .catch(() => undefined);
   }, [online, offlineUser, session?.user.id, loadProfile]);
 
   const signOut = useCallback(async () => {
+    explicitSignOut.current = true;
     generation.current += 1;
     owner.current = null;
+    rememberedIdentity.current = null;
     setOfflineUser(null);
     setSession(null);
     setProfile(null);
@@ -297,7 +328,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsContentStaff(false);
     await forgetStudentIdentity();
     await setActiveOfflineOwner(null).catch(() => undefined);
-    await supabase.auth.signOut(navigator.onLine ? undefined : { scope: "local" });
+    try {
+      await supabase.auth.signOut(navigator.onLine ? undefined : { scope: "local" });
+    } finally {
+      explicitSignOut.current = false;
+    }
   }, []);
 
   return (
