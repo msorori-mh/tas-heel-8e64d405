@@ -155,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let receivedAuthEvent = false;
     let initialized = false;
+    let identityBootstrapResolved = false;
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const queuedLoads = new Set<number>();
 
@@ -177,8 +178,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         // A missing SDK session is not by itself proof that the student chose
-        // to sign out. The durable identity bootstrap may still be resolving.
-        setLoading(false);
+        // to sign out. Keep the gate loading until the durable identity read
+        // resolves so the login screen never flashes on a remembered account.
+        if (identityBootstrapResolved) setLoading(false);
         return;
       }
 
@@ -219,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const bootstrapGeneration = generation.current;
     void (async () => {
       const saved = await readStudentIdentity();
+      identityBootstrapResolved = true;
       if (!mounted || !saved || explicitSignOut.current) {
         if (mounted && !initialized) setLoading(false);
         return;
