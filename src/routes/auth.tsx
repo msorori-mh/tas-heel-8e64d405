@@ -56,14 +56,14 @@ function GoogleMark() {
 
 function StudentAuthPage() {
   const navigate = useNavigate();
-  const { session, profileComplete, loading } = useAuth();
+  const { user, profileComplete, loading } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
-    if (session) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
-  }, [session, loading, profileComplete, navigate]);
+    if (user) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
+  }, [user, loading, profileComplete, navigate]);
 
   async function continueWithGoogle() {
     setBusy(true);
