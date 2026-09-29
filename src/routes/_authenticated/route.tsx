@@ -18,9 +18,16 @@ import { StudentShell } from "@/components/student/StudentShell";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const user = (await getNetworkState()).online
-      ? await getRestoredUser(supabase.auth)
-      : (await readStudentIdentity())?.user;
+    const saved = await readStudentIdentity();
+    let user = saved?.user ?? null;
+    if ((await getNetworkState()).online) {
+      try {
+        user = (await getRestoredUser(supabase.auth)) ?? user;
+      } catch {
+        // Keep the durable local student lease. Network auth can recover in
+        // the background; a transient/expired refresh must not reopen login.
+      }
+    }
     if (!user) throw redirect({ to: "/auth", search: { mode: "login" } });
     return { user };
   },
