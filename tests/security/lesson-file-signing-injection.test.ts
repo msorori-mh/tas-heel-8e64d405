@@ -5,7 +5,7 @@ const source = readFileSync("src/lib/api/lesson-file.functions.ts", "utf8");
 
 describe("lesson file signing security", () => {
   it("never interpolates a client URL into PostgREST filter syntax", () => {
-    expect(source).not.toMatch(/\\.or\\(\\s*`[^\\n]*\\$\\{data\\.url\\}/);
+    expect(source).not.toMatch(/\.or\(\s*`[^\n]*\$\{data\.url\}/);
     expect(source).not.toContain("content_pdf_url.eq.${data.url}");
     expect(source).not.toContain("video_url.eq.${data.url}");
   });
@@ -19,7 +19,7 @@ describe("lesson file signing security", () => {
 
   it("can only sign lesson content buckets and never receipts", () => {
     expect(source).toContain('new Set(["lesson-pdfs", "lesson-videos"])');
-    expect(source).not.toMatch(/ALLOWED_BUCKETS[^\\n]*receipts/);
+    expect(source).not.toMatch(/ALLOWED_BUCKETS\s*=[^\n]*receipts/);
     expect(source).toContain("if (!ALLOWED_BUCKETS.has(ref.bucket))");
     expect(source).toContain('throw new Error("forbidden")');
   });
