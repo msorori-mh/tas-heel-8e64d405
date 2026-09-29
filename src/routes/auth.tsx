@@ -65,6 +65,14 @@ function StudentAuthPage() {
     if (user) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
   }, [user, loading, profileComplete, navigate]);
 
+  if (loading || user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background" dir="rtl">
+        <LoaderCircle className="h-6 w-6 animate-spin text-primary" aria-label="جارٍ استعادة الجلسة" />
+      </main>
+    );
+  }
+
   async function continueWithGoogle() {
     setBusy(true);
     setError(null);
