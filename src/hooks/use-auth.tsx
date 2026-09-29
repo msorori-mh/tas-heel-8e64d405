@@ -265,7 +265,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void setActiveOfflineOwner(null).catch(() => undefined);
       }
       receivedAuthEvent = true;
-      acceptSession(sess, event === "SIGNED_IN" || event === "USER_UPDATED");
+      acceptSession(
+        sess,
+        event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED",
+      );
     });
 
     // INITIAL_SESSION normally handles bootstrap. The snapshot is a fallback;
