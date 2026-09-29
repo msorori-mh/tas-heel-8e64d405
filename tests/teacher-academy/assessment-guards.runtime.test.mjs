@@ -177,7 +177,8 @@ test("teacher assessment RPCs enforce access, sequence, throttling, score privac
           clients.map((client) =>
             client.unsafe("select * from academy.submit_assessment($1,$2::jsonb)", [
               id(201),
-              JSON.stringify(answers),
+              // postgres serializes a jsonb parameter; pre-stringifying makes it a JSON string.
+              answers,
             ]),
           ),
         );
