@@ -597,6 +597,14 @@ html[dir="rtl"] body {
 .safe-area-top {
   padding-top: var(--app-safe-top);
 }
+.admin-shell-header {
+  padding-top: var(--app-safe-top);
+  min-height: calc(3.5rem + var(--app-safe-top));
+}
+.admin-sidebar {
+  padding-top: var(--app-safe-top);
+  padding-bottom: var(--app-safe-bottom);
+}
 .student-shell-main {
   padding-bottom: calc(6rem + var(--app-safe-bottom));
 }

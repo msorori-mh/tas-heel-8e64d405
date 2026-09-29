@@ -1,0 +1,46 @@
+name: Admin audit regression
+on:
+  pull_request:
+    branches: [main, fix/teacher-account-audit]
+permissions:
+  contents: read
+concurrency:
+  group: admin-audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run academy:typecheck
+      - run: npx vitest run tests/admin-audit tests/performance/auth-bootstrap.test.tsx tests/mobile/session-restore/offline-auth.test.tsx src/lib/content-report/overview.test.ts
+      - run: node --test tests/teacher-academy/program-details-live-sessions.test.mjs tests/teacher-academy/admin-program-management-closure.test.mjs tests/teacher-academy/admin-operational-closure.test.mjs tests/teacher-academy/admin-reports-settings-closure.test.mjs
+      - run: npm run build
+      - run: npm run academy:build
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/admin-audit/vite.config.ts
+      - run: node tests/e2e/admin-audit/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-audit-${{ github.sha }}
+          path: artifacts/admin-audit-browser
+          if-no-files-found: error

@@ -100,7 +100,8 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(links: T[], isAdm
 }
 
 export function useRequireAdminSection(section: AdminSection) {
-  const { loading, isAdmin, isContentStaff } = useAuth();
+  const { loading: identityLoading, rolesLoading, isAdmin, isContentStaff } = useAuth();
+  const loading = identityLoading || rolesLoading;
   const navigate = useNavigate();
   const allowed = section === "full" ? isAdmin : isContentStaff;
 

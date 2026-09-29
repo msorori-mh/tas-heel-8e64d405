@@ -42,12 +42,14 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const { loading, user, profile, profileComplete, isAdmin, isContentStaff } = useAuth();
+  const { loading, rolesLoading, user, profile, profileComplete, isAdmin, isContentStaff } =
+    useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminArea = pathname.startsWith("/admin");
   const online = useConnectivity();
-  const needsDestination = !loading && !!user && !profileComplete && !isAdmin && !isContentStaff;
+  const needsDestination =
+    !loading && !rolesLoading && !!user && !profileComplete && !isAdmin && !isContentStaff;
   const { destination, error } = useWorkspaceHome(user?.id, profileComplete, needsDestination);
 
   useEffect(() => {

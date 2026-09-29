@@ -113,15 +113,15 @@ export function ContentOverviewReport({
         ["الدروس المدارة تحريريًا", summary.managedLessons],
         ["الدروس القديمة غير المدارة", summary.unmanagedLessons],
         ["الدروس الظاهرة للطالب", summary.visibleLessons],
-        ["الدروس المدارة المكتملة", summary.managedCompleteLessons],
-        ["الدروس المدارة التي تحتاج عملًا", summary.managedNeedsAttention],
-        ["المكونات المطلوبة", summary.requiredTotal],
-        ["المكونات المطلوبة المدخلة", summary.requiredEntered],
-        ["المكونات المطلوبة الجاهزة", summary.requiredReady],
-        ["المكونات المطلوبة الظاهرة للطالب", summary.requiredPublished],
-        ["المكونات المطلوبة قيد المراجعة", summary.requiredReview],
-        ["المكونات المطلوبة المسودة", summary.requiredDraft],
-        ["المكونات المطلوبة غير المدخلة", summary.requiredMissing],
+        ["الدروس ذات المحتوى المسجل الجاهز", summary.managedCompleteLessons],
+        ["الدروس التي تحتاج مراجعة محتواها المسجل", summary.managedNeedsAttention],
+        ["المكونات المسجلة", summary.trackedTotal],
+        ["المكونات المسجلة المدخلة", summary.trackedEntered],
+        ["المكونات المسجلة الجاهزة", summary.trackedReady],
+        ["المكونات المسجلة الظاهرة للطالب", summary.trackedPublished],
+        ["المكونات المسجلة قيد المراجعة", summary.trackedReview],
+        ["المكونات المسجلة المسودة", summary.trackedDraft],
+        ["المكونات المسجلة غير المدخلة", summary.trackedMissing],
         ["نسبة الجاهزية", percentLabel(summary.readinessPercent)],
         ["نسبة الإتاحة للطالب", percentLabel(summary.publicationPercent)],
       ].forEach((row) => general.addRow(row));
@@ -177,9 +177,9 @@ export function ContentOverviewReport({
           "الدروس",
           "مدارة",
           "ظاهرة للطالب",
-          "مكتملة",
-          "تحتاج عملًا",
-          "المكونات المطلوبة",
+          "جاهز محتواها",
+          "تحتاج مراجعة",
+          "المكونات المسجلة",
           "الجاهزة",
           "المتبقي",
           "نسبة الجاهزية",
@@ -192,9 +192,9 @@ export function ContentOverviewReport({
             row.summary.visibleLessons,
             row.summary.managedCompleteLessons,
             row.summary.managedNeedsAttention,
-            row.summary.requiredTotal,
-            row.summary.requiredReady,
-            row.summary.requiredTotal - row.summary.requiredReady,
+            row.summary.trackedTotal,
+            row.summary.trackedReady,
+            row.summary.trackedTotal - row.summary.trackedReady,
             percentLabel(row.summary.readinessPercent),
           ]),
         );
@@ -211,7 +211,7 @@ export function ContentOverviewReport({
         "المادة",
         "الدرس",
         "الفصل",
-        "الجاهز من المطلوب",
+        "الجاهز من المسجل",
         "غير مدخل",
         "قيد المراجعة",
         "مسودة",
@@ -265,7 +265,8 @@ export function ContentOverviewReport({
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
             نظرة تشغيلية على جميع الدروس في النطاق المحدد، ثم تحليل حسب الصف والمنهج والفصل والمادة
             والدرس. إحصاءات المكونات تعتمد على دورة المحتوى للدروس المدارة تحريريًا، بينما تظهر
-            الدروس القديمة غير المدارة كفئة مستقلة حتى لا تُحسب كنواقص بصورة خاطئة.
+            الدروس القديمة غير المدارة كفئة مستقلة. الجاهزية تخص المكونات المسجلة، ولا تجعل المكونات
+            الاختيارية التي لم تُرفع شرطًا للنشر. ويعرض جدول المكونات تغطية كل نوع.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -311,9 +312,9 @@ export function ContentOverviewReport({
               ["إجمالي الدروس", summary.totalLessons, "ضمن الفلاتر الحالية"],
               ["مدارة تحريريًا", summary.managedLessons, "تدخل في مؤشرات المكونات"],
               ["ظاهرة للطالب", summary.visibleLessons, "مدارة وقديمة"],
-              ["مكتملة", summary.managedCompleteLessons, "كل المطلوب جاهز"],
-              ["تحتاج عملًا", summary.managedNeedsAttention, "من الدروس المدارة"],
-              ["متبقي مطلوب", summary.requiredTotal - summary.requiredReady, "مكون مطلوب غير جاهز"],
+              ["جاهز محتواها", summary.managedCompleteLessons, "المكونات المسجلة جاهزة"],
+              ["تحتاج مراجعة", summary.managedNeedsAttention, "في المحتوى المسجل"],
+              ["غير جاهز", summary.trackedTotal - summary.trackedReady, "من المكونات المسجلة"],
             ].map(([label, value, hint]) => (
               <div key={String(label)} className="rounded-xl border bg-background p-4">
                 <p className="text-xs text-muted-foreground">{label}</p>
@@ -327,9 +328,9 @@ export function ContentOverviewReport({
             <div className="rounded-xl border bg-background p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <h3 className="font-bold">جاهزية المكونات المطلوبة</h3>
+                  <h3 className="font-bold">جاهزية المكونات المسجلة</h3>
                   <p className="text-xs text-muted-foreground">
-                    {summary.requiredReady}/{summary.requiredTotal} مكونًا مطلوبًا جاهز
+                    {summary.trackedReady}/{summary.trackedTotal} مكون مسجل جاهز
                   </p>
                 </div>
                 <strong className="text-2xl">{percentLabel(summary.readinessPercent)}</strong>
@@ -341,17 +342,17 @@ export function ContentOverviewReport({
                 />
               </div>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>غير مدخل: {summary.requiredMissing}</span>
-                <span>مسودة: {summary.requiredDraft}</span>
-                <span>مراجعة: {summary.requiredReview}</span>
+                <span>غير مدخل: {summary.trackedMissing}</span>
+                <span>مسودة: {summary.trackedDraft}</span>
+                <span>مراجعة: {summary.trackedReview}</span>
               </div>
             </div>
             <div className="rounded-xl border bg-background p-4">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <h3 className="font-bold">إتاحة المكونات المطلوبة للطالب</h3>
+                  <h3 className="font-bold">إتاحة المكونات المسجلة للطالب</h3>
                   <p className="text-xs text-muted-foreground">
-                    الجاهز داخل درس غير مكتمل لا يُعد ظاهرًا بعد
+                    وفق حالة المكوّن وبوابة إتاحة الدرس للطالب
                   </p>
                 </div>
                 <strong className="text-2xl">{percentLabel(summary.publicationPercent)}</strong>
@@ -363,7 +364,7 @@ export function ContentOverviewReport({
                 />
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                {summary.requiredPublished}/{summary.requiredTotal} مكون مطلوب ظاهر ضمن درس متاح
+                {summary.trackedPublished}/{summary.trackedTotal} مكون مسجل ظاهر ضمن درس متاح
                 للطالب.
               </p>
             </div>
@@ -390,7 +391,7 @@ export function ContentOverviewReport({
                     <th className="p-3">جاهز</th>
                     <th className="p-3">ظاهر للطالب</th>
                     <th className="p-3">الإدخال</th>
-                    <th className="p-3">الجاهزية</th>
+                    <th className="p-3">تغطية الجاهز</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -451,9 +452,9 @@ export function ContentOverviewReport({
                     <th className="p-3">الدروس</th>
                     <th className="p-3">مدارة</th>
                     <th className="p-3">ظاهرة</th>
-                    <th className="p-3">مكتملة</th>
-                    <th className="p-3">تحتاج عملًا</th>
-                    <th className="p-3">المتبقي المطلوب</th>
+                    <th className="p-3">جاهز محتواها</th>
+                    <th className="p-3">تحتاج مراجعة</th>
+                    <th className="p-3">المسجل غير الجاهز</th>
                     <th className="p-3">الجاهزية</th>
                     <th className="p-3">التفاصيل</th>
                   </tr>
@@ -468,7 +469,7 @@ export function ContentOverviewReport({
                       <td className="p-3 text-center">{row.summary.managedCompleteLessons}</td>
                       <td className="p-3 text-center">{row.summary.managedNeedsAttention}</td>
                       <td className="p-3 text-center font-bold">
-                        {row.summary.requiredTotal - row.summary.requiredReady}
+                        {row.summary.trackedTotal - row.summary.trackedReady}
                       </td>
                       <td className="p-3 text-center">
                         {percentLabel(row.summary.readinessPercent)}
@@ -488,7 +489,7 @@ export function ContentOverviewReport({
                             className="text-primary underline"
                             onClick={() => drill(row.id)}
                           >
-                            تصفية بهذا {dimensionLabels[dimension]}
+                            تصفية حسب {dimensionLabels[dimension]}
                           </button>
                         )}
                       </td>
@@ -509,7 +510,7 @@ export function ContentOverviewReport({
             <div>
               <h3 className="font-bold">أكثر الدروس احتياجًا للمعالجة</h3>
               <p className="text-xs text-muted-foreground">
-                مرتبة حسب عدد المكونات المطلوبة غير الجاهزة، وبحد أقصى 25 درسًا.
+                مرتبة حسب عدد المكونات المسجلة غير الجاهزة، وبحد أقصى 25 درسًا.
               </p>
             </div>
             {attention.length ? (

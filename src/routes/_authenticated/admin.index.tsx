@@ -12,6 +12,7 @@ import {
   GitCommitHorizontal,
 } from "lucide-react";
 import { getReleaseInfo } from "@/lib/release-info";
+import { schoolDirectoryApi } from "@/lib/schools/student-school-api";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminIndexPage,
@@ -23,14 +24,11 @@ function AdminIndexPage() {
 
   const studentsQ = useQuery({
     enabled,
-    queryKey: ["admin-count", "profiles"],
+    queryKey: ["admin-student-filter-options"],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
+      return (await schoolDirectoryApi.studentOptions()) as { total: number };
     },
+    select: (options) => options.total,
   });
 
   const subjectsQ = useQuery({
@@ -152,7 +150,7 @@ function AdminIndexPage() {
             <div>
               <h3 className="text-sm font-bold text-foreground">الطلاب</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                قائمة الطلاب المسجلين (قراءة فقط)
+                إضافة الطلاب ومتابعة بياناتهم الدراسية
               </p>
             </div>
           </Link>

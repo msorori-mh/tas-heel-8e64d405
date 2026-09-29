@@ -1686,7 +1686,7 @@ function LessonsEditor({
         {contentStep === "LIVE" ? (
           <LiveSessionsEditor
             program={program}
-            readOnly={readOnly}
+            readOnly={Boolean(program.archived_at)}
             defaultProvider={operationSettings.default_live_provider}
             defaultInstructions={operationSettings.default_live_instructions}
           />
@@ -1775,6 +1775,8 @@ function LiveSessionsEditor({
   const [instructions, setInstructions] = useState(defaultInstructions);
   const [status, setStatus] = useState<"SCHEDULED" | "CANCELLED">("SCHEDULED");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function reload() {
@@ -1783,9 +1785,12 @@ function LiveSessionsEditor({
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError(null);
     adminListLiveSessions(program.program_version_id)
       .then((items) => active && setSessions(items))
-      .catch((loadError) => active && setError(messageOf(loadError)));
+      .catch((loadError) => active && setError(messageOf(loadError)))
+      .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
@@ -1817,7 +1822,9 @@ function LiveSessionsEditor({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || readOnly) return;
     setBusy(true);
+    setMessage(null);
     setError(null);
     try {
       await adminSaveLiveSession({
@@ -1833,6 +1840,7 @@ function LiveSessionsEditor({
         status,
       });
       await reload();
+      setMessage(editing ? "تم حفظ تعديل المحاضرة." : "تمت جدولة المحاضرة بنجاح.");
       reset();
     } catch (saveError) {
       setError(messageOf(saveError));
@@ -1862,12 +1870,20 @@ function LiveSessionsEditor({
         <div>
           <p className="eyebrow">لقاء مباشر اختياري</p>
           <h3>المحاضرات المباشرة</h3>
-          <p className="muted">أضف رابط Zoom أو Google Meet أو أي خدمة HTTPS متاحة وقت التنفيذ.</p>
+          <p className="muted">
+            تُدار مواعيد المحاضرات مستقلة عن محتوى الإصدار المنشور. أدخل رابط الانضمام HTTPS.
+          </p>
         </div>
         <Video />
       </div>
       <div className="data-list compact-list">
-        {sessions.length === 0 ? (
+        {loading ? <Loading label="جارٍ تحميل المحاضرات…" /> : null}
+        {message ? (
+          <div className="notice" role="status">
+            {message}
+          </div>
+        ) : null}
+        {!loading && !error && sessions.length === 0 ? (
           <div className="compact-empty">لا توجد محاضرات مجدولة.</div>
         ) : null}
         {sessions.map((session) => (
@@ -1948,6 +1964,7 @@ function LiveSessionsEditor({
             </label>
             <label>
               الموعد
+              <small>بتوقيت جهازك: {Intl.DateTimeFormat().resolvedOptions().timeZone}</small>
               <input
                 type="datetime-local"
                 value={startsAt}

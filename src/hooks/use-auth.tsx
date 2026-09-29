@@ -42,6 +42,7 @@ export type Profile = {
 
 type AuthCtx = {
   loading: boolean;
+  rolesLoading: boolean;
   session: Session | null;
   user: User | null;
   profile: Profile | null;
@@ -72,6 +73,7 @@ export function AuthProvider({
   const [isAdmin, setIsAdmin] = useState(false);
   const [isContentManager, setIsContentManager] = useState(false);
   const [isContentStaff, setIsContentStaff] = useState(false);
+  const [rolesResolved, setRolesResolved] = useState(false);
   const owner = useRef<string | null>(null);
   const generation = useRef(0);
   const inFlight = useRef<{ generation: number; promise: Promise<Profile | null> } | null>(null);
@@ -98,6 +100,7 @@ export function AuthProvider({
     setIsAdmin(false);
     setIsContentManager(false);
     setIsContentStaff(false);
+    setRolesResolved(false);
     setLoading(false);
     const cleanup = activeOwnerWrite.current.then(async () => {
       await forgetStudentIdentity();
@@ -116,6 +119,7 @@ export function AuthProvider({
     if (force) generation.current += 1;
     const currentGeneration = generation.current;
     if (inFlight.current?.generation === currentGeneration) return inFlight.current.promise;
+    setRolesResolved(false);
 
     // Independent requests share one network round trip. Concurrent auth
     // notifications reuse this promise, never a previous account's result.
@@ -174,6 +178,7 @@ export function AuthProvider({
       setIsAdmin(roles.isAdmin);
       setIsContentManager(roles.isContentManager);
       setIsContentStaff(roles.isContentStaff);
+      setRolesResolved(true);
       if (force && profileResult.error) throw profileResult.error;
       return profileResult.error ? null : ((profileResult.data as Profile | null) ?? null);
     })().finally(() => {
@@ -215,6 +220,7 @@ export function AuthProvider({
         setIsAdmin(false);
         setIsContentManager(false);
         setIsContentStaff(false);
+        setRolesResolved(false);
         if (saved) {
           initialized = true;
           owner.current = saved.user.id;
@@ -256,6 +262,7 @@ export function AuthProvider({
         setIsAdmin(false);
         setIsContentManager(false);
         setIsContentStaff(false);
+        setRolesResolved(false);
         setLoading(!!uid);
       }
       if (!uid || (!changed && !refresh)) return;
@@ -284,6 +291,8 @@ export function AuthProvider({
         if (mounted && !initialized) setLoading(false);
         return;
       }
+      // A late disk read must never replace an accepted SDK session or its roles.
+      if (initialized) return;
       if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
       rememberedIdentity.current = saved;
       restoredFromDurableLease.current = true;
@@ -295,6 +304,7 @@ export function AuthProvider({
       setIsAdmin(false);
       setIsContentManager(false);
       setIsContentStaff(false);
+      setRolesResolved(false);
       void setActiveOfflineOwner(saved.user.id).catch(() => undefined);
     })();
 
@@ -351,6 +361,7 @@ export function AuthProvider({
       setIsAdmin(false);
       setIsContentManager(false);
       setIsContentStaff(false);
+      setRolesResolved(false);
       return;
     }
     // Revalidate roles after every reconnect, including sessions that were already
@@ -360,6 +371,7 @@ export function AuthProvider({
     const restoringOwner = offlineUser?.id ?? session?.user.id;
     if (!restoringOwner) return;
     const restoringGeneration = generation.current;
+    setRolesResolved(false);
     void supabase.auth
       .getUser()
       .then(async ({ data, error }) => {
@@ -390,6 +402,7 @@ export function AuthProvider({
     <AuthContext.Provider
       value={{
         loading,
+        rolesLoading: online && !!(session?.user ?? offlineUser) && !rolesResolved,
         session,
         user: session?.user ?? offlineUser,
         profile,

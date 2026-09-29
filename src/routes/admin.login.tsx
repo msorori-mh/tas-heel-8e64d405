@@ -22,7 +22,7 @@ export const Route = createFileRoute("/admin/login")({
 
 function AdminLoginPage() {
   const navigate = useNavigate();
-  const { session, isAdmin, isContentStaff, loading } = useAuth();
+  const { session, isAdmin, isContentStaff, loading, rolesLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,7 +31,7 @@ function AdminLoginPage() {
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || rolesLoading) return;
     if (session && isAdmin) {
       navigate({ to: "/admin", replace: true });
       return;
@@ -39,7 +39,7 @@ function AdminLoginPage() {
     if (session && isContentStaff) {
       navigate({ to: "/admin/academic", replace: true });
     }
-  }, [loading, session, isAdmin, isContentStaff, navigate]);
+  }, [loading, rolesLoading, session, isAdmin, isContentStaff, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

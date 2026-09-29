@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
-  DEFAULT_APPLICABILITY,
   V3_CAPABILITIES,
   V3_LABEL_AR,
   V3_TO_LEGACY_KEY,
@@ -91,6 +90,13 @@ export type OverviewSummary = {
   requiredReview: number;
   requiredDraft: number;
   requiredMissing: number;
+  trackedTotal: number;
+  trackedEntered: number;
+  trackedReady: number;
+  trackedPublished: number;
+  trackedReview: number;
+  trackedDraft: number;
+  trackedMissing: number;
   readinessPercent: number | null;
   publicationPercent: number | null;
 };
@@ -172,7 +178,9 @@ export function buildOverviewFacts(
     const components = V3_CAPABILITIES.map((key) => {
       const legacyKey = V3_TO_LEGACY_KEY[key];
       const row = rows.get(legacyKey) ?? rows.get(key);
-      const applicability = normalizeApplicability(row?.applicability, DEFAULT_APPLICABILITY[key]);
+      // LCIP-09: components publish independently. A missing lifecycle row is
+      // not an implicit requirement; preserve explicit REQUIRED/NA records.
+      const applicability = normalizeApplicability(row?.applicability, "OPTIONAL");
       const status = normalizeStatus(row?.status);
       const ready = status === "READY";
       return {
@@ -273,6 +281,14 @@ export function scopeOverviewFacts(
   });
 }
 
+function trackedComponents(fact: OverviewLessonFact): OverviewCapabilityFact[] {
+  return fact.components.filter(
+    (component) =>
+      component.applicability !== "NA" &&
+      (component.entered || component.applicability === "REQUIRED"),
+  );
+}
+
 export function overviewSummary(facts: OverviewLessonFact[]): OverviewSummary {
   const managed = facts.filter((fact) => fact.managed);
   const required = managed.flatMap((fact) =>
@@ -280,8 +296,11 @@ export function overviewSummary(facts: OverviewLessonFact[]): OverviewSummary {
   );
   const requiredReady = required.filter((component) => component.ready).length;
   const requiredPublished = required.filter((component) => component.published).length;
+  const tracked = managed.flatMap(trackedComponents);
+  const trackedReady = tracked.filter((component) => component.ready).length;
+  const trackedPublished = tracked.filter((component) => component.published).length;
   const managedCompleteLessons = managed.filter((fact) => {
-    const needed = fact.components.filter((component) => component.applicability === "REQUIRED");
+    const needed = trackedComponents(fact);
     return needed.length > 0 && needed.every((component) => component.ready);
   }).length;
 
@@ -292,7 +311,9 @@ export function overviewSummary(facts: OverviewLessonFact[]): OverviewSummary {
     visibleLessons: facts.filter((fact) => fact.visible).length,
     managedVisibleLessons: managed.filter((fact) => fact.visible).length,
     managedCompleteLessons,
-    managedNeedsAttention: managed.length - managedCompleteLessons,
+    managedNeedsAttention: managed.filter((fact) =>
+      trackedComponents(fact).some((component) => !component.ready),
+    ).length,
     requiredTotal: required.length,
     requiredEntered: required.filter((component) => component.entered).length,
     requiredReady,
@@ -302,9 +323,18 @@ export function overviewSummary(facts: OverviewLessonFact[]): OverviewSummary {
       (component) => component.status === "DRAFT" || component.status === "OTHER",
     ).length,
     requiredMissing: required.filter((component) => component.status === "MISSING").length,
-    readinessPercent: required.length ? Math.round((requiredReady / required.length) * 100) : null,
-    publicationPercent: required.length
-      ? Math.round((requiredPublished / required.length) * 100)
+    trackedTotal: tracked.length,
+    trackedEntered: tracked.filter((component) => component.entered).length,
+    trackedReady,
+    trackedPublished,
+    trackedReview: tracked.filter((component) => component.status === "REVIEW").length,
+    trackedDraft: tracked.filter(
+      (component) => component.status === "DRAFT" || component.status === "OTHER",
+    ).length,
+    trackedMissing: tracked.filter((component) => component.status === "MISSING").length,
+    readinessPercent: tracked.length ? Math.round((trackedReady / tracked.length) * 100) : null,
+    publicationPercent: tracked.length
+      ? Math.round((trackedPublished / tracked.length) * 100)
       : null,
   };
 }
@@ -367,7 +397,12 @@ export function overviewBreakdown(
     if (dimension === "grade") {
       addToGroup(groups, subject.grade_id, gradeById.get(subject.grade_id) ?? "صف غير معروف", fact);
     } else if (dimension === "subject") {
-      addToGroup(groups, subject.id, subject.name, fact);
+      addToGroup(
+        groups,
+        subject.id,
+        `${subject.name} — ${gradeById.get(subject.grade_id) ?? "صف غير معروف"}`,
+        fact,
+      );
     } else if (dimension === "lesson") {
       addToGroup(groups, fact.id, `${subject.name} — ${fact.title}`, fact);
     } else if (dimension === "semester") {
@@ -397,9 +432,7 @@ export function overviewAttentionRows(
   return facts
     .filter((fact) => fact.managed)
     .map((fact) => {
-      const required = fact.components.filter(
-        (component) => component.applicability === "REQUIRED",
-      );
+      const required = trackedComponents(fact);
       return {
         id: fact.id,
         title: fact.title,
