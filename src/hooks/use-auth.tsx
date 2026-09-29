@@ -210,7 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       rememberedIdentity.current = saved;
       if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
-      if (session?.user?.id && session.user.id !== saved.user.id) return;
       owner.current = saved.user.id;
       initialized = true;
       setOfflineUser(saved.user);
