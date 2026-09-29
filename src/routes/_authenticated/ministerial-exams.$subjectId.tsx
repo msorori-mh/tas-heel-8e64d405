@@ -1,3 +1,4 @@
+import { formatModelCount } from "@/lib/ministerial/ministerial-student-api";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -160,7 +161,7 @@ function SubjectMinisterialModels() {
                   نماذج عام {year}
                 </h2>
                 <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-foreground">
-                  {models.length} نموذج
+                  {formatModelCount(models.length)}
                 </span>
               </div>
               <ul className="space-y-3">

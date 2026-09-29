@@ -231,7 +231,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <AuthProvider
+        onAccountChange={() => {
+          void queryClient.cancelQueries();
+          queryClient.clear();
+        }}
+      >
         <Outlet />
         <DiagnosticsBridge />
         <AndroidBackHandler />

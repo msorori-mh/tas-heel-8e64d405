@@ -256,7 +256,14 @@ export function modelTitle(model: {
   model_label?: string | null;
 }): string {
   const parts = [String(model.academic_year), roundLabel(model.round_code)];
-  if (model.model_label) parts.push(model.model_label);
+  if (model.model_label)
+    parts.push(
+      model.model_label
+        .replace(/\.(pdf|docx?|xlsx?)$/i, "")
+        .replace(/[_-]+/g, " ")
+        .replace(/احياء/g, "أحياء")
+        .trim(),
+    );
   return parts.filter(Boolean).join(" — ");
 }
 
@@ -430,4 +437,11 @@ export function mapMinisterialError(err: unknown): string {
     return "العنصر المطلوب غير موجود.";
   if (msg.includes("forbidden") || msg.includes("42501")) return "ليس لديك صلاحية الوصول.";
   return "تعذّر إتمام العملية. حاول مرة أخرى.";
+}
+
+export function formatModelCount(count: number): string {
+  if (count === 0) return "لا توجد نماذج بعد";
+  if (count === 1) return "نموذج واحد متاح";
+  if (count === 2) return "نموذجان متاحان";
+  return count % 100 >= 3 && count % 100 <= 10 ? `${count} نماذج متاحة` : `${count} نموذجًا متاحًا`;
 }

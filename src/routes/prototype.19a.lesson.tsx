@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { notFound, createFileRoute, Link } from "@tanstack/react-router";
 import {
   BookText,
   Brain,
@@ -18,6 +18,9 @@ import officialBookImage from "@/assets/prototype/fm-v2-official-book.png";
  * Focused Momentum V2 shell. Only real capabilities are listed.
  */
 export const Route = createFileRoute("/prototype/19a/lesson")({
+  beforeLoad: () => {
+    if (import.meta.env.PROD) throw notFound();
+  },
   head: () => ({
     meta: [
       { title: "مكانة القرآن الكريم وكمال قدرة الله | تمكين" },

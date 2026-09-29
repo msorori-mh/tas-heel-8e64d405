@@ -43,6 +43,7 @@ const SENSITIVE_DENYLIST = [
   /^\/subscription/,
   /^\/payments/,
   /^\/exams/,
+  /^\/ministerial-exams/,
   /^\/import-templates\//,
   /\/callback/,
 ];

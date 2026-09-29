@@ -1,4 +1,5 @@
 import { isAuthRetryableFetchError, type Session, type UserResponse } from "@supabase/supabase-js";
+import { isTerminalSessionError } from "./session-errors";
 
 type RestorableAuth = {
   getUser(): Promise<UserResponse>;
@@ -29,5 +30,6 @@ export async function getRestoredUser(auth: RestorableAuth) {
     if (persistedUser) return persistedUser;
     throw new Error("تعذر التحقق من جلستك بسبب الاتصال. أعد المحاولة دون تسجيل دخول جديد.");
   }
+  if (error && !isTerminalSessionError(error)) throw error;
   return error ? null : data.user;
 }

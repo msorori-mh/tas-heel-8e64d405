@@ -66,7 +66,7 @@ async function render(meta: SubjectMeta, downloads = {}) {
 
 it("starts a new subject with an honest empty state and independent books action", async () => {
   await render({ lessons: 8, completed: 0 });
-  expect(host.textContent).toContain("٨ دروس متاحة");
+  expect(host.textContent).toContain("8 دروس متاحة");
   expect(host.textContent).toContain("لم تبدأ بعد");
   expect(host.textContent).not.toContain("جاهزة");
   expect(host.querySelector('[role="progressbar"]')).toBeNull();
@@ -86,7 +86,7 @@ it("resumes the actual incomplete lesson while the card header still opens its s
     started: true,
     resumeLesson: { id: "test-lesson", title: "التشبيه" },
   });
-  expect(host.textContent).toContain("أكملت ٣ من ٨ دروس");
+  expect(host.textContent).toContain("أكملت 3 من 8 دروس");
   expect(host.textContent).toContain("آخر درس: التشبيه");
   expect(host.querySelector('a[aria-label^="تابع درسك"]')?.getAttribute("href")).toBe(
     "/lessons/test-lesson",
@@ -104,7 +104,7 @@ it("does not say unstarted or resume a stale lesson when progress is unavailable
     progressKnown: false,
     resumeLesson: { id: "stale", title: "قديم" },
   });
-  expect(host.textContent).toContain("٢٣ درسًا متاحًا");
+  expect(host.textContent).toContain("23 درسًا متاحًا");
   expect(host.textContent).toContain("التقدم غير متاح");
   expect(host.textContent).not.toContain("لم تبدأ بعد");
   expect(host.querySelector('a[href^="/lessons/"]')).toBeNull();
@@ -146,4 +146,11 @@ it("opens grouped branches without changing their subject IDs", async () => {
     "/subjects/test-arabic?semester=2",
   );
   expect(host.textContent).toContain("عودة إلى المواد");
+});
+
+it("hides books only after confirming the subject has none", async () => {
+  await render({ lessons: 8, completed: 0, textbookCount: 0 });
+  expect(host.querySelector('button[aria-label^="كتب المنهج"]')).toBeNull();
+  await render({ lessons: 8, completed: 0, textbookCount: 1 });
+  expect(host.querySelector('button[aria-label^="كتب المنهج"]')).not.toBeNull();
 });

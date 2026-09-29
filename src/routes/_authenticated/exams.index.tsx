@@ -57,8 +57,8 @@ function ExamsHubPage() {
         <HubLink
           to="/semesters"
           icon={BookOpenCheck}
-          title="اختبارات المواد"
-          description="اختر المادة ثم الوحدة أو الدرس لبدء التدريب المتاح."
+          title="تصفح المواد والتدريبات"
+          description="اختر مادة لعرض تدريباتها. تظهر اختبارات الوحدة والمادة عند نشرها."
         />
         <HubLink
           to="/exams/history"

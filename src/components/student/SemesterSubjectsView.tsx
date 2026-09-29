@@ -150,6 +150,27 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
         }
       }
 
+      // One scoped request for the visible semester, not one request per card.
+      if (subjects.length) {
+        const books = await supabase
+          .from("subject_textbooks")
+          .select("subject_id,semester,coverage_type")
+          .in(
+            "subject_id",
+            subjects.map((subject) => subject.id),
+          )
+          .eq("is_active", true);
+        if (!books.error) {
+          for (const item of Object.values(meta)) item.textbookCount = 0;
+          for (const book of books.data ?? []) {
+            if (book.coverage_type === "FULL_ACADEMIC_YEAR" || book.semester === semester) {
+              if (meta[book.subject_id])
+                meta[book.subject_id].textbookCount =
+                  (meta[book.subject_id].textbookCount ?? 0) + 1;
+            }
+          }
+        }
+      }
       return { subjects, meta };
     },
   });

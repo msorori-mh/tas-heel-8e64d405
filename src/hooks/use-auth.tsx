@@ -8,7 +8,8 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { isAuthRetryableFetchError, type Session, type User } from "@supabase/supabase-js";
+import { type Session, type User } from "@supabase/supabase-js";
+import { isTerminalSessionError } from "@/lib/auth/session-errors";
 import { supabase } from "@/integrations/supabase/client";
 import { deriveAuthRoles } from "@/lib/auth-roles";
 import { getNetworkState } from "@/lib/offline/network";
@@ -52,7 +53,15 @@ type AuthCtx = {
 
 const AuthContext = createContext<AuthCtx | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+  onAccountChange,
+}: {
+  children: ReactNode;
+  onAccountChange?: () => void;
+}) {
+  const accountChange = useRef(onAccountChange);
+  accountChange.current = onAccountChange;
   const [loading, setLoading] = useState(true);
   const online = useConnectivity();
   const [offlineUser, setOfflineUser] = useState<User | null>(null);
@@ -69,6 +78,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const explicitSignOut = useRef(false);
   const activeOwnerWrite = useRef<Promise<void>>(Promise.resolve());
   const restoredFromDurableLease = useRef(false);
+  const identityRejected = useRef(false);
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
+
+  const revokeIdentity = useCallback(async () => {
+    identityRejected.current = true;
+    accountChange.current?.();
+    const revokedGeneration = ++generation.current;
+    owner.current = null;
+    inFlight.current = null;
+    rememberedIdentity.current = null;
+    restoredFromDurableLease.current = false;
+    setOfflineUser(null);
+    setSession(null);
+    setProfile(null);
+    setIsAdmin(false);
+    setIsContentManager(false);
+    setIsContentStaff(false);
+    setLoading(false);
+    const cleanup = activeOwnerWrite.current.then(async () => {
+      await forgetStudentIdentity();
+      if (generation.current === revokedGeneration && owner.current === null) {
+        await setActiveOfflineOwner(null);
+      }
+    });
+    activeOwnerWrite.current = cleanup.catch(() => undefined);
+    await activeOwnerWrite.current;
+  }, []);
 
   const loadProfile = useCallback((userId: string, force = false): Promise<Profile | null> => {
     if (owner.current !== userId) return Promise.resolve(null);
@@ -115,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOfflineUser(null);
       if (loadedProfile) {
         await rememberStudentIdentity(loadedProfile).catch(() => undefined);
+        if (generation.current !== currentGeneration || owner.current !== userId) return null;
         rememberedIdentity.current = {
           profile: loadedProfile,
           user: {
@@ -161,7 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const acceptSession = (sess: Session | null, refresh = false) => {
       if (!mounted) return;
 
-      if (!sess && !explicitSignOut.current) {
+      if (sess) identityRejected.current = false;
+      if (!sess && !explicitSignOut.current && !identityRejected.current) {
         const saved = rememberedIdentity.current;
         setSession(null);
         setIsAdmin(false);
@@ -196,10 +235,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialized = true;
       setSession(sess);
       if (changed) {
+        if (owner.current !== uid) accountChange.current?.();
         owner.current = uid;
         generation.current += 1;
         inFlight.current = null;
-        activeOwnerWrite.current = setActiveOfflineOwner(uid).catch(() => undefined);
+        activeOwnerWrite.current = activeOwnerWrite.current
+          .then(() => setActiveOfflineOwner(uid))
+          .catch(() => undefined);
         setProfile(null);
         setOfflineUser(null);
         setIsAdmin(false);
@@ -229,13 +271,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const saved = await readStudentIdentity();
       identityBootstrapResolved = true;
-      if (!mounted || !saved || explicitSignOut.current) {
+      if (!mounted || !saved || explicitSignOut.current || identityRejected.current) {
         if (mounted && !initialized) setLoading(false);
         return;
       }
+      if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
       rememberedIdentity.current = saved;
       restoredFromDurableLease.current = true;
-      if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
       owner.current = saved.user.id;
       initialized = true;
       setOfflineUser(saved.user);
@@ -258,19 +300,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         /* Storage may be unavailable. */
       }
-      if (event === "SIGNED_OUT" && explicitSignOut.current) {
-        setIsAdmin(false);
-        setIsContentManager(false);
-        setIsContentStaff(false);
-        generation.current += 1;
-        owner.current = null;
-        rememberedIdentity.current = null;
-        setOfflineUser(null);
-        setProfile(null);
-        setSession(null);
-        setLoading(false);
-        void forgetStudentIdentity();
-        void setActiveOfflineOwner(null).catch(() => undefined);
+      if (event === "SIGNED_OUT" && (explicitSignOut.current || onlineRef.current)) {
+        receivedAuthEvent = true;
+        void revokeIdentity();
+        return;
       }
       receivedAuthEvent = true;
       const shouldRefreshRestoredLease =
@@ -301,7 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       timers.forEach(clearTimeout);
       sub.subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [loadProfile, revokeIdentity]);
 
   useEffect(() => {
     if (!online) {
@@ -313,7 +346,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     // Revalidate roles after every reconnect, including sessions that were already
     // online when the connection dropped. Offline-only identities use the same path.
-    if (!wasOffline.current) return;
+    if (!wasOffline.current && !(offlineUser && !session)) return;
     wasOffline.current = false;
     const restoringOwner = offlineUser?.id ?? session?.user.id;
     if (!restoringOwner) return;
@@ -324,48 +357,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (owner.current !== restoringOwner || generation.current !== restoringGeneration) return;
         if (!error && data.user?.id === restoringOwner) {
           await loadProfile(data.user.id, true);
-        } else if (error && !isAuthRetryableFetchError(error)) {
-          // Do not turn a server-side refresh failure into a local logout.
-          // Keep the durable student lease so the app still opens immediately;
-          // authenticated network calls remain protected by Supabase/RLS.
-          setSession(null);
-          setIsAdmin(false);
-          setIsContentManager(false);
-          setIsContentStaff(false);
-          const saved = rememberedIdentity.current ?? (await readStudentIdentity());
-          if (saved && saved.user.id === restoringOwner) {
-            rememberedIdentity.current = saved;
-            owner.current = saved.user.id;
-            setOfflineUser(saved.user);
-            setProfile(saved.profile);
-            setLoading(false);
-            await setActiveOfflineOwner(saved.user.id).catch(() => undefined);
-          }
+        } else if (isTerminalSessionError(error) || (!error && !data.user)) {
+          await revokeIdentity();
+          // Outside the auth callback/lock. Never invalidate a newer account.
+          if (!owner.current) await supabase.auth.signOut({ scope: "local" });
         }
       })
       .catch(() => undefined);
-  }, [online, offlineUser, session?.user.id, loadProfile]);
+  }, [online, offlineUser, session, loadProfile, revokeIdentity]);
 
   const signOut = useCallback(async () => {
     explicitSignOut.current = true;
-    generation.current += 1;
-    owner.current = null;
-    rememberedIdentity.current = null;
-    restoredFromDurableLease.current = false;
-    setOfflineUser(null);
-    setSession(null);
-    setProfile(null);
-    setIsAdmin(false);
-    setIsContentManager(false);
-    setIsContentStaff(false);
-    await forgetStudentIdentity();
-    await setActiveOfflineOwner(null).catch(() => undefined);
     try {
-      await supabase.auth.signOut(navigator.onLine ? undefined : { scope: "local" });
+      await revokeIdentity();
+      if (!owner.current)
+        await supabase.auth.signOut(navigator.onLine ? undefined : { scope: "local" });
     } finally {
       explicitSignOut.current = false;
     }
-  }, []);
+  }, [revokeIdentity]);
 
   return (
     <AuthContext.Provider

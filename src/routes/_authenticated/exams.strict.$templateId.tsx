@@ -1,3 +1,4 @@
+import { useExamNavigationGuard } from "@/hooks/use-exam-navigation-guard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -198,6 +199,7 @@ function StrictExamPage() {
   });
 
   const state = stateQuery.data;
+  useExamNavigationGuard(state?.session.status === "in_progress");
   const questions = useMemo(
     () => redactExamAnswers(state?.questions ?? [], state?.reveal === true),
     [state],

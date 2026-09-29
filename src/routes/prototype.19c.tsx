@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { notFound, createFileRoute } from "@tanstack/react-router";
 import { BookOpen, CheckCircle2, Flame, Target } from "lucide-react";
 import {
   DsBadge,
@@ -17,6 +17,9 @@ import {
 } from "@/lib/design/ds-v2-tokens";
 
 export const Route = createFileRoute("/prototype/19c")({
+  beforeLoad: () => {
+    if (import.meta.env.PROD) throw notFound();
+  },
   component: DesignSystemShowcase,
   head: () => ({
     meta: [

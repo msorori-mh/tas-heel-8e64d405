@@ -1,3 +1,4 @@
+import { requestStudentSignOut } from "@/hooks/use-exam-navigation-guard";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BarChart3,
@@ -16,6 +17,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
 import { OfflineSyncBridge } from "@/components/offline/OfflineSyncBridge";
+import { useKeyboardOpen } from "@/hooks/use-keyboard-open";
 
 type NavItem = {
   label: string;
@@ -37,9 +39,15 @@ const PRIMARY_NAV: NavItem[] = [
     label: "الاختبارات",
     to: "/exams",
     icon: ClipboardList,
-    match: (p) => p.startsWith("/exams") || p.startsWith("/units"),
+    match: (p) =>
+      p.startsWith("/exams") || p.startsWith("/units") || p.startsWith("/ministerial-exams"),
   },
-  { label: "التقدم", to: "/progress", icon: BarChart3, match: (p) => p.startsWith("/progress") },
+  {
+    label: "التقدم",
+    to: "/progress",
+    icon: BarChart3,
+    match: (p) => p.startsWith("/progress") || p.startsWith("/learning-insights"),
+  },
 ];
 
 const MOBILE_NAV: NavItem[] = [
@@ -55,17 +63,19 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   const { signOut, isAdmin, isContentStaff } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const keyboardOpen = useKeyboardOpen();
   const usesWideLearningCanvas =
     pathname === "/app" || pathname === "/semesters" || /^\/semesters\/[12]$/.test(pathname);
 
   const handleSignOut = async () => {
+    if (!requestStudentSignOut()) return;
     await signOut();
     navigate({ to: "/auth", search: { mode: "login" }, replace: true });
   };
 
   return (
     <div
-      className="student-theme student-app-bg min-h-screen w-full max-w-full overflow-x-hidden text-foreground"
+      className="student-theme student-app-bg min-h-screen w-full max-w-full overflow-x-clip text-foreground"
       dir="rtl"
     >
       <OfflineSyncBridge />
@@ -135,7 +145,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-card/90 backdrop-blur-md lg:hidden">
+      <header className="student-shell-header safe-area-top sticky top-0 z-30 border-b border-border/60 bg-card/90 backdrop-blur-md lg:hidden">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5">
           <Link
             to="/app"
@@ -174,7 +184,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="min-w-0 w-full max-w-full flex-1 overflow-x-hidden pb-24 pt-4 lg:pr-60 lg:pb-12 lg:pt-8">
+      <main className="student-shell-main min-w-0 w-full max-w-full flex-1 overflow-x-hidden pt-4 lg:pr-60 lg:pb-12 lg:pt-8">
         <div
           data-student-canvas={usesWideLearningCanvas ? "wide" : "standard"}
           className={cn(
@@ -189,7 +199,8 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom navigation */}
       <nav
         aria-label="التنقل السفلي"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        hidden={keyboardOpen}
+        className="student-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur-md lg:hidden"
       >
         <ul className="grid grid-cols-5">
           {MOBILE_NAV.map((item) => {

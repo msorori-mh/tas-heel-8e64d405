@@ -22,6 +22,7 @@ import type { SubjectDownloadState } from "@/lib/subjects/subject-downloads";
 
 export type SubjectMeta = {
   lessons: number;
+  textbookCount?: number;
   completed: number;
   started?: boolean;
   progressKnown?: boolean;
@@ -51,7 +52,7 @@ function subjectToneStyle(name: string, storedColor?: string | null): CSSPropert
 }
 
 function lessonCountLabel(count: number) {
-  const number = count.toLocaleString("ar-u-nu-arab");
+  const number = count.toLocaleString("ar-u-nu-latn");
   if (count === 1) return "درس واحد متاح";
   if (count === 2) return "درسان متاحان";
   if (count % 100 >= 3 && count % 100 <= 10) return `${number} دروس متاحة`;
@@ -61,11 +62,11 @@ function lessonCountLabel(count: number) {
 function progressLabel(meta?: SubjectMeta) {
   if (meta?.progressKnown === false) return "التقدم غير متاح";
   if (!meta?.completed) return meta?.started ? "بدأت التعلم" : "لم تبدأ بعد";
-  const completed = Math.min(meta.completed, meta.lessons).toLocaleString("ar-u-nu-arab");
+  const completed = Math.min(meta.completed, meta.lessons).toLocaleString("ar-u-nu-latn");
   if (meta.lessons === 1) return "أكملت الدرس";
   if (meta.lessons === 2) return `أكملت ${completed} من درسين`;
   const noun = meta.lessons % 100 >= 3 && meta.lessons % 100 <= 10 ? "دروس" : "درسًا";
-  return `أكملت ${completed} من ${meta.lessons.toLocaleString("ar-u-nu-arab")} ${noun}`;
+  return `أكملت ${completed} من ${meta.lessons.toLocaleString("ar-u-nu-latn")} ${noun}`;
 }
 
 /**
@@ -298,7 +299,7 @@ function SubjectTile({
             <span>{progressLabel(meta)}</span>
             {meta!.completed > 0 && meta?.progressKnown !== false && (
               <span className="font-bold text-primary">
-                {value.toLocaleString("ar-u-nu-arab")}%
+                {value.toLocaleString("ar-u-nu-latn")}%
               </span>
             )}
           </div>
@@ -343,15 +344,17 @@ function SubjectTile({
             قريبًا
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => setBooksOpen(true)}
-          aria-label={`كتب المنهج: ${title} — عرض أو تنزيل`}
-          className="relative z-10 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <BookOpen className="h-4 w-4" aria-hidden />
-          كتب المنهج
-        </button>
+        {meta?.textbookCount !== 0 && (
+          <button
+            type="button"
+            onClick={() => setBooksOpen(true)}
+            aria-label={`كتب المنهج: ${title} — عرض أو تنزيل`}
+            className="relative z-10 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <BookOpen className="h-4 w-4" aria-hidden />
+            كتب المنهج
+          </button>
+        )}
       </div>
       <SubjectTextbooksSheet
         open={booksOpen}

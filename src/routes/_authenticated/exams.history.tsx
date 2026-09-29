@@ -1,3 +1,5 @@
+import { historyStats, historyScoreLabel, historyAnswerLabel } from "@/lib/exams/history-score";
+import { RouteIndexContent } from "@/components/student/RouteIndexContent";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -19,9 +21,11 @@ type HistoryRow = {
   started_at: string;
   submitted_at: string | null;
   total_questions: number;
-  correct_answers: number;
-  score: number;
-  total_points: number;
+  correct_answers: number | null;
+  ministerial_model_id: string | null;
+  result_json: unknown;
+  score: number | null;
+  total_points: number | null;
   exam_templates: { title: string | null } | null;
 };
 
@@ -37,21 +41,9 @@ const MODE_BADGE: Record<ExamMode, string> = {
   ministry: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
 };
 
-function percentageOf(
-  row: Pick<HistoryRow, "score" | "total_points" | "correct_answers" | "total_questions">,
-) {
-  if (row.total_points && row.total_points > 0) {
-    return (Number(row.score) / Number(row.total_points)) * 100;
-  }
-  if (row.total_questions && row.total_questions > 0) {
-    return (row.correct_answers / row.total_questions) * 100;
-  }
-  return 0;
-}
-
 function formatDate(iso: string) {
   try {
-    return new Date(iso).toLocaleDateString("ar", {
+    return new Date(iso).toLocaleDateString("ar-u-nu-latn", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -64,7 +56,11 @@ function formatDate(iso: string) {
 }
 
 export const Route = createFileRoute("/_authenticated/exams/history")({
-  component: ExamHistoryPage,
+  component: () => (
+    <RouteIndexContent routeId={Route.id}>
+      <ExamHistoryPage />
+    </RouteIndexContent>
+  ),
 });
 
 function ExamHistoryPage() {
@@ -78,7 +74,7 @@ function ExamHistoryPage() {
       const { data, error } = await supabase
         .from("exam_sessions")
         .select(
-          "id, template_id, mode, status, started_at, submitted_at, total_questions, correct_answers, score, total_points, exam_templates(title)",
+          "id, template_id, mode, status, started_at, submitted_at, total_questions, correct_answers, score, total_points, ministerial_model_id, result_json, exam_templates(title)",
         )
         .eq("user_id", user!.id)
         .in("status", ["submitted", "expired"])
@@ -92,19 +88,8 @@ function ExamHistoryPage() {
 
   const rows = query.data ?? [];
 
-  const stats = useMemo(() => {
-    if (rows.length === 0) return { count: 0, best: 0, last: 0, avg: 0 };
-    const percentages = rows.map((r) => percentageOf(r));
-    const last = percentages[0] ?? 0;
-    const best = percentages.reduce((m, v) => Math.max(m, v), 0);
-    const sum = percentages.reduce((a, b) => a + b, 0);
-    return {
-      count: rows.length,
-      best,
-      last,
-      avg: sum / percentages.length,
-    };
-  }, [rows]);
+  const stats = useMemo(() => historyStats(rows), [rows]);
+  const percent = (value: number | null) => (value === null ? "—" : `${Math.round(value)}%`);
 
   const filtered = useMemo(() => {
     if (filter === "all") return rows;
@@ -113,10 +98,10 @@ function ExamHistoryPage() {
 
   const Breadcrumb = (
     <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
-      <Link to="/app" className="hover:text-primary">
+      <Link to="/semesters" className="hover:text-primary">
         موادي
       </Link>
-      <span className="mx-1">/</span>
+      <span className="mx-1">›</span>
       <span className="text-foreground">سجل الاختبارات</span>
     </nav>
   );
@@ -148,17 +133,17 @@ function ExamHistoryPage() {
         <StatCard
           icon={<Trophy className="h-4 w-4" />}
           label="أفضل نتيجة"
-          value={`${Math.round(stats.best)}%`}
+          value={percent(stats.best)}
         />
         <StatCard
           icon={<Target className="h-4 w-4" />}
-          label="آخر نتيجة"
-          value={`${Math.round(stats.last)}%`}
+          label="آخر نتيجة مصححة"
+          value={percent(stats.last)}
         />
         <StatCard
           icon={<Activity className="h-4 w-4" />}
           label="المتوسط"
-          value={`${Math.round(stats.avg)}%`}
+          value={percent(stats.avg)}
         />
       </section>
 
@@ -174,9 +159,9 @@ function ExamHistoryPage() {
               aria-selected={active}
               onClick={() => setFilter(f)}
               className={[
-                "min-h-[36px] rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                "min-h-[44px] rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                 active
-                  ? "border-primary bg-primary/10 text-primary"
+                  ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary/25"
                   : "border-border bg-card text-muted-foreground hover:bg-muted",
               ].join(" ")}
             >
@@ -192,19 +177,23 @@ function ExamHistoryPage() {
       ) : (
         <ul className="space-y-3">
           {filtered.map((row) => {
-            const pct = Math.round(percentageOf(row));
             const date = row.submitted_at ?? row.started_at;
             return (
               <li key={row.id}>
                 <Link
-                  to="/exams/history/$sessionId"
+                  to={
+                    row.ministerial_model_id
+                      ? "/ministerial-exams/sessions/$sessionId/result"
+                      : "/exams/history/$sessionId"
+                  }
                   params={{ sessionId: row.id }}
                   className="block rounded-2xl border border-border bg-card p-4 shadow-card transition-colors hover:bg-muted/40"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-foreground">
-                        {row.exam_templates?.title ?? "اختبار"}
+                        {row.exam_templates?.title ??
+                          (row.ministerial_model_id ? "نموذج وزاري" : "اختبار")}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                         <span
@@ -223,11 +212,13 @@ function ExamHistoryPage() {
                         <span>{formatDate(date)}</span>
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {row.correct_answers} صحيح من {row.total_questions}
+                        {historyAnswerLabel(row)}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-xl font-bold text-foreground">{pct}%</span>
+                      <span className="text-sm font-bold text-foreground">
+                        {historyScoreLabel(row)}
+                      </span>
                       <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
@@ -240,7 +231,7 @@ function ExamHistoryPage() {
 
       <div className="pt-2">
         <Button asChild variant="outline" size="sm">
-          <Link to="/app">العودة إلى موادي</Link>
+          <Link to="/semesters">العودة إلى موادي</Link>
         </Button>
       </div>
     </div>

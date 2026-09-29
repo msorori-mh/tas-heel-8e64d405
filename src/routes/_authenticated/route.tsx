@@ -7,7 +7,8 @@ import {
 } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { getNetworkState } from "@/lib/offline/network";
-import { readStudentIdentity } from "@/lib/offline/student-shell-cache";
+import { readStudentIdentity, forgetStudentIdentity } from "@/lib/offline/student-shell-cache";
+import { setActiveOfflineOwner } from "@/lib/offline/offline-state-store";
 import { useConnectivity } from "@/hooks/use-connectivity";
 import { ConnectionRequired } from "@/components/offline/ConnectionRequired";
 import { getRestoredUser } from "@/lib/auth/restored-user";
@@ -22,10 +23,14 @@ export const Route = createFileRoute("/_authenticated")({
     let user = saved?.user ?? null;
     if ((await getNetworkState()).online) {
       try {
-        user = (await getRestoredUser(supabase.auth)) ?? user;
+        user = await getRestoredUser(supabase.auth);
+        if (!user) {
+          await forgetStudentIdentity();
+          await setActiveOfflineOwner(null);
+        }
       } catch {
-        // Keep the durable local student lease. Network auth can recover in
-        // the background; a transient/expired refresh must not reopen login.
+        // A transport/backend outage may retain offline access. A definitive
+        // authentication rejection above must never restore the saved identity.
       }
     }
     if (!user) throw redirect({ to: "/auth", search: { mode: "login" } });

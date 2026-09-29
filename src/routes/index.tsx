@@ -267,22 +267,25 @@ function CTAFooter() {
           </div>
 
           <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <a href="#features" className="hover:text-primary">
+            <a href="#features" className="inline-flex min-h-11 items-center hover:text-primary">
               المزايا
             </a>
-            <Link to="/contact" className="hover:text-primary">
+            <Link to="/contact" className="inline-flex min-h-11 items-center hover:text-primary">
               تواصل معنا
             </Link>
-            <Link to="/about" className="hover:text-primary">
+            <Link to="/about" className="inline-flex min-h-11 items-center hover:text-primary">
               عن المنصة
             </Link>
-            <Link to="/privacy" className="hover:text-primary">
+            <Link to="/privacy" className="inline-flex min-h-11 items-center hover:text-primary">
               الخصوصية
             </Link>
-            <Link to="/terms" className="hover:text-primary">
+            <Link to="/terms" className="inline-flex min-h-11 items-center hover:text-primary">
               الشروط
             </Link>
-            <Link to="/data-deletion" className="hover:text-primary">
+            <Link
+              to="/data-deletion"
+              className="inline-flex min-h-11 items-center hover:text-primary"
+            >
               حذف البيانات
             </Link>
           </nav>

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { notFound, createFileRoute } from "@tanstack/react-router";
 import { FileText } from "lucide-react";
 import { StructuredTextbookReader } from "@/components/lessons/StructuredTextbookReader";
 import { PILOT_20A1B_DOCUMENT } from "@/lib/content/official-textbook/structured-blocks";
@@ -9,6 +9,9 @@ import { PILOT_20A1B_DOCUMENT } from "@/lib/content/official-textbook/structured
  * verbatim so the reader layout can be reviewed on mobile and desktop.
  */
 export const Route = createFileRoute("/preview/structured-textbook-20a1b")({
+  beforeLoad: () => {
+    if (import.meta.env.PROD) throw notFound();
+  },
   head: () => ({
     meta: [
       { title: "معاينة قارئ الكتاب الرسمي | تمكين" },

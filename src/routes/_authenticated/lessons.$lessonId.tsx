@@ -1391,7 +1391,7 @@ function OfficialBookQuestionCard({
 
       {q.options.length > 0 ? (
         <div className="space-y-2">
-          {q.options.map((option) => {
+          {q.options.map((option, optionIndex) => {
             const isCorrect = revealed?.correctOptionIds.includes(option.id) === true;
             return (
               <button
@@ -1407,7 +1407,9 @@ function OfficialBookQuestionCard({
                       : "border-border bg-card"
                 }`}
               >
-                <span className="font-semibold">{option.id}</span>
+                <span className="font-semibold">
+                  {["أ", "ب", "ج", "د", "هـ", "و"][optionIndex] ?? String(optionIndex + 1)}
+                </span>
                 <span>{option.text}</span>
               </button>
             );
@@ -1540,9 +1542,12 @@ function SelfTestQuestionCard({
         {q.question_text}
       </div>
       <QuestionFigure image={q.question_image} />
+      <p className="mb-3 text-xs text-muted-foreground">
+        هذا تدريب للمراجعة؛ حفظ الإجابة وتصحيحها لا يمنحان نقاطًا ولا يسجّلان إكمال الدرس تلقائيًا.
+      </p>
 
       <div className="space-y-2">
-        {q.options.map((option) => {
+        {q.options.map((option, optionIndex) => {
           const active = selected === option.id;
           const showCorrectness = checked && active;
           const correctnessClass = showCorrectness
@@ -1563,7 +1568,7 @@ function SelfTestQuestionCard({
               className={`flex w-full items-start gap-2 rounded-lg border p-2 text-right text-sm transition-colors ${correctnessClass}`}
             >
               <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs">
-                {option.id}
+                {["أ", "ب", "ج", "د", "هـ", "و"][optionIndex] ?? String(optionIndex + 1)}
               </span>
               <span className="min-w-0 flex-1 text-card-foreground">{option.text}</span>
             </button>

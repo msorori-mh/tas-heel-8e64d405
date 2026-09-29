@@ -12,13 +12,14 @@ const api = vi.hoisted(() => ({
   onAuthStateChange: vi.fn(),
   signOut: vi.fn(),
   owner: vi.fn(),
+  remember: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: api.from, rpc: api.rpc, auth: api },
 }));
 vi.mock("@/lib/offline/offline-state-store", () => ({ setActiveOfflineOwner: api.owner }));
 vi.mock("@/lib/offline/student-shell-cache", () => ({
-  rememberStudentIdentity: vi.fn().mockResolvedValue(undefined),
+  rememberStudentIdentity: api.remember,
   readStudentIdentity: vi.fn().mockResolvedValue(null),
   forgetStudentIdentity: vi.fn().mockResolvedValue(undefined),
 }));
@@ -85,6 +86,7 @@ beforeEach(async () => {
   }));
   api.rpc.mockImplementation((_: string, args) => enqueue(args._user_id, args._role));
   api.owner.mockResolvedValue(undefined);
+  api.remember.mockResolvedValue(undefined);
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -201,6 +203,18 @@ it("isolates overlapping account loads even when the old request finishes last",
   expect(state.profile?.user_id).toBe("student");
   expect(state.isContentStaff).toBe(false);
   expect(api.owner.mock.calls.map(([uid]) => uid)).toEqual(["admin", "student"]);
+});
+it("discards old roles when saving the old identity finishes after an account switch", async () => {
+  const oldSave = deferred();
+  api.remember.mockImplementationOnce(() => oldSave.promise);
+  await emit("INITIAL_SESSION", session("admin"));
+  await finish("admin", true);
+  await emit("SIGNED_IN", session("student"));
+  await finish("student");
+  await act(async () => oldSave.resolve(undefined));
+  expect(state.user?.id).toBe("student");
+  expect(state.profile?.user_id).toBe("student");
+  expect(state.isContentStaff).toBe(false);
 });
 it("does not start a queued old-account request after switching accounts", async () => {
   await act(async () => {

@@ -1,3 +1,5 @@
+import { useExamNavigationGuard } from "@/hooks/use-exam-navigation-guard";
+import { RouteIndexContent } from "@/components/student/RouteIndexContent";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -54,7 +56,11 @@ export const Route = createFileRoute("/_authenticated/ministerial-exams/sessions
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: MinisterialSessionPage,
+  component: () => (
+    <RouteIndexContent routeId={Route.id}>
+      <MinisterialSessionPage />
+    </RouteIndexContent>
+  ),
 });
 
 type Option = { option_code: string; body: string };
@@ -80,6 +86,8 @@ function MinisterialSessionPage() {
     queryFn: () => fetchMinisterialSessionState(sessionId),
     refetchOnWindowFocus: false,
   });
+
+  useExamNavigationGuard(data?.session.status === "in_progress");
 
   // The attempt mode is authoritative on the server, never from the URL.
   const attemptMode = data?.session.attempt_mode ?? "training";
@@ -351,6 +359,12 @@ function MinisterialSessionPage() {
         {isTextQuestion ? (
           <div className="mt-4 space-y-2">
             <Label htmlFor={`ministerial-text-${current.session_question_id}`}>اكتب إجابتك</Label>
+            {/ارسم|رسمًا|رسم توضيحي/.test(current.question_text) && (
+              <p className="rounded-lg bg-muted p-3 text-sm leading-relaxed">
+                هذا السؤال يتطلب رسمًا. نفّذ الرسم في دفترك، واكتب ملاحظاتك هنا، ثم قارنه بالإجابة
+                النموذجية عند المراجعة.
+              </p>
+            )}
             <MathAnswerInput
               id={`ministerial-text-${current.session_question_id}`}
               ariaLabel="إجابة السؤال الوزاري"

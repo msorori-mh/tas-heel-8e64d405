@@ -52,7 +52,8 @@ export function shouldOfferMathKeyboard(input: {
   questionText?: string | null;
   questionType?: string | null;
 }): boolean {
-  if (scienceInputProfile(input.subjectName)) return true;
+  const profile = scienceInputProfile(input.subjectName);
+  if (profile && profile !== "biology") return true;
   const question = (input.questionText ?? "").toLowerCase();
   const type = (input.questionType ?? "").toUpperCase();
   if (/NUMERIC|MATH|FORMULA|EQUATION|CALCULATION/.test(type)) return true;

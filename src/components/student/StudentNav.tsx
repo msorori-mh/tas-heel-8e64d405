@@ -1,3 +1,4 @@
+import { requestStudentSignOut } from "@/hooks/use-exam-navigation-guard";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Shield, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,7 +8,7 @@ export function StudentNav() {
   const { signOut, isAdmin, isContentStaff } = useAuth();
   const navigate = useNavigate();
   return (
-    <header className="sticky top-0 z-30 border-b border-primary/10 bg-card/95 backdrop-blur-md shadow-elevated">
+    <header className="safe-area-top sticky top-0 z-30 border-b border-primary/10 bg-card/95 backdrop-blur-md shadow-elevated">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-2 sm:px-4">
         <Link
           to="/app"
@@ -52,6 +53,7 @@ export function StudentNav() {
             type="button"
             aria-label="تسجيل الخروج"
             onClick={async () => {
+              if (!requestStudentSignOut()) return;
               await signOut();
               navigate({ to: "/auth", search: { mode: "login" }, replace: true });
             }}

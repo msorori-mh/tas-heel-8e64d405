@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { notFound, createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   BarChart3,
@@ -19,6 +19,9 @@ import ministerialImage from "@/assets/prototype/fm-v2-ministerial.png";
  * learning feed. Visual prototype only: static content, no queries.
  */
 export const Route = createFileRoute("/prototype/19a/home")({
+  beforeLoad: () => {
+    if (import.meta.env.PROD) throw notFound();
+  },
   head: () => ({
     meta: [
       { title: "رئيسية الطالب | تمكين" },

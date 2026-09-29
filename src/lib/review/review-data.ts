@@ -91,47 +91,64 @@ export async function fetchReviewItems(input: {
     key_points: unknown;
     study_tip: string | null;
   };
-  const summaries: SummaryRow[] = [];
-  for (const ids of chunk(lessonIds, ID_CHUNK)) {
-    const rows = await fetchAllPaged<SummaryRow>((from, to) =>
-      supabase
-        .from("lesson_summaries")
-        .select("lesson_id,summary,key_points,study_tip")
-        .in("lesson_id", ids)
-        .order("lesson_id")
-        .range(from, to),
+  // These three independent datasets share the same lesson scope. Load the
+  // pipelines together while keeping each paginated pipeline sequential.
+  const summariesTask = async () => {
+    const rows: SummaryRow[] = [];
+    for (const ids of chunk(lessonIds, ID_CHUNK)) {
+      rows.push(
+        ...(await fetchAllPaged<SummaryRow>((from, to) =>
+          supabase
+            .from("lesson_summaries")
+            .select("lesson_id,summary,key_points,study_tip")
+            .in("lesson_id", ids)
+            .order("lesson_id")
+            .range(from, to),
+        )),
+      );
+    }
+    return rows;
+  };
+  const unitsTask = async () => {
+    const rows: { id: string; title: string }[] = [];
+    const unitIds = Array.from(
+      new Set(lessons.map((lesson) => lesson.unit_id).filter((id): id is string => !!id)),
     );
-    summaries.push(...rows);
-  }
-  const summaryByLesson = new Map(summaries.map((s) => [s.lesson_id, s]));
-
-  // 3) Units — titles only, for lessons that belong to a unit.
-  const unitIds = Array.from(
-    new Set(lessons.map((l) => l.unit_id).filter((v): v is string => !!v)),
-  );
-  const unitTitle = new Map<string, string>();
-  for (const ids of chunk(unitIds, ID_CHUNK)) {
-    const rows = await fetchAllPaged<{ id: string; title: string }>((from, to) =>
-      supabase.from("units").select("id,title").in("id", ids).order("id").range(from, to),
-    );
-    for (const u of rows) unitTitle.set(u.id, u.title);
-  }
-
-  // 4) Completion — read-only. Quick Review never writes progress.
-  const completed = new Set<string>();
-  for (const ids of chunk(lessonIds, ID_CHUNK)) {
-    const rows = await fetchAllPaged<{ lesson_id: string }>((from, to) =>
-      supabase
-        .from("user_progress")
-        .select("lesson_id")
-        .eq("user_id", userId)
-        .eq("completed", true)
-        .in("lesson_id", ids)
-        .order("lesson_id")
-        .range(from, to),
-    );
-    for (const r of rows) completed.add(r.lesson_id);
-  }
+    for (const ids of chunk(unitIds, ID_CHUNK)) {
+      rows.push(
+        ...(await fetchAllPaged<{ id: string; title: string }>((from, to) =>
+          supabase.from("units").select("id,title").in("id", ids).order("id").range(from, to),
+        )),
+      );
+    }
+    return rows;
+  };
+  const completionTask = async () => {
+    const rows: { lesson_id: string }[] = [];
+    for (const ids of chunk(lessonIds, ID_CHUNK)) {
+      rows.push(
+        ...(await fetchAllPaged<{ lesson_id: string }>((from, to) =>
+          supabase
+            .from("user_progress")
+            .select("lesson_id")
+            .eq("user_id", userId)
+            .eq("completed", true)
+            .in("lesson_id", ids)
+            .order("lesson_id")
+            .range(from, to),
+        )),
+      );
+    }
+    return rows;
+  };
+  const [summaries, units, progress] = await Promise.all([
+    summariesTask(),
+    unitsTask(),
+    completionTask(),
+  ]);
+  const summaryByLesson = new Map(summaries.map((row) => [row.lesson_id, row]));
+  const unitTitle = new Map(units.map((row) => [row.id, row.title]));
+  const completed = new Set(progress.map((row) => row.lesson_id));
 
   const items: ReviewItem[] = [];
   lessons.forEach((lesson, index) => {

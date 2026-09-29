@@ -54,8 +54,9 @@ describe("STUDENT_BRAND_THEME_01", () => {
     expect(shell).toContain("lg:flex");
     expect(shell).toContain("lg:hidden");
     expect(shell).toContain("grid grid-cols-5");
-    expect(shell).toContain("pb-[env(safe-area-inset-bottom)]");
-    expect(shell).toContain("pb-24");
+    expect(shell).toContain("student-bottom-nav");
+    expect(shell).toContain("student-shell-main");
+    expect(styles).toContain("padding-bottom: calc(6rem + var(--app-safe-bottom))");
   });
 });
 
