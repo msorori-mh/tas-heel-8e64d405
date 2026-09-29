@@ -65,6 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const generation = useRef(0);
   const inFlight = useRef<{ generation: number; promise: Promise<Profile | null> } | null>(null);
   const wasOffline = useRef(false);
+  const rememberedIdentity = useRef<Awaited<ReturnType<typeof readStudentIdentity>>>(null);
+  const explicitSignOut = useRef(false);
+  const activeOwnerWrite = useRef<Promise<void>>(Promise.resolve());
+  const restoredFromDurableLease = useRef(false);
 
   const loadProfile = useCallback((userId: string, force = false): Promise<Profile | null> => {
     if (owner.current !== userId) return Promise.resolve(null);
@@ -109,7 +113,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : ((profileResult.data as Profile | null) ?? null);
       setProfile(loadedProfile);
       setOfflineUser(null);
-      if (loadedProfile) void rememberStudentIdentity(loadedProfile).catch(() => undefined);
+      if (loadedProfile) {
+        await rememberStudentIdentity(loadedProfile).catch(() => undefined);
+        rememberedIdentity.current = {
+          profile: loadedProfile,
+          user: {
+            id: loadedProfile.user_id,
+            aud: "authenticated",
+            app_metadata: {},
+            user_metadata: {},
+            created_at: "",
+          } as User,
+        };
+      }
       const roles = deriveAuthRoles({
         hasAdmin: !adminResult.error && adminResult.data === true,
         hasContentManager: !managerResult.error && managerResult.data === true,
@@ -138,16 +154,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     let receivedAuthEvent = false;
     let initialized = false;
+    let identityBootstrapResolved = false;
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const queuedLoads = new Set<number>();
 
     const acceptSession = (sess: Session | null, refresh = false) => {
       if (!mounted) return;
-      // A missing SDK session during an offline refresh is not an explicit sign-out.
-      if (!sess && !navigator.onLine) {
-        setLoading(false);
+
+      if (!sess && !explicitSignOut.current) {
+        const saved = rememberedIdentity.current;
+        setSession(null);
+        setIsAdmin(false);
+        setIsContentManager(false);
+        setIsContentStaff(false);
+        if (saved) {
+          initialized = true;
+          owner.current = saved.user.id;
+          setOfflineUser(saved.user);
+          setProfile(saved.profile);
+          setLoading(false);
+          void setActiveOfflineOwner(saved.user.id).catch(() => undefined);
+          return;
+        }
+        // A missing SDK session is not by itself proof that the student chose
+        // to sign out. Keep the gate loading until the durable identity read
+        // resolves so the login screen never flashes on a remembered account.
+        if (identityBootstrapResolved) {
+          generation.current += 1;
+          owner.current = null;
+          inFlight.current = null;
+          setOfflineUser(null);
+          setProfile(null);
+          setLoading(false);
+          activeOwnerWrite.current = setActiveOfflineOwner(null).catch(() => undefined);
+        }
         return;
       }
+
       const uid = sess?.user?.id ?? null;
       const changed = !initialized || owner.current !== uid;
       initialized = true;
@@ -156,7 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         owner.current = uid;
         generation.current += 1;
         inFlight.current = null;
-        void setActiveOfflineOwner(uid).catch(() => undefined);
+        activeOwnerWrite.current = setActiveOfflineOwner(uid).catch(() => undefined);
         setProfile(null);
         setOfflineUser(null);
         setIsAdmin(false);
@@ -173,22 +216,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         timers.delete(timer);
         queuedLoads.delete(currentGeneration);
         if (mounted && generation.current === currentGeneration) {
-          void loadProfile(uid).catch(console.error);
+          void activeOwnerWrite.current.then(() => loadProfile(uid)).catch(console.error);
         }
       }, 0);
       timers.add(timer);
     };
 
-    // Restore the local student identity independently of SDK token refresh, which
-    // can wait for a network that does not exist on an airplane-mode cold start.
+    // Restore the durable student identity on every cold start, online or offline.
+    // This is the long-lived local lease that keeps the student inside the app
+    // while Supabase silently restores/refreshes the network session in parallel.
     const bootstrapGeneration = generation.current;
     void (async () => {
-      if ((await getNetworkState()).online) return;
       const saved = await readStudentIdentity();
-      if (!mounted || navigator.onLine || !saved) {
-        if (mounted && !navigator.onLine) setLoading(false);
+      identityBootstrapResolved = true;
+      if (!mounted || !saved || explicitSignOut.current) {
+        if (mounted && !initialized) setLoading(false);
         return;
       }
+      rememberedIdentity.current = saved;
+      restoredFromDurableLease.current = true;
       if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
       owner.current = saved.user.id;
       initialized = true;
@@ -198,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(false);
       setIsContentManager(false);
       setIsContentStaff(false);
+      void setActiveOfflineOwner(saved.user.id).catch(() => undefined);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
@@ -211,12 +258,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         /* Storage may be unavailable. */
       }
-      if (event === "SIGNED_OUT") {
+      if (event === "SIGNED_OUT" && explicitSignOut.current) {
         setIsAdmin(false);
         setIsContentManager(false);
         setIsContentStaff(false);
         generation.current += 1;
         owner.current = null;
+        rememberedIdentity.current = null;
         setOfflineUser(null);
         setProfile(null);
         setSession(null);
@@ -225,7 +273,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void setActiveOfflineOwner(null).catch(() => undefined);
       }
       receivedAuthEvent = true;
-      acceptSession(sess, event === "SIGNED_IN" || event === "USER_UPDATED");
+      const shouldRefreshRestoredLease =
+        event === "INITIAL_SESSION" && restoredFromDurableLease.current;
+      if (shouldRefreshRestoredLease) restoredFromDurableLease.current = false;
+      acceptSession(
+        sess,
+        shouldRefreshRestoredLease || event === "SIGNED_IN" || event === "USER_UPDATED",
+      );
     });
 
     // INITIAL_SESSION normally handles bootstrap. The snapshot is a fallback;
@@ -271,24 +325,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!error && data.user?.id === restoringOwner) {
           await loadProfile(data.user.id, true);
         } else if (error && !isAuthRetryableFetchError(error)) {
-          generation.current += 1;
-          owner.current = null;
-          setOfflineUser(null);
+          // Do not turn a server-side refresh failure into a local logout.
+          // Keep the durable student lease so the app still opens immediately;
+          // authenticated network calls remain protected by Supabase/RLS.
           setSession(null);
-          setProfile(null);
           setIsAdmin(false);
           setIsContentManager(false);
           setIsContentStaff(false);
-          await forgetStudentIdentity();
-          await setActiveOfflineOwner(null).catch(() => undefined);
+          const saved = rememberedIdentity.current ?? (await readStudentIdentity());
+          if (saved && saved.user.id === restoringOwner) {
+            rememberedIdentity.current = saved;
+            owner.current = saved.user.id;
+            setOfflineUser(saved.user);
+            setProfile(saved.profile);
+            setLoading(false);
+            await setActiveOfflineOwner(saved.user.id).catch(() => undefined);
+          }
         }
       })
       .catch(() => undefined);
   }, [online, offlineUser, session?.user.id, loadProfile]);
 
   const signOut = useCallback(async () => {
+    explicitSignOut.current = true;
     generation.current += 1;
     owner.current = null;
+    rememberedIdentity.current = null;
+    restoredFromDurableLease.current = false;
     setOfflineUser(null);
     setSession(null);
     setProfile(null);
@@ -297,7 +360,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsContentStaff(false);
     await forgetStudentIdentity();
     await setActiveOfflineOwner(null).catch(() => undefined);
-    await supabase.auth.signOut(navigator.onLine ? undefined : { scope: "local" });
+    try {
+      await supabase.auth.signOut(navigator.onLine ? undefined : { scope: "local" });
+    } finally {
+      explicitSignOut.current = false;
+    }
   }, []);
 
   return (

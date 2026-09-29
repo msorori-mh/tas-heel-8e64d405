@@ -103,27 +103,28 @@ test("explicit offline logout revokes identity and the active pack owner", async
   expect(state.forget).toHaveBeenCalled();
   expect(state.owner).toHaveBeenCalledWith(null);
 });
-test("a late local identity read cannot restore the account after sign-out", async () => {
+test("an SDK SIGNED_OUT event does not erase the durable student lease", async () => {
   let finish!: (value: typeof identity) => void;
   state.saved.mockReturnValue(
-    new Promise((r) => {
-      finish = r;
+    new Promise((resolve) => {
+      finish = resolve;
     }),
   );
   await render();
   await act(async () => state.notify?.("SIGNED_OUT", null));
   await act(async () => finish(identity));
-  expect(current.user).toBeNull();
-  expect(current.profile).toBeNull();
+  expect(current.user?.id).toBe("student-a");
+  expect(current.profile?.full_name).toBe("طالبة");
+  expect(state.forget).not.toHaveBeenCalled();
 });
 
-test("a definitively revoked session on reconnect cannot keep a local identity active", async () => {
+test("a server refresh failure on reconnect keeps the local student home available", async () => {
   await render();
   state.getUser.mockResolvedValue({ data: { user: null }, error: new Error("session revoked") });
   state.online = true;
   await render();
-  expect(current.user).toBeNull();
-  expect(current.profile).toBeNull();
-  expect(state.owner).toHaveBeenCalledWith(null);
+  expect(current.user?.id).toBe("student-a");
+  expect(current.profile?.full_name).toBe("طالبة");
+  expect(state.forget).not.toHaveBeenCalled();
   expect(current.isContentStaff).toBe(false);
 });

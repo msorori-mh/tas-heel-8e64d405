@@ -56,14 +56,22 @@ function GoogleMark() {
 
 function StudentAuthPage() {
   const navigate = useNavigate();
-  const { session, profileComplete, loading } = useAuth();
+  const { user, profileComplete, loading } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
-    if (session) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
-  }, [session, loading, profileComplete, navigate]);
+    if (user) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
+  }, [user, loading, profileComplete, navigate]);
+
+  if (loading || user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background" dir="rtl">
+        <LoaderCircle className="h-6 w-6 animate-spin text-primary" aria-label="جارٍ استعادة الجلسة" />
+      </main>
+    );
+  }
 
   async function continueWithGoogle() {
     setBusy(true);
