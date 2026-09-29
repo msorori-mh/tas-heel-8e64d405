@@ -254,7 +254,11 @@ describe("OFFLINE-01 outbox", () => {
   it("bounds delivered tombstones without removing other owners or pending work", async () => {
     const repository = new OfflineStateRepository(new MemoryOfflineStateAdapter());
     await enqueueOfflineMutation(repository, { ...input, ownerId: "student-b" }, T0);
-    await enqueueOfflineMutation(repository, { ...input, idempotencyKey: "pending-work-20260901" }, T0);
+    await enqueueOfflineMutation(
+      repository,
+      { ...input, idempotencyKey: "pending-work-20260901" },
+      T0,
+    );
     for (let i = 0; i < 260; i++) {
       const timestamp = new Date(Date.parse(T0) + i * 1000).toISOString();
       const operation = await enqueueOfflineMutation(
@@ -265,7 +269,11 @@ describe("OFFLINE-01 outbox", () => {
       await markOfflineMutationDelivered(repository, "student-a", operation.id, timestamp);
     }
     const snapshot = await repository.read();
-    expect(snapshot.outbox.filter((record) => record.ownerId === "student-a" && record.status === "delivered")).toHaveLength(256);
+    expect(
+      snapshot.outbox.filter(
+        (record) => record.ownerId === "student-a" && record.status === "delivered",
+      ),
+    ).toHaveLength(256);
     expect(snapshot.outbox.filter((record) => record.status === "pending")).toHaveLength(2);
   });
 

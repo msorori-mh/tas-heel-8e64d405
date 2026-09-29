@@ -754,15 +754,21 @@ export function GoldenLessonPackageBuilder() {
               ...current.map((item) => item.instanceIndex ?? 0),
             ) + 1;
           const target = serverLabPublications.find((item) => item.resourceId === correctionTarget);
-          return [...current, {
-            ...verifiedUpload, instanceIndex: nextIndex,
-            instanceTitle: target?.instanceTitle ?? "",
-            ...(target?.resourceId && target.sourceSha256 ? {
-              replaceResourceId: target.resourceId,
-              replaceSha256: target.sourceSha256,
-              correctionReason: "",
-            } : {}),
-          }];
+          return [
+            ...current,
+            {
+              ...verifiedUpload,
+              instanceIndex: nextIndex,
+              instanceTitle: target?.instanceTitle ?? "",
+              ...(target?.resourceId && target.sourceSha256
+                ? {
+                    replaceResourceId: target.resourceId,
+                    replaceSha256: target.sourceSha256,
+                    correctionReason: "",
+                  }
+                : {}),
+            },
+          ];
         });
         setCorrectionTarget("");
       } else {
@@ -1053,12 +1059,14 @@ export function GoldenLessonPackageBuilder() {
     await verifyLessonComponentV2Upload({ data: { intakeId: slot.intakeId } });
     setCapabilityPublishStage((current) => ({ ...current, [capability]: "جارٍ نشر المكوّن…" }));
     if (source.replaceResourceId && source.replaceSha256 && source.correctionReason) {
-      return await correctLessonComponentV2Lab({ data: {
-        intakeId: slot.intakeId,
-        oldResourceId: source.replaceResourceId,
-        expectedOldSha256: source.replaceSha256,
-        reason: source.correctionReason.trim(),
-      } });
+      return await correctLessonComponentV2Lab({
+        data: {
+          intakeId: slot.intakeId,
+          oldResourceId: source.replaceResourceId,
+          expectedOldSha256: source.replaceSha256,
+          reason: source.correctionReason.trim(),
+        },
+      });
     }
     if (source.replaceResourceId) throw new Error("LAB_CORRECTION_REASON_REQUIRED");
     return await publishLessonComponentV2({ data: { intakeId: slot.intakeId } });
@@ -1073,8 +1081,19 @@ export function GoldenLessonPackageBuilder() {
           ? [uploads[capability]!]
           : [];
     if (sources.length === 0 || !selectedLessonCode) return;
-    if (sources.some((source) => source.replaceResourceId && (source.correctionReason?.trim().length ?? 0) < 10)) {
-      setCapabilityPublishError((current) => ({ ...current, [capability]: { message: "سبب التصحيح مطلوب", action: "اكتب سببًا واضحًا لا يقل عن 10 أحرف قبل النشر.", technicalDetail: "LAB_CORRECTION_REASON_REQUIRED" } }));
+    if (
+      sources.some(
+        (source) => source.replaceResourceId && (source.correctionReason?.trim().length ?? 0) < 10,
+      )
+    ) {
+      setCapabilityPublishError((current) => ({
+        ...current,
+        [capability]: {
+          message: "سبب التصحيح مطلوب",
+          action: "اكتب سببًا واضحًا لا يقل عن 10 أحرف قبل النشر.",
+          technicalDetail: "LAB_CORRECTION_REASON_REQUIRED",
+        },
+      }));
       return;
     }
     setCapabilityPublishBusy(capability);
@@ -1132,9 +1151,14 @@ export function GoldenLessonPackageBuilder() {
         setServerPublications((current) => ({ ...current, [capability]: status }));
         if (capability === "labExperimentHtml") {
           setServerLabPublications((current) =>
-            [...current.filter((item) => item.resourceId !== source.replaceResourceId && item.resourceCode !== status.resourceCode), status].sort(
-              (left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0),
-            ),
+            [
+              ...current.filter(
+                (item) =>
+                  item.resourceId !== source.replaceResourceId &&
+                  item.resourceCode !== status.resourceCode,
+              ),
+              status,
+            ].sort((left, right) => (left.instanceIndex ?? 0) - (right.instanceIndex ?? 0)),
           );
           setLabExperiments((current) =>
             current.filter(
@@ -1498,15 +1522,24 @@ export function GoldenLessonPackageBuilder() {
                     {capability === "labExperimentHtml" && serverLabPublications.length > 0 && (
                       <div className="space-y-1">
                         <Label>نوع الرفع</Label>
-                        <Select value={correctionTarget || "new"} onValueChange={(value) => setCorrectionTarget(value === "new" ? "" : value)}>
-                          <SelectTrigger aria-label="نوع رفع التجربة"><SelectValue /></SelectTrigger>
+                        <Select
+                          value={correctionTarget || "new"}
+                          onValueChange={(value) =>
+                            setCorrectionTarget(value === "new" ? "" : value)
+                          }
+                        >
+                          <SelectTrigger aria-label="نوع رفع التجربة">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="new">إضافة تجربة جديدة</SelectItem>
-                            {serverLabPublications.filter((row) => row.resourceId && row.sourceSha256).map((row) => (
-                              <SelectItem key={row.resourceId} value={row.resourceId ?? ""}>
-                                تصحيح: {row.instanceTitle || row.resourceCode}
-                              </SelectItem>
-                            ))}
+                            {serverLabPublications
+                              .filter((row) => row.resourceId && row.sourceSha256)
+                              .map((row) => (
+                                <SelectItem key={row.resourceId} value={row.resourceId ?? ""}>
+                                  تصحيح: {row.instanceTitle || row.resourceCode}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1600,10 +1633,21 @@ export function GoldenLessonPackageBuilder() {
                                   {item.replaceResourceId && (
                                     <div className="space-y-1">
                                       <Label htmlFor={`lab-reason-${itemIndex}`}>سبب التصحيح</Label>
-                                      <Input id={`lab-reason-${itemIndex}`} maxLength={500}
+                                      <Input
+                                        id={`lab-reason-${itemIndex}`}
+                                        maxLength={500}
                                         value={item.correctionReason ?? ""}
                                         placeholder="ما الذي تغير في التجربة؟"
-                                        onChange={(event) => setLabExperiments((current) => current.map((entry, index) => index === itemIndex ? { ...entry, correctionReason: event.target.value } : entry))} />
+                                        onChange={(event) =>
+                                          setLabExperiments((current) =>
+                                            current.map((entry, index) =>
+                                              index === itemIndex
+                                                ? { ...entry, correctionReason: event.target.value }
+                                                : entry,
+                                            ),
+                                          )
+                                        }
+                                      />
                                     </div>
                                   )}
                                   <Label htmlFor={`lab-title-${item.instanceIndex ?? itemIndex}`}>

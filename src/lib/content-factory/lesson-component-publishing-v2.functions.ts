@@ -515,7 +515,8 @@ export const correctLessonComponentV2Lab = createServerFn({ method: "POST" })
       }),
       "LAB_CORRECTION_FAILED",
     );
-    if (published["student_can_see_this_component"] !== true) throw new Error("LAB_CORRECTION_NOT_VISIBLE");
+    if (published["student_can_see_this_component"] !== true)
+      throw new Error("LAB_CORRECTION_NOT_VISIBLE");
     return {
       intakeId: String(published["intake_id"]),
       lessonId: String(published["lesson_id"]),
@@ -523,8 +524,10 @@ export const correctLessonComponentV2Lab = createServerFn({ method: "POST" })
       lifecycleCapability: String(published["lifecycle_capability"]),
       publicationVersion: Number(published["publication_version"]),
       sourceSha256: String(published["source_sha256"]),
-      status: "READY", studentCanSeeThisComponent: true,
-      idempotent: false, writesPerformed: Number(published["writes_performed"]),
+      status: "READY",
+      studentCanSeeThisComponent: true,
+      idempotent: false,
+      writesPerformed: Number(published["writes_performed"]),
       resourceCode: String(published["resource_code"]),
       resourceId: String(published["new_resource_id"]),
       instanceIndex: Number(published["instance_index"]),
@@ -554,26 +557,27 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
     if (!lesson.data) throw new Error("LCPV2_STATUS_LESSON_NOT_FOUND");
     const lessonId = lesson.data.id;
 
-    const [lifecycleResult, publicationResult, experimentResult, correctionsResult] = await Promise.all([
-      admin
-        .from("lesson_capability_lifecycle")
-        .select("capability,status,ready_hash,ready_at")
-        .eq("lesson_id", lessonId),
-      admin
-        .from("lesson_component_publications_v2")
-        .select(
-          "capability,lifecycle_capability,publication_version,source_sha256,published_at,result",
-        )
-        .eq("lesson_id", lessonId)
-        .order("publication_version", { ascending: false }),
-      admin
-        .from("lesson_resources")
-         .select("id,resource_code,title,sort_order,metadata")
-        .eq("lesson_id", lessonId)
-        .eq("resource_type", "experiment")
-        .order("sort_order", { ascending: true }),
-      admin.from("lesson_lab_corrections").select("old_resource_id").eq("lesson_id", lessonId),
-    ]);
+    const [lifecycleResult, publicationResult, experimentResult, correctionsResult] =
+      await Promise.all([
+        admin
+          .from("lesson_capability_lifecycle")
+          .select("capability,status,ready_hash,ready_at")
+          .eq("lesson_id", lessonId),
+        admin
+          .from("lesson_component_publications_v2")
+          .select(
+            "capability,lifecycle_capability,publication_version,source_sha256,published_at,result",
+          )
+          .eq("lesson_id", lessonId)
+          .order("publication_version", { ascending: false }),
+        admin
+          .from("lesson_resources")
+          .select("id,resource_code,title,sort_order,metadata")
+          .eq("lesson_id", lessonId)
+          .eq("resource_type", "experiment")
+          .order("sort_order", { ascending: true }),
+        admin.from("lesson_lab_corrections").select("old_resource_id").eq("lesson_id", lessonId),
+      ]);
     if (lifecycleResult.error) {
       throw new Error(`LCPV2_STATUS_LIFECYCLE_READ_FAILED: ${lifecycleResult.error.message}`);
     }
@@ -629,20 +633,22 @@ export const getLessonComponentServerPublicationStatus = createServerFn({ method
       const lifecycle = lifecycleByCapability.get(lifecycleCapability);
       if (lifecycle?.status !== "READY") return [];
       const publication = latestPublication.get(capability);
-       if (capability === "labExperimentHtml" && managedExperiments.length > 0) {
-         return managedExperiments.filter((experiment) => !replacedIds.has(experiment.resourceId)).map((experiment) => ({
-          lessonId: String(lessonId),
-          capability,
-          lifecycleCapability,
-          publicationVersion: publication ? Number(publication.publication_version) : null,
-          sourceSha256: experiment.sourceSha256,
-          publishedAt: publication?.published_at ?? lifecycle.ready_at ?? null,
-          visibleToStudent: true as const,
-          resourceCode: experiment.resourceCode,
-          instanceIndex: experiment.instanceIndex,
-          instanceTitle: experiment.instanceTitle,
-          sortOrder: experiment.sortOrder,
-        }));
+      if (capability === "labExperimentHtml" && managedExperiments.length > 0) {
+        return managedExperiments
+          .filter((experiment) => !replacedIds.has(experiment.resourceId))
+          .map((experiment) => ({
+            lessonId: String(lessonId),
+            capability,
+            lifecycleCapability,
+            publicationVersion: publication ? Number(publication.publication_version) : null,
+            sourceSha256: experiment.sourceSha256,
+            publishedAt: publication?.published_at ?? lifecycle.ready_at ?? null,
+            visibleToStudent: true as const,
+            resourceCode: experiment.resourceCode,
+            instanceIndex: experiment.instanceIndex,
+            instanceTitle: experiment.instanceTitle,
+            sortOrder: experiment.sortOrder,
+          }));
       }
       return [
         {

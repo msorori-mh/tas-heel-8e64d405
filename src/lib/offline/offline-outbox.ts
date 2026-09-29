@@ -194,9 +194,14 @@ export async function markOfflineMutationDelivered(
       .filter((candidate) => candidate.ownerId === ownerId && candidate.status === "delivered")
       .sort((left, right) => (right.deliveredAt ?? "").localeCompare(left.deliveredAt ?? ""));
     if (delivered.length > MAX_DELIVERED_TOMBSTONES_PER_OWNER) {
-      const keep = new Set(delivered.slice(0, MAX_DELIVERED_TOMBSTONES_PER_OWNER).map((item) => item.id));
+      const keep = new Set(
+        delivered.slice(0, MAX_DELIVERED_TOMBSTONES_PER_OWNER).map((item) => item.id),
+      );
       snapshot.outbox = snapshot.outbox.filter(
-        (candidate) => candidate.ownerId !== ownerId || candidate.status !== "delivered" || keep.has(candidate.id),
+        (candidate) =>
+          candidate.ownerId !== ownerId ||
+          candidate.status !== "delivered" ||
+          keep.has(candidate.id),
       );
     }
   }, now);
