@@ -66,10 +66,10 @@ describe("general content overview", () => {
     expect(summary.managedLessons).toBe(1);
     expect(summary.unmanagedLessons).toBe(1);
     expect(summary.visibleLessons).toBe(1);
-    expect(summary.requiredTotal).toBe(6);
+    expect(summary.requiredTotal).toBe(3);
     expect(summary.requiredReady).toBe(2);
     expect(summary.requiredReview).toBe(1);
-    expect(summary.requiredMissing).toBe(3);
+    expect(summary.requiredMissing).toBe(0);
   });
 
   it("summarizes every canonical component without counting NA as applicable", () => {
@@ -124,8 +124,8 @@ describe("general content overview", () => {
       scopeOverviewFacts(facts, catalog, { trackId: "sanaa", semester: "2" }).map((row) => row.id),
     ).toEqual(["cell"]);
     expect(overviewBreakdown(facts, catalog, "subject").map((row) => row.label)).toEqual([
-      "الأحياء",
-      "الكيمياء",
+      "الأحياء — الثالث الثانوي",
+      "الكيمياء — الثالث الثانوي",
     ]);
   });
 
@@ -140,7 +140,10 @@ describe("general content overview", () => {
           updated_at: "2026-09-23",
         },
       ],
-      [ready("iron", "officialBookContent")],
+      [
+        ready("iron", "officialBookContent"),
+        { lesson_id: "iron", capability: "quickReview", applicability: "REQUIRED", status: "" },
+      ],
       [{ lesson_id: "iron", managed: true, visible: false }],
     );
     const rows = overviewAttentionRows(facts, catalog);
@@ -148,5 +151,48 @@ describe("general content overview", () => {
     expect(rows[0].title).toBe("الحديد");
     expect(rows[0].requiredReady).toBe(1);
     expect(rows[0].missingLabels.length).toBeGreaterThan(0);
+  });
+
+  it("does not invent mandatory gaps for independently published optional content", () => {
+    const facts = buildOverviewFacts(
+      [{ id: "iron", title: "الحديد", subject_id: "chem", semester: 1, updated_at: "2026-09-30" }],
+      [ready("iron", "mindMap", "OPTIONAL")],
+      [{ lesson_id: "iron", managed: true, visible: true }],
+    );
+    const summary = overviewSummary(facts);
+    expect(summary.requiredTotal).toBe(0);
+    expect(summary.trackedTotal).toBe(1);
+    expect(summary.trackedReady).toBe(1);
+    expect(summary.readinessPercent).toBe(100);
+    expect(summary.managedCompleteLessons).toBe(1);
+    expect(summary.managedNeedsAttention).toBe(0);
+    expect(overviewAttentionRows(facts, catalog)).toEqual([]);
+    expect(overviewComponentSummary(facts).reduce((n, row) => n + row.missing, 0)).toBe(6);
+  });
+
+  it("keeps optional drafts in the review queue and honors the server visibility gate", () => {
+    const facts = buildOverviewFacts(
+      [{ id: "iron", title: "الحديد", subject_id: "chem", semester: 1, updated_at: "2026-09-30" }],
+      [
+        ready("iron", "mindMap", "OPTIONAL"),
+        { lesson_id: "iron", capability: "simulation", status: "DRAFT", applicability: "OPTIONAL" },
+      ],
+      [{ lesson_id: "iron", managed: true, visible: false }],
+    );
+    const summary = overviewSummary(facts);
+    expect(summary.readinessPercent).toBe(50);
+    expect(summary.publicationPercent).toBe(0);
+    expect(summary.managedNeedsAttention).toBe(1);
+    expect(overviewAttentionRows(facts, catalog)[0].draftLabels).toEqual(["التجربة المعملية"]);
+  });
+
+  it("never labels an empty managed lesson ready", () => {
+    const facts = buildOverviewFacts(
+      [{ id: "iron", title: "الحديد", subject_id: "chem", semester: 1, updated_at: "2026-09-30" }],
+      [],
+      [{ lesson_id: "iron", managed: true, visible: false }],
+    );
+    expect(overviewSummary(facts).managedCompleteLessons).toBe(0);
+    expect(overviewSummary(facts).readinessPercent).toBeNull();
   });
 });

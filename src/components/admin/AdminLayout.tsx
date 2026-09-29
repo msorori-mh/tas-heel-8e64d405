@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
   Users,
@@ -19,6 +18,7 @@ import {
   Wallet,
   Landmark,
   HeartPulse,
+  GraduationCap,
 } from "lucide-react";
 import { TrendingDown, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -96,7 +96,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const visibleLinks = filterAdminSidebarLinks(activeLinks, isAdmin);
   const currentPath = useRouterState({
     select: (s) => s.location.pathname,
@@ -108,10 +110,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const handleSignOut = async () => {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await navigate({ to: "/admin/login", replace: true });
+    } catch {
+      setSignOutError("تعذر إكمال تسجيل الخروج. أعد المحاولة.");
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   return (
@@ -127,19 +138,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 right-0 z-50 w-64 border-l border-border bg-card transition-transform duration-300 md:static md:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
+        className={`admin-sidebar fixed inset-y-0 right-0 z-50 flex h-dvh w-64 shrink-0 flex-col border-l border-border bg-card transition-transform duration-300 md:sticky md:top-0 md:translate-x-0 ${
+          mobileOpen
+            ? "visible translate-x-0"
+            : "invisible translate-x-full md:visible md:translate-x-0"
         }`}
       >
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link to="/app" className="flex items-center gap-2">
+        <div className="flex min-h-16 shrink-0 items-center justify-between border-b border-border px-4">
+          <Link to={isAdmin ? "/admin" : "/admin/academic"} className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <BookOpen className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="font-bold text-foreground">لوحة الإدارة</span>
           </Link>
           <button
-            className="md:hidden text-muted-foreground"
+            className="md:hidden flex min-h-11 min-w-11 items-center justify-center text-muted-foreground"
             onClick={() => setMobileOpen(false)}
             aria-label="إغلاق القائمة"
           >
@@ -147,7 +160,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </button>
         </div>
 
-        <nav className="p-3 space-y-1">
+        <nav className="min-h-0 flex-1 overflow-y-auto p-3 space-y-1" aria-label="أقسام الإدارة">
           {visibleLinks.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.href, link.end);
@@ -167,6 +180,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              to="/academy/admin"
+              onClick={() => setMobileOpen(false)}
+              className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+            >
+              <GraduationCap className="h-4 w-4" /> إدارة الأكاديمية
+            </Link>
+          )}
 
           <div className="pt-3 mt-3 border-t border-border">
             <p className="px-3 pb-2 text-[11px] font-medium text-muted-foreground/70">قريبًا</p>
@@ -187,7 +209,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </nav>
 
-        <div className="absolute bottom-4 right-4 left-4 space-y-2">
+        <div className="shrink-0 space-y-2 border-t border-border p-4">
           <Link to="/app">
             <Button variant="outline" size="sm" className="w-full gap-2">
               <ArrowRight className="h-4 w-4" />
@@ -198,19 +220,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="outline"
             size="sm"
             onClick={handleSignOut}
+            disabled={signingOut}
             className="w-full gap-2 text-destructive hover:text-destructive min-h-[44px]"
           >
             <LogOut className="h-4 w-4" />
-            تسجيل الخروج
+            {signingOut ? "جارٍ الخروج…" : "تسجيل الخروج"}
           </Button>
         </div>
       </aside>
 
       {/* Main content */}
       <div className="flex-1 min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 backdrop-blur-md px-4 md:px-6">
+        <header className="admin-shell-header sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-border bg-background/80 backdrop-blur-md px-4 md:px-6">
           <button
-            className="md:hidden text-foreground"
+            className="md:hidden flex min-h-11 min-w-11 items-center justify-center text-foreground"
             onClick={() => setMobileOpen(true)}
             aria-label="فتح القائمة"
           >
@@ -221,15 +244,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             variant="ghost"
             size="sm"
             onClick={handleSignOut}
+            disabled={signingOut}
             aria-label="تسجيل الخروج"
             className="ms-auto gap-1.5 text-destructive hover:text-destructive min-h-[44px]"
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">خروج</span>
+            <span className="hidden sm:inline">{signingOut ? "جارٍ الخروج…" : "خروج"}</span>
           </Button>
         </header>
 
         <main className="p-4 md:p-6">
+          {signOutError && (
+            <p role="alert" className="mb-4 text-sm text-destructive">
+              {signOutError}
+            </p>
+          )}
           {isContentCenterPath(currentPath) && <ContentImportCenterNav />}
           {children}
         </main>

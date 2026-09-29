@@ -145,7 +145,10 @@ it("completes bootstrap with three requests in total", async () => {
 it("an explicit refresh supersedes a pre-save profile read", async () => {
   await emit("INITIAL_SESSION", session("student"));
   const older = pending.slice();
-  const refresh = state.refreshProfile();
+  let refresh!: ReturnType<typeof state.refreshProfile>;
+  act(() => {
+    refresh = state.refreshProfile();
+  });
   await tick();
   expect(pending).toHaveLength(6);
   await act(async () => {
@@ -178,7 +181,10 @@ it("still rechecks roles on subsequent sign-in and allows profile refresh after 
   await emit("SIGNED_IN", session("student"));
   expect(pending).toHaveLength(6);
   await finish("student");
-  const refresh = state.refreshProfile();
+  let refresh!: ReturnType<typeof state.refreshProfile>;
+  act(() => {
+    refresh = state.refreshProfile();
+  });
   await tick();
   expect(pending).toHaveLength(9);
   await finish("student");
@@ -250,7 +256,10 @@ it("fails role checks closed while retaining a successfully loaded profile", asy
 it("returns the refreshed persisted profile and retains content-staff roles", async () => {
   await emit("INITIAL_SESSION", session("student"));
   await finish("student");
-  const refreshed = state.refreshProfile();
+  let refreshed!: ReturnType<typeof state.refreshProfile>;
+  act(() => {
+    refreshed = state.refreshProfile();
+  });
   await tick();
   let result;
   await act(async () => {
@@ -271,7 +280,10 @@ it("returns the refreshed persisted profile and retains content-staff roles", as
 it("rejects an explicit refresh when the persisted profile cannot be read", async () => {
   await emit("INITIAL_SESSION", session("student"));
   await finish("student");
-  const refreshed = state.refreshProfile().catch((error) => error);
+  let refreshed!: Promise<unknown>;
+  act(() => {
+    refreshed = state.refreshProfile().catch((error) => error);
+  });
   await tick();
   let result;
   await act(async () => {
