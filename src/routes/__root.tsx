@@ -219,16 +219,6 @@ function RootComponent() {
     if (!academyRouteActive) registerServiceWorker();
   }, [academyRouteActive]);
 
-  if (academyRouteActive) {
-    return (
-      <>
-        <Outlet />
-        <NativeAuthDeepLinkHandler />
-        <NativeNotificationHandler />
-      </>
-    );
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider
@@ -238,11 +228,11 @@ function RootComponent() {
         }}
       >
         <Outlet />
-        <DiagnosticsBridge />
+        {!academyRouteActive ? <DiagnosticsBridge /> : null}
         <AndroidBackHandler />
         <NativeAuthDeepLinkHandler />
         <NativeNotificationHandler />
-        <PwaUpdateNotice />
+        {!academyRouteActive ? <PwaUpdateNotice /> : null}
         <Toaster position="top-center" richColors />
       </AuthProvider>
     </QueryClientProvider>

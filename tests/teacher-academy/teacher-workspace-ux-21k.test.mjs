@@ -12,7 +12,7 @@ test("teacher workspace starts from a useful dashboard with real learning summar
     app,
     /Promise\.all\(\[listMyLearning\(\), loadVisiblePrograms\(\), listMyCertificates\(\)\]\)/,
   );
-  assert.match(app, /portal === "admin" \? "admin" : "home"/);
+  assert.match(app, /portal === "admin" \? "admin" : initialView/);
 });
 
 test("teacher mobile navigation exposes five primary destinations with safe-area support", () => {
@@ -23,19 +23,20 @@ test("teacher mobile navigation exposes five primary destinations with safe-area
   assert.match(styles, /padding-bottom:\s*env\(safe-area-inset-bottom\)/);
 });
 
-test("catalog details no longer distort an individual program card", () => {
+test("catalog details stay beside the selected program", () => {
   assert.match(app, /className="catalog-details-drawer"/);
   assert.match(app, /const expandedProgram = programs\.find/);
   const cardBody = app.slice(
     app.indexOf('<article className="program-card"'),
     app.indexOf("function Learning"),
   );
-  assert.doesNotMatch(cardBody, /<ProgramDetails/);
+  assert.match(cardBody, /<ProgramDetails/);
 });
 
 test("professional profile is embedded in the workspace", () => {
   assert.match(app, /embedded \? "section" : "main"/);
-  assert.match(app, /onSaved=\{onProfileChanged\} embedded/);
+  assert.match(app, /onProfileChanged\(saved\)/);
+  assert.match(app, /selectView\("catalog"\)/);
   assert.match(styles, /\.embedded-profile\s*\{[^}]*grid-template-columns/s);
 });
 

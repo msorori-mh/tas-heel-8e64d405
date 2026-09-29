@@ -8,7 +8,7 @@ test("academy manifest is isolated from the student PWA", async () => {
   const manifest = JSON.parse(await read("public/academy-manifest.webmanifest"));
   assert.equal(manifest.id, "/academy/");
   assert.equal(manifest.start_url, "/academy/");
-  assert.equal(manifest.scope, "/academy/");
+  assert.equal(manifest.scope, "/academy");
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.lang, "ar");
   assert.equal(manifest.dir, "rtl");
@@ -41,7 +41,7 @@ test("academy registers its worker only for the academy scope", async () => {
   const client = await read("apps/teacher-academy/src/pwa/academy-pwa.ts");
   assert.match(client, /manifest\.href = "\/academy-manifest\.webmanifest"/);
   assert.match(client, /academy-apple-touch-icon\.png/);
-  assert.match(client, /register\("\/academy-sw\.js", \{ scope: "\/academy\/" \}\)/);
+  assert.match(client, /register\("\/academy-sw\.js", \{ scope: "\/academy" \}\)/);
   assert.match(client, /window\.isSecureContext/);
   assert.match(client, /SKIP_WAITING/);
 });

@@ -10,7 +10,7 @@ import { useRouter } from "@tanstack/react-router";
  *  - on the app root   -> minimise the app instead of destroying the WebView,
  *    so an in-flight exam session is never lost by pressing back.
  */
-const ROOT_PATHS = new Set(["/", "/app"]);
+const ROOT_PATHS = new Set(["/", "/app", "/academy", "/academy/"]);
 
 export function AndroidBackHandler() {
   const router = useRouter();
@@ -32,6 +32,14 @@ export function AndroidBackHandler() {
           return;
         }
         const path = window.location.pathname;
+        if (path === "/academy" || path === "/academy/") {
+          const back = new Event("tamkeen:academy-back", { cancelable: true });
+          if (!window.dispatchEvent(back)) return;
+        }
+        if (path.startsWith("/academy/") && !ROOT_PATHS.has(path)) {
+          void router.navigate({ to: "/academy", replace: true });
+          return;
+        }
         if (canGoBack && !ROOT_PATHS.has(path)) {
           router.history.back();
           return;

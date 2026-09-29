@@ -29,14 +29,14 @@ describe("durable student session lease", () => {
     expect(guard).toContain("user = await getRestoredUser(supabase.auth)");
   });
 
-  it("never leaves a remembered student sitting on the login page", () => {
-    expect(login).toContain("const { user, profileComplete, loading } = useAuth()");
-    expect(login).toContain('if (user) navigate({ to: profileComplete ? "/app"');
+  it("restores offline student entry without treating an online display cache as a session", () => {
+    expect(login).toContain("session?.user ?? (!online ? user : null)");
+    expect(login).toContain("useWorkspaceHome");
   });
 
-  it("opens native launches directly on the student home", () => {
+  it("restores the selected account workspace on native launches", () => {
     expect(root).toContain("Capacitor.isNativePlatform()");
-    expect(root).toContain('to: profileComplete ? "/app" : "/complete-profile"');
+    expect(root).toContain("useWorkspaceHome(user?.id, profileComplete, native && !loading)");
   });
 
   it("keeps cached student presentation available if online auth refresh fails", () => {

@@ -208,8 +208,11 @@ export function AssessmentEditor({
                 {index + 1}. {question.question_text}
               </strong>
               <small>
-                الإجابة الصحيحة: {question.correct_option?.toUpperCase()} ·{" "}
-                {correctAnswerOf(question)}
+                الإجابة الصحيحة:{" "}
+                {question.correct_option
+                  ? { a: "أ", b: "ب", c: "ج", d: "د" }[question.correct_option]
+                  : "—"}{" "}
+                · {correctAnswerOf(question)}
               </small>
             </div>
             {!readOnly ? (
@@ -261,7 +264,7 @@ export function AssessmentEditor({
           <div className="form-grid assessment-options-admin">
             {(["a", "b", "c", "d"] as const).map((option) => (
               <label key={option}>
-                الخيار {option.toUpperCase()}
+                الخيار {{ a: "أ", b: "ب", c: "ج", d: "د" }[option]}
                 <input
                   value={options[option]}
                   onChange={(event) =>
@@ -277,10 +280,10 @@ export function AssessmentEditor({
                 value={correctOption}
                 onChange={(event) => setCorrectOption(event.target.value as typeof correctOption)}
               >
-                <option value="a">A</option>
-                <option value="b">B</option>
-                <option value="c">C</option>
-                <option value="d">D</option>
+                <option value="a">أ</option>
+                <option value="b">ب</option>
+                <option value="c">ج</option>
+                <option value="d">د</option>
               </select>
             </label>
           </div>

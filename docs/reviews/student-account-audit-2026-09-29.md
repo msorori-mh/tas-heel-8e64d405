@@ -2,7 +2,7 @@
 
 Baseline: `main` at `8606c893a73a8367545f2885e0091a42e8cee41a`. The supplied report used `03926ce` (#310). This branch also includes the already reviewed compact cards from #313 (`33d22aa`). No production content, database records, RLS, permissions or scoring rules were changed.
 
-Authority: implement code and run local verification. The repair branch and proposed PR are prepared locally; automatic approval review blocked GitHub upload pending explicit permission. Production deployment and physical-device acceptance remain separate gates. The report's live observations are supplied evidence; they have not all been independently reproduced.
+Authority: implement code and verification, followed by explicit user approval to upload on 30 September 2026 (Asia/Riyadh). Repairs are uploaded as draft [PR #314](https://github.com/msorori-mh/tas-heel-8e64d405/pull/314), stacked on #313. Production deployment and physical-device acceptance remain separate gates. The report's live observations are supplied evidence; they have not all been independently reproduced.
 
 ## Stages and acceptance
 
@@ -70,8 +70,8 @@ Authority: implement code and run local verification. The repair branch and prop
 - Maintained Vitest suite: **111 files / 904 tests passed**, including actual-router nesting, cancelled exam departure, terminal/transient session errors, delayed revocation/account switching, stale roles during identity persistence, encrypted auth migration, native service-worker behavior, media requirements and keyboard visibility.
 - Node suite: **312 passed**, including the actual XLSX/ZIP parser. Additional core-reliability checks: **42 static + 18 quick-review tests passed**.
 - TypeScript: **PASS**. ESLint: **0 errors / 29 warnings** (27 inherited and 2 browser-fixture Fast Refresh warnings). Generated verification artifacts are excluded from lint, consistent with other build output. `git diff --check`: **PASS**.
-- Production web build and browser-fixture build: **PASS**. Browser fixture execution: **HOLD**, local browser binary unavailable; prepared CI execution has not run.
+- Production web build and browser fixture: **PASS**. [CI run 36639215579](https://github.com/msorori-mh/tas-heel-8e64d405/actions/runs/36639215579) passed both web and browser jobs. The browser checks cover 320/390/768px, simulated system insets, sticky header, content clearance, exam leave/sign-out cancellation and no runtime errors. They use fixture data and do not certify native behavior.
 - Android compilation and APK/AAB packaging: **DEFERRED by the user until the teacher-account audit is supplied**. No Android build workflow was triggered by this work.
-- GitHub upload/PR: **BLOCKED by automatic approval review**, which required explicit permission to send this repair payload to GitHub. No push retry or alternate write transport was used. The proposed PR is stacked on `feat/compact-subject-cards` so opening it does not trigger the existing main-targeted Android build workflow. Web/browser CI is prepared; it awaits upload authorization. The branch has not been merged or deployed.
+- GitHub upload/PR: **PASS**, after the user explicitly approved the previously blocked upload. Shell Git had no credential, so the authorized GitHub connector uploaded the exact verified tree `185ac83f9b9a7c39f52849576ad2f34aaa483925` as commit `27bb1b0` (local source `708438a`). PR #314 targets `feat/compact-subject-cards`; no Android workflow, merge or deployment was performed. The local source history is preserved under `archive/student-audit-local-708438a`.
 
 Physical acceptance remains HOLD: reported Samsung, new APK, safe areas, keyboard, app cold restart, credential migration, revoked login, airplane mode, two-account isolation, PDF pinch/back/rotation. Contact send, deletion, payment and published unit/timed exam acceptance were not performed.

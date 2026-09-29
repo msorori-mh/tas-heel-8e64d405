@@ -15,7 +15,8 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@academy/*": ["src/*"]
+      "@academy/*": ["src/*"],
+      "@/*": ["../../src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"]

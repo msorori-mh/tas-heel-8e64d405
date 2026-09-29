@@ -9,6 +9,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "dist-academy",
       ".output",
       ".vinxi",
       // Generated browser fixtures and verification output are not source code.

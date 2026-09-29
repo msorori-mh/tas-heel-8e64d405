@@ -1,3 +1,5 @@
+import { useWorkspaceHome } from "@/hooks/use-workspace-home";
+import { useConnectivity } from "@/hooks/use-connectivity";
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -56,16 +58,30 @@ function GoogleMark() {
 
 function StudentAuthPage() {
   const navigate = useNavigate();
-  const { user, profileComplete, loading } = useAuth();
+  const { user, session, profileComplete, loading } = useAuth();
+  const online = useConnectivity();
+  const activeUser = session?.user ?? (!online ? user : null);
+  const { destination, error: destinationError } = useWorkspaceHome(
+    activeUser?.id,
+    profileComplete,
+    !loading,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (loading) return;
-    if (user) navigate({ to: profileComplete ? "/app" : "/complete-profile", replace: true });
-  }, [user, loading, profileComplete, navigate]);
+    if (destination) void navigate({ to: destination, replace: true });
+  }, [destination, navigate]);
 
-  if (loading || user) {
+  if (destinationError)
+    return (
+      <main className="p-6" dir="rtl">
+        <p>تعذّر فتح مساحتك. اختر الوجهة للمتابعة.</p>
+        <a href="/academy">مساحة المعلم</a> · <a href="/complete-profile">مساحة الطالب</a>
+      </main>
+    );
+
+  if (loading || activeUser) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background" dir="rtl">
         <LoaderCircle

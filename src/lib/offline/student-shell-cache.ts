@@ -37,6 +37,16 @@ export async function rememberStudentIdentity(profile: Profile): Promise<void> {
 export async function forgetStudentIdentity(): Promise<void> {
   await write(IDENTITY_KEY, null);
 }
+
+export async function clearStudentViews(): Promise<void> {
+  const isView = (key: string) => key.startsWith("tamkeen.student-view.v1:");
+  if (typeof window === "undefined") return;
+  for (const key of Object.keys(localStorage).filter(isView)) localStorage.removeItem(key);
+  if (Capacitor.isNativePlatform()) {
+    const { keys } = await Preferences.keys();
+    await Promise.all(keys.filter(isView).map((key) => Preferences.remove({ key })));
+  }
+}
 export async function readStudentIdentity(): Promise<{ profile: Profile; user: User } | null> {
   try {
     const snapshot = await deviceOfflineStateRepository.read();

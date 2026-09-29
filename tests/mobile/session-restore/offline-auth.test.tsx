@@ -24,6 +24,7 @@ vi.mock("@/lib/offline/network", () => ({
 vi.mock("@/lib/offline/student-shell-cache", () => ({
   readStudentIdentity: state.saved,
   forgetStudentIdentity: state.forget,
+  clearStudentViews: vi.fn().mockResolvedValue(undefined),
   rememberStudentIdentity: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/offline/offline-state-store", () => ({ setActiveOfflineOwner: state.owner }));

@@ -1,3 +1,5 @@
+import { useWorkspaceHome } from "@/hooks/use-workspace-home";
+import { rememberWorkspace } from "@/lib/auth/workspace";
 import {
   createFileRoute,
   Outlet,
@@ -45,6 +47,8 @@ function AuthenticatedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminArea = pathname.startsWith("/admin");
   const online = useConnectivity();
+  const needsDestination = !loading && !!user && !profileComplete && !isAdmin && !isContentStaff;
+  const { destination, error } = useWorkspaceHome(user?.id, profileComplete, needsDestination);
 
   useEffect(() => {
     if (loading) return;
@@ -52,11 +56,23 @@ function AuthenticatedLayout() {
       void navigate({ to: "/auth", search: { mode: "login" }, replace: true });
       return;
     }
-    if (!profile && !isAdmin && !isContentStaff) return; // wait for profile load
-    if (!profileComplete && !isAdmin && !isContentStaff) {
-      navigate({ to: "/complete-profile", replace: true });
-    }
-  }, [loading, user, online, profile, profileComplete, isAdmin, isContentStaff, navigate]);
+    if (destination) void navigate({ to: destination, replace: true });
+    else if (user && profileComplete && !isAdminArea) rememberWorkspace(user.id, "student");
+  }, [loading, user, online, profileComplete, isAdminArea, destination, navigate]);
+
+  if (needsDestination)
+    return (
+      <main className="p-6" dir="rtl">
+        {error ? (
+          <>
+            <p>تعذّر فتح مساحتك.</p>
+            <a href="/academy">مساحة المعلم</a> · <a href="/complete-profile">مساحة الطالب</a>
+          </>
+        ) : (
+          "جارٍ فتح مساحتك…"
+        )}
+      </main>
+    );
 
   // Admin pages render their own AdminLayout — no student shell.
   if (isAdminArea && online) {

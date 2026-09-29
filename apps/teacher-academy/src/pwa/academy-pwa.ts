@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 export interface AcademyBeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -18,6 +19,7 @@ let state: PwaState = {
 };
 const listeners = new Set<Listener>();
 let initialized = false;
+let applyingUpdate = false;
 
 function applyAcademyDocumentMetadata(): void {
   const manifests = document.querySelectorAll<HTMLLinkElement>('link[rel="manifest"]');
@@ -80,12 +82,14 @@ export async function requestAcademyInstall(): Promise<boolean> {
 }
 
 export function activateAcademyUpdate(): void {
+  applyingUpdate = true;
   state.updateReady?.postMessage({ type: "SKIP_WAITING" });
 }
 
 export function initializeAcademyPwa(): void {
   if (initialized || typeof window === "undefined") return;
   initialized = true;
+  if (Capacitor.isNativePlatform()) return;
   applyAcademyDocumentMetadata();
 
   window.addEventListener("beforeinstallprompt", (event) => {
@@ -97,10 +101,16 @@ export function initializeAcademyPwa(): void {
   window.addEventListener("offline", () => emit({ online: false }));
 
   if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
-  window.addEventListener("load", () => {
+  const register = () => {
     navigator.serviceWorker
-      .register("/academy-sw.js", { scope: "/academy/" })
-      .then((registration) => {
+      .register("/academy-sw.js", { scope: "/academy" })
+      .then(async (registration) => {
+        // Retire the narrower historical scope after its replacement is registered.
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const old of registrations) {
+          if (old.scope === new URL("/academy/", location.origin).href && old !== registration)
+            await old.unregister();
+        }
         if (registration.waiting && navigator.serviceWorker.controller) {
           emit({ updateReady: registration.waiting });
         }
@@ -115,7 +125,11 @@ export function initializeAcademyPwa(): void {
         });
       })
       .catch(() => undefined);
-  });
+  };
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register, { once: true });
 
-  navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload());
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (applyingUpdate && /^\/academy(?:\/|$)/.test(location.pathname)) window.location.reload();
+  });
 }
