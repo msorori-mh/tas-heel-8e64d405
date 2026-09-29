@@ -111,7 +111,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : ((profileResult.data as Profile | null) ?? null);
       setProfile(loadedProfile);
       setOfflineUser(null);
-      if (loadedProfile) void rememberStudentIdentity(loadedProfile).catch(() => undefined);
+      if (loadedProfile) {
+        // Persist the owner before the identity cache. This removes the race
+        // where a fast profile response arrived before activeOwnerId was saved.
+        await setActiveOfflineOwner(userId).catch(() => undefined);
+        await rememberStudentIdentity(loadedProfile).catch(() => undefined);
+        rememberedIdentity.current = {
+          profile: loadedProfile,
+          user: {
+            id: loadedProfile.user_id,
+            aud: "authenticated",
+            app_metadata: {},
+            user_metadata: {},
+            created_at: "",
+          } as User,
+        };
+      }
       const roles = deriveAuthRoles({
         hasAdmin: !adminResult.error && adminResult.data === true,
         hasContentManager: !managerResult.error && managerResult.data === true,
