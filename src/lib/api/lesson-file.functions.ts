@@ -2,35 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { parseStorageRef } from "@/lib/lessons/lesson-file-source";
 
 const ALLOWED_BUCKETS = new Set(["lesson-pdfs", "lesson-videos"]);
 const SIGNED_TTL = 600;
-
-/** Parse a stored URL or path into { bucket, path } if it points to a known private bucket. */
-function parseStorageRef(input: string): { bucket: string; path: string } | null {
-  if (!input) return null;
-  const trimmed = input.trim();
-  // Path form: "bucket/key/with/slashes"
-  if (!/^https?:\/\//i.test(trimmed)) {
-    const [bucket, ...rest] = trimmed.replace(/^\/+/, "").split("/");
-    if (!bucket || rest.length === 0) return null;
-    return { bucket, path: rest.join("/") };
-  }
-  try {
-    const u = new URL(trimmed);
-    // Supabase storage URLs:
-    //   /storage/v1/object/public/<bucket>/<path>
-    //   /storage/v1/object/sign/<bucket>/<path>
-    //   /storage/v1/object/<bucket>/<path>
-    const m = u.pathname.match(
-      /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?([^/]+)\/(.+)$/,
-    );
-    if (!m) return null;
-    return { bucket: m[1], path: decodeURIComponent(m[2]) };
-  } catch {
-    return null;
-  }
-}
 
 export const getLessonFileUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
