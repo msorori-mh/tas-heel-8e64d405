@@ -20,6 +20,7 @@ import {
 } from "@/lib/subject-semester";
 import { fetchStudentLessonVisibility } from "@/lib/lessons/lesson-lifecycle";
 import { groupSubjectsByMainCategory } from "@/lib/subjects/subject-grouping";
+import { useSubjectDownloads } from "@/hooks/use-subject-downloads";
 
 type Subject = {
   id: string;
@@ -48,13 +49,17 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       user?.id ?? null,
       isContentStaff === true,
     ],
-    staleTime: 5 * 60 * 1000,
+    // Refresh on return from a lesson while preserving existing offline snapshots.
+    staleTime: 0,
     offline: async () => {
       const subjects = await readSavedSubjects(user!.id, semester);
       return {
         subjects,
         meta: Object.fromEntries(
-          subjects.map((s) => [s.id, { lessons: s.lessons.length, completed: 0 }]),
+          subjects.map((s) => [
+            s.id,
+            { lessons: s.lessons.length, completed: 0, progressKnown: false },
+          ]),
         ) as Record<string, SubjectMeta>,
       };
     },
@@ -77,13 +82,17 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       const subjectIds = byTrack.map((s) => s.id);
       const [unitsRes, lessonsRes] = await Promise.all([
         supabase.from("units").select("subject_id,semester").in("subject_id", subjectIds),
-        supabase.from("lessons").select("id,subject_id,semester").in("subject_id", subjectIds),
+        supabase
+          .from("lessons")
+          .select("id,title,subject_id,semester")
+          .in("subject_id", subjectIds),
       ]);
       if (unitsRes.error) throw unitsRes.error;
       if (lessonsRes.error) throw lessonsRes.error;
 
       const allLessonRows = (lessonsRes.data ?? []) as {
         id: string;
+        title: string;
         subject_id: string;
         semester: number | null;
       }[];
@@ -109,22 +118,35 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       for (const s of subjects) meta[s.id] = { lessons: 0, completed: 0 };
 
       const lessonToSubject = new Map<string, string>();
+      const lessonTitles = new Map<string, string>();
       for (const l of lessonRows) {
         if (!meta[l.subject_id]) continue;
         if (l.semester !== null && l.semester !== semester) continue;
         meta[l.subject_id].lessons += 1;
         lessonToSubject.set(l.id, l.subject_id);
+        lessonTitles.set(l.id, l.title);
       }
 
       if (user?.id && lessonToSubject.size > 0) {
-        const { data: progress } = await supabase
+        const { data: progress, error: progressError } = await supabase
           .from("user_progress")
-          .select("lesson_id,completed")
+          .select("lesson_id,completed,updated_at")
           .eq("user_id", user.id)
-          .eq("completed", true);
+          .order("updated_at", { ascending: false });
+        if (progressError) {
+          for (const item of Object.values(meta)) item.progressKnown = false;
+        }
         for (const p of progress ?? []) {
           const sid = lessonToSubject.get(p.lesson_id as string);
-          if (sid && meta[sid]) meta[sid].completed += 1;
+          if (!sid || !meta[sid]) continue;
+          meta[sid].started = true;
+          if (p.completed) meta[sid].completed += 1;
+          else if (!meta[sid].resumeLesson) {
+            meta[sid].resumeLesson = {
+              id: p.lesson_id,
+              title: lessonTitles.get(p.lesson_id) ?? "درس",
+            };
+          }
         }
       }
 
@@ -133,6 +155,7 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
   });
 
   const subjects = data?.subjects;
+  const downloads = useSubjectDownloads(user?.id, semester);
   const subjectMeta = data?.meta ?? {};
   const subjectGroups = subjects ? groupSubjectsByMainCategory(subjects) : [];
   const totalLessons =
@@ -182,10 +205,15 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
           >
             <dl className="grid grid-cols-3 gap-2 text-center">
               <SummaryMetric label="المواد الأساسية" value={subjectGroups.length} tone="primary" />
-              <SummaryMetric label="مواد جاهزة" value={readySubjects} tone="success" />
+              <SummaryMetric label="مواد بها دروس" value={readySubjects} tone="success" />
               <SummaryMetric
                 label="دروس مكتملة"
-                value={totalLessons > 0 ? `${completedLessons}/${totalLessons}` : "—"}
+                value={
+                  totalLessons > 0 &&
+                  Object.values(subjectMeta).every((item) => item.progressKnown !== false)
+                    ? `${completedLessons}/${totalLessons}`
+                    : "—"
+                }
                 tone="accent"
               />
             </dl>
@@ -199,7 +227,12 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
             ) : null}
           </section>
 
-          <SubjectGroupsGrid subjects={subjects} semester={semester as 1 | 2} meta={subjectMeta} />
+          <SubjectGroupsGrid
+            subjects={subjects}
+            semester={semester as 1 | 2}
+            meta={subjectMeta}
+            downloads={downloads}
+          />
         </>
       )}
     </div>

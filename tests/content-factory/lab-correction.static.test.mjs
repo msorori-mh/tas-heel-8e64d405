@@ -2,9 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const migration = readFileSync("drizzle/migrations/0001_audited_lab_experiment_corrections.sql", "utf8");
+const migration = readFileSync(
+  "drizzle/migrations/0001_audited_lab_experiment_corrections.sql",
+  "utf8",
+);
 const gate = readFileSync("drizzle/migrations/0002_enforce_lab_correction_visibility.sql", "utf8");
-const functions = readFileSync("src/lib/content-factory/lesson-component-publishing-v2.functions.ts", "utf8");
+const functions = readFileSync(
+  "src/lib/content-factory/lesson-component-publishing-v2.functions.ts",
+  "utf8",
+);
 const builder = readFileSync("src/components/admin/GoldenLessonPackageBuilder.tsx", "utf8");
 const artifact = readFileSync("src/routes/api/offline-pack.artifact.$resourceId.ts", "utf8");
 
@@ -24,7 +30,10 @@ test("lab correction is full-admin-only, hash-pinned, audited and atomic", () =>
 test("replaced lab reads are blocked, including direct artifact links", () => {
   assert.match(gate, /AS RESTRICTIVE FOR SELECT/);
   assert.match(gate, /SECURITY DEFINER/);
-  assert.match(migration, /get_lesson_full_content[\s\S]*NOT EXISTS\(SELECT 1 FROM public\.lesson_lab_corrections/);
+  assert.match(
+    migration,
+    /get_lesson_full_content[\s\S]*NOT EXISTS\(SELECT 1 FROM public\.lesson_lab_corrections/,
+  );
   assert.match(artifact, /is_replaced_lab_resource/);
   assert.match(functions, /replacedIds\.has\(experiment\.resourceId\)/);
   assert.match(builder, /تصحيح: \{row\.instanceTitle/);

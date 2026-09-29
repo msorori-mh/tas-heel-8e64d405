@@ -217,7 +217,10 @@ async function handle(
   }
   if (!loaded) return offlineApiError(404, "not_found");
   if (parsed.sourceType === "lab-experiment") {
-    const { data: replaced, error: replacedError } = await caller.supabase.rpc("is_replaced_lab_resource", { _resource_id: parsed.sourceId });
+    const { data: replaced, error: replacedError } = await caller.supabase.rpc(
+      "is_replaced_lab_resource",
+      { _resource_id: parsed.sourceId },
+    );
     if (replacedError) return offlineApiError(500, "replacement_check_failed");
     if (replaced) return offlineApiError(404, "not_found");
   }
