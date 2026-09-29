@@ -300,13 +300,23 @@ function LandingPage() {
   const navigate = useNavigate();
   const { loading, user, profileComplete } = useAuth();
 
+  const native = Capacitor.isNativePlatform();
+
   useEffect(() => {
-    if (!Capacitor.isNativePlatform() || loading || !user) return;
+    if (!native || loading || !user) return;
     void navigate({
       to: profileComplete ? "/app" : "/complete-profile",
       replace: true,
     });
-  }, [loading, user, profileComplete, navigate]);
+  }, [native, loading, user, profileComplete, navigate]);
+
+  if (native && (loading || user)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background" dir="rtl">
+        <p className="text-sm font-semibold text-muted-foreground">جارٍ فتح تمكين…</p>
+      </main>
+    );
+  }
 
   return (
     <div className="ds-v2 min-h-screen text-foreground" dir="rtl">
