@@ -17,6 +17,11 @@ describe("lesson file signing security", () => {
     expect(source).toContain('.eq("pdf_url", data.url)');
   });
 
+  it("uses the canonical storage parser including supabase-storage scheme", () => {
+    expect(source).toContain('import { parseStorageRef } from "@/lib/lessons/lesson-file-source"');
+    expect(source).not.toContain("function parseStorageRef(");
+  });
+
   it("can only sign lesson content buckets and never receipts", () => {
     expect(source).toContain('new Set(["lesson-pdfs", "lesson-videos"])');
     expect(source).not.toMatch(/ALLOWED_BUCKETS\s*=[^\n]*receipts/);
