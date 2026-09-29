@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const wasOffline = useRef(false);
   const rememberedIdentity = useRef<Awaited<ReturnType<typeof readStudentIdentity>>>(null);
   const explicitSignOut = useRef(false);
+  const activeOwnerWrite = useRef<Promise<void>>(Promise.resolve());
 
   const loadProfile = useCallback((userId: string, force = false): Promise<Profile | null> => {
     if (owner.current !== userId) return Promise.resolve(null);
@@ -112,9 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(loadedProfile);
       setOfflineUser(null);
       if (loadedProfile) {
-        // Persist the owner before the identity cache. This removes the race
-        // where a fast profile response arrived before activeOwnerId was saved.
-        await setActiveOfflineOwner(userId).catch(() => undefined);
         await rememberStudentIdentity(loadedProfile).catch(() => undefined);
         rememberedIdentity.current = {
           profile: loadedProfile,
@@ -180,7 +178,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // A missing SDK session is not by itself proof that the student chose
         // to sign out. Keep the gate loading until the durable identity read
         // resolves so the login screen never flashes on a remembered account.
-        if (identityBootstrapResolved) setLoading(false);
+        if (identityBootstrapResolved) {
+          generation.current += 1;
+          owner.current = null;
+          inFlight.current = null;
+          setOfflineUser(null);
+          setProfile(null);
+          setLoading(false);
+          activeOwnerWrite.current = setActiveOfflineOwner(null).catch(() => undefined);
+        }
         return;
       }
 
@@ -192,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         owner.current = uid;
         generation.current += 1;
         inFlight.current = null;
-        void setActiveOfflineOwner(uid).catch(() => undefined);
+        activeOwnerWrite.current = setActiveOfflineOwner(uid).catch(() => undefined);
         setProfile(null);
         setOfflineUser(null);
         setIsAdmin(false);
@@ -209,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         timers.delete(timer);
         queuedLoads.delete(currentGeneration);
         if (mounted && generation.current === currentGeneration) {
-          void loadProfile(uid).catch(console.error);
+          void activeOwnerWrite.current.then(() => loadProfile(uid)).catch(console.error);
         }
       }, 0);
       timers.add(timer);
@@ -267,7 +273,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       receivedAuthEvent = true;
       acceptSession(
         sess,
-        event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED",
+        (event === "INITIAL_SESSION" && rememberedIdentity.current !== null) ||
+          event === "SIGNED_IN" ||
+          event === "USER_UPDATED",
       );
     });
 
