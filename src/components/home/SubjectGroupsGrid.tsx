@@ -62,7 +62,10 @@ function progressLabel(meta?: SubjectMeta) {
   if (meta?.progressKnown === false) return "التقدم غير متاح";
   if (!meta?.completed) return meta?.started ? "بدأت التعلم" : "لم تبدأ بعد";
   const completed = Math.min(meta.completed, meta.lessons).toLocaleString("ar-u-nu-arab");
-  return `أكملت ${completed} من ${meta.lessons.toLocaleString("ar-u-nu-arab")} دروس`;
+  if (meta.lessons === 1) return "أكملت الدرس";
+  if (meta.lessons === 2) return `أكملت ${completed} من درسين`;
+  const noun = meta.lessons % 100 >= 3 && meta.lessons % 100 <= 10 ? "دروس" : "درسًا";
+  return `أكملت ${completed} من ${meta.lessons.toLocaleString("ar-u-nu-arab")} ${noun}`;
 }
 
 /**
