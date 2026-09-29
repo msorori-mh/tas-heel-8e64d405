@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { useEffect, useState } from "react";
 import { Download, RefreshCw, Share2, WifiOff, X } from "lucide-react";
 import {
@@ -13,7 +14,8 @@ import {
 export function AcademyPwaControls() {
   const [state, setState] = useState(getAcademyPwaState);
   const [dismissed, setDismissed] = useState(false);
-  const standalone = isAcademyStandalone();
+  const native = Capacitor.isNativePlatform();
+  const standalone = native || isAcademyStandalone();
   const ios = isAcademyIos();
 
   useEffect(() => {

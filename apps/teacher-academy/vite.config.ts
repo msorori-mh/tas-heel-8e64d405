@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@academy": path.resolve(academyRoot, "src"),
+      "@": path.resolve(academyRoot, "../../src"),
     },
   },
   build: {

@@ -1,3 +1,4 @@
+import { useWorkspaceHome } from "@/hooks/use-workspace-home";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   BookOpen,
@@ -304,14 +305,17 @@ function LandingPage() {
   const { loading, user, profileComplete } = useAuth();
 
   const native = Capacitor.isNativePlatform();
-
+  const { destination, error } = useWorkspaceHome(user?.id, profileComplete, native && !loading);
   useEffect(() => {
-    if (!native || loading || !user) return;
-    void navigate({
-      to: profileComplete ? "/app" : "/complete-profile",
-      replace: true,
-    });
-  }, [native, loading, user, profileComplete, navigate]);
+    if (destination) void navigate({ to: destination, replace: true });
+  }, [destination, navigate]);
+  if (native && error)
+    return (
+      <main className="p-6" dir="rtl">
+        <p>تعذّر تحديد مساحتك. حاول عند عودة الاتصال أو اختر وجهتك.</p>
+        <a href="/academy">مساحة المعلم</a> · <a href="/complete-profile">مساحة الطالب</a>
+      </main>
+    );
 
   if (native && (loading || user)) {
     return (

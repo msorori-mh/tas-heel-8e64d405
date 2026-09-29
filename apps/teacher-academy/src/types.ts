@@ -171,7 +171,7 @@ export type AssessmentQuestion = {
 
 export type AssessmentResult = {
   attempt_id: string;
-  score: number;
+  score: number | null;
   total: number;
   passed: boolean;
   certificate_id: string | null;

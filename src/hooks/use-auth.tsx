@@ -10,6 +10,7 @@ import {
 } from "react";
 import { type Session, type User } from "@supabase/supabase-js";
 import { isTerminalSessionError } from "@/lib/auth/session-errors";
+import { EXPLICIT_SIGN_OUT } from "@/lib/auth/explicit-sign-out";
 import { supabase } from "@/integrations/supabase/client";
 import { deriveAuthRoles } from "@/lib/auth-roles";
 import { getNetworkState } from "@/lib/offline/network";
@@ -18,6 +19,7 @@ import {
   readStudentIdentity,
   rememberStudentIdentity,
   forgetStudentIdentity,
+  clearStudentViews,
 } from "@/lib/offline/student-shell-cache";
 import { setActiveOfflineOwner } from "@/lib/offline/offline-state-store";
 
@@ -99,6 +101,7 @@ export function AuthProvider({
     setLoading(false);
     const cleanup = activeOwnerWrite.current.then(async () => {
       await forgetStudentIdentity();
+      await clearStudentViews().catch(() => undefined);
       if (generation.current === revokedGeneration && owner.current === null) {
         await setActiveOfflineOwner(null);
       }
@@ -187,6 +190,12 @@ export function AuthProvider({
     const uid = session?.user?.id;
     return uid ? await loadProfile(uid, true) : null;
   }, [session?.user?.id, loadProfile]);
+
+  useEffect(() => {
+    const onSignOut = () => void revokeIdentity();
+    window.addEventListener(EXPLICIT_SIGN_OUT, onSignOut);
+    return () => window.removeEventListener(EXPLICIT_SIGN_OUT, onSignOut);
+  }, [revokeIdentity]);
 
   useEffect(() => {
     let mounted = true;

@@ -14,7 +14,7 @@
  *   including an in-progress exam — is never interrupted.
  */
 
-const SW_VERSION = "v4";
+const SW_VERSION = "v5";
 const SHELL_CACHE = `tasheel-shell-${SW_VERSION}`;
 const STATIC_CACHE = `tasheel-static-${SW_VERSION}`;
 const ACTIVE_CACHES = [SHELL_CACHE, STATIC_CACHE];
@@ -35,6 +35,7 @@ const SHELL_ASSETS = [
  */
 const SENSITIVE_DENYLIST = [
   /^\/auth/,
+  /^\/academy(?:\/|$)/,
   /^\/admin/,
   /^\/api\//,
   /^\/_server/,
@@ -72,7 +73,13 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((key) => !ACTIVE_CACHES.includes(key)).map((key) => caches.delete(key)),
+          keys
+            .filter(
+              (key) =>
+                (key.startsWith("tasheel-shell-") || key.startsWith("tasheel-static-")) &&
+                !ACTIVE_CACHES.includes(key),
+            )
+            .map((key) => caches.delete(key)),
         ),
       )
       .then(() => self.clients.claim()),

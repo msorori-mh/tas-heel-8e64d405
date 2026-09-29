@@ -1,10 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "../../../../src/integrations/supabase/client";
 import {
   PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   PUBLIC_SUPABASE_URL,
 } from "../../../../src/integrations/supabase/public-config";
-import { persistentAuthStorage } from "../../../../src/integrations/supabase/nativeAuthStorage";
-import { brokeredPreviewStorage } from "../../../../src/integrations/supabase/previewAuthStorage";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || PUBLIC_SUPABASE_URL;
 const supabaseKey =
@@ -16,22 +15,16 @@ export const academyFeatureEnabled = import.meta.env.PROD
   ? featureFlag === "true"
   : featureFlag !== "false";
 
-export const academySupabase = createClient(
-  supabaseUrl ?? "https://configuration-required.invalid",
-  supabaseKey ?? "configuration-required",
-  {
-    auth: {
-      storage: persistentAuthStorage() ?? brokeredPreviewStorage(),
-      persistSession: true,
-      autoRefreshToken: true,
-      flowType: "pkce",
-      detectSessionInUrl: true,
-    },
-    db: {
-      schema: "academy",
-    },
-  },
-);
+// Both workspaces share one auth instance, including same-tab sign-out events.
+// Only the database schema differs; neither workspace grants the other a role.
+const sharedClient: SupabaseClient = supabase;
+const academyDatabase = sharedClient.schema("academy");
+export const academySupabase = {
+  auth: sharedClient.auth,
+  from: academyDatabase.from.bind(academyDatabase),
+  rpc: academyDatabase.rpc.bind(academyDatabase),
+  schema: sharedClient.schema.bind(sharedClient),
+};
 
 export function requireAcademyBackend(): void {
   if (!academyBackendConfigured) {

@@ -1,10 +1,21 @@
+import { Capacitor } from "@capacitor/core";
+import { clearSignedOutPresentation } from "../../../src/lib/auth/explicit-sign-out";
+import { rememberWorkspace } from "../../../src/lib/auth/workspace";
+import { useKeyboardOpen } from "../../../src/hooks/use-keyboard-open";
+import {
+  teacherError,
+  validateTeacherProfile,
+  countLabel,
+  durationLabel,
+  shuffledOptions,
+} from "./lib/teacher-feedback";
 import { SchoolPicker } from "../../../src/components/schools/SchoolPicker";
 import {
   schoolChoiceFromProfile,
   schoolProfilePatch,
 } from "../../../src/lib/schools/school-choice";
 import { academySchoolDirectoryApi } from "./lib/academy-api";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   Award,
@@ -132,12 +143,37 @@ async function startTeacherGoogleSignIn(): Promise<void> {
   window.location.href = data.url;
 }
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error && "message" in error) {
-    return String(error.message);
-  }
-  return "حدث خطأ غير متوقع. حاول مرة أخرى.";
+const getErrorMessage = teacherError;
+
+function SignOutButton({ className = "secondary-button" }: { className?: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <button
+        type="button"
+        className={className}
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await clearSignedOutPresentation();
+            const result = await academySupabase.auth.signOut({ scope: "local" });
+            if (result.error) throw result.error;
+          } catch (failure) {
+            setError(getErrorMessage(failure));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <LogOut />
+        {busy ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}
+      </button>
+      {error ? <p role="alert">{error}</p> : null}
+    </>
+  );
 }
 
 const LEARNING_SECTION_LABELS: Record<LessonSectionType, string> = {
@@ -248,38 +284,42 @@ function ProgramDetails({
             <div>
               <strong>{session.title}</strong>
               <p>
-                {new Date(session.starts_at).toLocaleString("ar-YE", {
+                {new Date(session.starts_at).toLocaleString("ar-YE-u-nu-latn", {
                   dateStyle: "long",
                   timeStyle: "short",
                 })}
                 {" · "}
                 {session.provider_label}
                 {" · "}
-                {session.duration_minutes} دقيقة
+                {durationLabel(session.duration_minutes)}
               </p>
               {session.speaker_name ? <small>المتخصص: {session.speaker_name}</small> : null}
               {session.instructions ? <p>{session.instructions}</p> : null}
             </div>
             {session.status === "SCHEDULED" ? (
               <div className="live-session-actions">
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const count = await scheduleLiveSessionReminders(session);
-                      setReminderMessage(
-                        count > 0
-                          ? `تم تفعيل ${count} من تذكيرات المحاضرة على هذا الجهاز.`
-                          : "موعد المحاضرة قريب أو انتهى؛ لا توجد تذكيرات مستقبلية لإضافتها.",
-                      );
-                    } catch (error) {
-                      setReminderMessage(getErrorMessage(error));
-                    }
-                  }}
-                >
-                  <BellRing /> تفعيل التذكير
-                </button>
+                {Capacitor.isNativePlatform() ? (
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const count = await scheduleLiveSessionReminders(session);
+                        setReminderMessage(
+                          count > 0
+                            ? `تم تفعيل ${count} من تذكيرات المحاضرة على هذا الجهاز.`
+                            : "موعد المحاضرة قريب أو انتهى؛ لا توجد تذكيرات مستقبلية لإضافتها.",
+                        );
+                      } catch (error) {
+                        setReminderMessage(getErrorMessage(error));
+                      }
+                    }}
+                  >
+                    <BellRing /> تفعيل التذكير
+                  </button>
+                ) : (
+                  <small>تذكير الجهاز متاح في تطبيق أندرويد.</small>
+                )}
                 <a
                   className="primary-button"
                   href={session.meeting_url}
@@ -330,6 +370,7 @@ export function TeacherOAuthCallback() {
           const { data, error: sessionError } = await academySupabase.auth.getSession();
           if (sessionError) throw sessionError;
           if (data.session) {
+            await rememberWorkspace(data.session.user.id, "teacher");
             window.location.replace(academyUrl());
             return;
           }
@@ -404,6 +445,7 @@ function VerifyCertificatePage() {
   const [code, setCode] = useState(
     () => new URLSearchParams(window.location.search).get("code") ?? "",
   );
+  const request = useRef(0);
   const [result, setResult] = useState<VerifiedCertificate | null>(null);
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -411,16 +453,27 @@ function VerifyCertificatePage() {
 
   async function verify(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    if (!code.trim()) {
+      setResult(null);
+      setSearched(false);
+      setError("أدخل رمز الشهادة أولًا.");
+      return;
+    }
+    const sequence = ++request.current;
+    setResult(null);
     setBusy(true);
     setError(null);
     setSearched(true);
     try {
-      setResult(await verifyCertificate(code.trim()));
+      const certificate = await verifyCertificate(code.trim());
+      if (sequence === request.current) setResult(certificate);
     } catch (verifyError) {
-      setError(getErrorMessage(verifyError));
-      setResult(null);
+      if (sequence === request.current) {
+        setError(getErrorMessage(verifyError));
+        setResult(null);
+      }
     } finally {
-      setBusy(false);
+      if (sequence === request.current) setBusy(false);
     }
   }
 
@@ -428,12 +481,16 @@ function VerifyCertificatePage() {
     const initialCode = new URLSearchParams(window.location.search).get("code")?.trim();
     if (!initialCode) return;
     let active = true;
+    const sequence = ++request.current;
     setBusy(true);
     setSearched(true);
     verifyCertificate(initialCode)
-      .then((certificate) => active && setResult(certificate))
-      .catch((verifyError) => active && setError(getErrorMessage(verifyError)))
-      .finally(() => active && setBusy(false));
+      .then((certificate) => active && sequence === request.current && setResult(certificate))
+      .catch(
+        (verifyError) =>
+          active && sequence === request.current && setError(getErrorMessage(verifyError)),
+      )
+      .finally(() => active && sequence === request.current && setBusy(false));
     return () => {
       active = false;
     };
@@ -448,13 +505,20 @@ function VerifyCertificatePage() {
         <p className="eyebrow">أكاديمية تمكين</p>
         <h1>التحقق من الشهادة</h1>
         <p className="muted">أدخل رمز الشهادة كما يظهر في نسخة المعلم.</p>
-        <form onSubmit={verify}>
+        <form onSubmit={verify} noValidate>
           <label>
             رمز الشهادة
             <input
               dir="ltr"
               value={code}
-              onChange={(event) => setCode(event.target.value)}
+              onChange={(event) => {
+                request.current++;
+                setCode(event.target.value);
+                setResult(null);
+                setSearched(false);
+                setError(null);
+                setBusy(false);
+              }}
               required
             />
           </label>
@@ -470,7 +534,9 @@ function VerifyCertificatePage() {
             <strong>{result.valid ? "شهادة صحيحة وسارية" : "شهادة ملغاة"}</strong>
             <span>المعلم: {result.teacher_name}</span>
             <span>البرنامج: {result.program_title}</span>
-            <span>تاريخ الإصدار: {new Date(result.issued_at).toLocaleDateString("ar-YE")}</span>
+            <span>
+              تاريخ الإصدار: {new Date(result.issued_at).toLocaleDateString("ar-YE-u-nu-latn")}
+            </span>
             <bdi>{result.certificate_code}</bdi>
           </div>
         ) : searched && !busy && !error ? (
@@ -714,6 +780,12 @@ function ProfileForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
+    const invalid = validateTeacherProfile(fullName, phone, subjectId, governorateId);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -753,7 +825,7 @@ function ProfileForm({
         </p>
       </section>
 
-      <form className="profile-form" onSubmit={submit}>
+      <form className="profile-form" onSubmit={submit} noValidate aria-busy={busy}>
         {loading ? (
           <div className="loading-inline">
             <LoaderCircle className="spin" /> جارٍ تحميل القوائم…
@@ -763,6 +835,7 @@ function ProfileForm({
           <label>
             الاسم الكامل
             <input
+              maxLength={160}
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
               required
@@ -815,7 +888,7 @@ function ProfileForm({
               dir="ltr"
               inputMode="tel"
               placeholder="مثال: 777123456"
-              pattern="[+0-9][0-9 +()-]{6,19}"
+              maxLength={20}
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               required
@@ -825,7 +898,7 @@ function ProfileForm({
         {error ? <div className="notice error-notice">{error}</div> : null}
         <button className="primary-button" type="submit" disabled={busy || loading}>
           {busy ? <LoaderCircle className="spin" /> : null}
-          حفظ والانتقال إلى البرامج
+          {busy ? "جارٍ حفظ الملف المهني…" : "حفظ والانتقال إلى البرامج"}
         </button>
       </form>
     </Wrapper>
@@ -892,7 +965,7 @@ function TeacherDashboard({
               <BookOpen />
               <span>
                 <strong>{availableCount}</strong>
-                <small>برنامج متاح</small>
+                <small>البرامج المتاحة</small>
               </span>
             </button>
             <button type="button" onClick={() => onNavigate("learning")}>
@@ -918,6 +991,14 @@ function TeacherDashboard({
               actionLabel="متابعة البرنامج"
               onAction={() => onNavigate("learning")}
               progress={resumeProgress}
+            />
+          ) : programs.length > 0 ? (
+            <NextStepCard
+              eyebrow="إنجازك المهني"
+              title="أكملت برامجك التدريبية"
+              description="يمكنك مراجعة ما تعلمته أو عرض شهاداتك."
+              actionLabel="عرض شهاداتي"
+              onAction={() => onNavigate("certificates")}
             />
           ) : (
             <NextStepCard
@@ -959,7 +1040,7 @@ function TeacherDashboard({
   );
 }
 
-function Catalog({ onChanged }: { onChanged: () => void }) {
+function Catalog({ onChanged }: { onChanged: (program: CatalogProgram) => void }) {
   const [programs, setPrograms] = useState<CatalogProgram[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -995,7 +1076,7 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
             : item,
         ),
       );
-      onChanged();
+      onChanged(program);
     } catch (enrollError) {
       setError(getErrorMessage(enrollError));
     } finally {
@@ -1020,28 +1101,6 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
           <LoaderCircle className="spin" /> جارٍ تحميل البرامج…
         </div>
       ) : null}
-      {expandedProgram ? (
-        <section className="catalog-details-drawer" aria-label={`تفاصيل ${expandedProgram.title}`}>
-          <div className="catalog-details-heading">
-            <div>
-              <p className="eyebrow">تفاصيل البرنامج</p>
-              <h2>{expandedProgram.title}</h2>
-            </div>
-            <button
-              className="icon-button"
-              type="button"
-              onClick={() => setExpandedId(null)}
-              aria-label="إغلاق التفاصيل"
-            >
-              <X />
-            </button>
-          </div>
-          <ProgramDetails
-            programVersionId={expandedProgram.program_version_id}
-            information={expandedProgram}
-          />
-        </section>
-      ) : null}
       {!loading && programs.length === 0 ? (
         <div className="empty-state">
           <BookOpen />
@@ -1060,10 +1119,8 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
                 <h2>{program.title}</h2>
                 <p>{program.summary}</p>
                 <div className="program-meta">
-                  <span>
-                    {Math.max(1, Math.round(program.estimated_minutes / 60))} ساعة تقريبًا
-                  </span>
-                  <span>{program.lesson_count} درس</span>
+                  <span>{durationLabel(program.estimated_minutes)}</span>
+                  <span>{countLabel(program.lesson_count, "lesson")}</span>
                   {program.pass_percentage ? (
                     <span>الاجتياز {program.pass_percentage}%</span>
                   ) : null}
@@ -1087,17 +1144,42 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
                   <button
                     className={program.enrolled ? "secondary-button" : "primary-button"}
                     type="button"
-                    disabled={program.enrolled || busyId === program.program_version_id}
-                    onClick={() => enroll(program)}
+                    disabled={busyId === program.program_version_id}
+                    onClick={() => (program.enrolled ? onChanged(program) : enroll(program))}
                   >
                     {busyId === program.program_version_id ? (
                       <LoaderCircle className="spin" />
                     ) : program.enrolled ? (
                       <CheckCircle2 />
                     ) : null}
-                    {program.enrolled ? "مسجل في البرنامج" : "ابدأ التدريب"}
+                    {program.enrolled ? "فتح البرنامج" : "ابدأ التدريب"}
                   </button>
                 </div>
+                {expandedId === program.program_version_id ? (
+                  <section
+                    className="catalog-details-drawer"
+                    aria-label={`تفاصيل ${program.title}`}
+                  >
+                    <div className="catalog-details-heading">
+                      <div>
+                        <p className="eyebrow">تفاصيل البرنامج</p>
+                        <h2>{program.title}</h2>
+                      </div>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        onClick={() => setExpandedId(null)}
+                        aria-label="إغلاق التفاصيل"
+                      >
+                        <X />
+                      </button>
+                    </div>
+                    <ProgramDetails
+                      programVersionId={program.program_version_id}
+                      information={program}
+                    />
+                  </section>
+                ) : null}
               </div>
             </article>
           ))}
@@ -1107,7 +1189,7 @@ function Catalog({ onChanged }: { onChanged: () => void }) {
   );
 }
 
-function Learning() {
+function Learning({ initialProgramId }: { initialProgramId?: string }) {
   const [programs, setPrograms] = useState<LearningProgram[]>([]);
   const [selected, setSelected] = useState<LearningProgram | null>(null);
   const [lessons, setLessons] = useState<LearningLesson[]>([]);
@@ -1131,13 +1213,22 @@ function Learning() {
   useEffect(() => {
     let active = true;
     listMyLearning()
-      .then((items) => active && setPrograms(items))
+      .then(async (items) => {
+        if (!active) return;
+        setPrograms(items);
+        const program = items.find((item) => item.program_version_id === initialProgramId);
+        if (program) {
+          setSelected(program);
+          const content = await getLearningLessons(program.program_version_id);
+          if (active) setLessons(content);
+        }
+      })
       .catch((loadError) => active && setError(getErrorMessage(loadError)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialProgramId]);
 
   async function openProgram(program: LearningProgram) {
     setSelected(program);
@@ -1258,8 +1349,8 @@ function Learning() {
                     {isCurrent ? <span className="status draft">درسك الحالي</span> : null}
                   </div>
                   <div className="tk-chip-row">
-                    <span className="tk-chip">{lesson.duration_minutes} دقيقة</span>
-                    <span className="tk-chip">{lesson.sections.length} قسم</span>
+                    <span className="tk-chip">{durationLabel(lesson.duration_minutes)}</span>
+                    <span className="tk-chip">{countLabel(lesson.sections.length, "section")}</span>
                   </div>
                   <button
                     className="tk-lesson-toggle"
@@ -1310,7 +1401,7 @@ function Learning() {
                 </div>
                 <button
                   className={lesson.completed ? "secondary-button" : "primary-button"}
-                  disabled={lesson.completed || busyId === lesson.lesson_id}
+                  disabled={lesson.completed || !isCurrent || busyId !== null}
                   onClick={() => complete(lesson)}
                 >
                   {busyId === lesson.lesson_id ? (
@@ -1326,6 +1417,7 @@ function Learning() {
         </div>
 
         <AssessmentPanel
+          passed={selected.status === "COMPLETED"}
           programVersionId={selected.program_version_id}
           ready={lessons.length > 0 && lessons.every((lesson) => lesson.completed)}
           onPassed={refreshSelectedProgram}
@@ -1394,7 +1486,7 @@ function Learning() {
                   <div>
                     <ProgressBar value={progress} label={`نسبة الإنجاز ${progress}%`} />
                     <p>
-                      {program.completed_lessons} من {program.total_lessons} درسًا
+                      {program.completed_lessons} من {countLabel(program.total_lessons, "lesson")}
                     </p>
                   </div>
                 </div>
@@ -1411,6 +1503,7 @@ function Learning() {
 }
 
 function AssessmentPanel({
+  passed,
   programVersionId,
   ready,
   onPassed,
@@ -1418,32 +1511,48 @@ function AssessmentPanel({
   programVersionId: string;
   ready: boolean;
   onPassed: () => Promise<void>;
+  passed: boolean;
 }) {
   const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, "a" | "b" | "c" | "d">>({});
   const [result, setResult] = useState<AssessmentResult | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [optionOrders, setOptionOrders] = useState<
+    Record<string, ReturnType<typeof shuffledOptions>>
+  >({});
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || passed) return;
     let active = true;
     setLoading(true);
+    setError(null);
+    setQuestions([]);
+    setAnswers({});
     getAssessment(programVersionId)
-      .then((items) => active && setQuestions(items))
+      .then((items) => {
+        if (active) {
+          setQuestions(items);
+          setOptionOrders(
+            Object.fromEntries(items.map((item) => [item.question_id, shuffledOptions()])),
+          );
+        }
+      })
       .catch((loadError) => active && setError(getErrorMessage(loadError)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [programVersionId, ready]);
+  }, [programVersionId, ready, passed, retry]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
+      if (passed || result?.passed) return;
       const assessmentResult = await submitAssessment(programVersionId, answers);
       setResult(assessmentResult);
       if (assessmentResult.passed) await onPassed();
@@ -1454,6 +1563,18 @@ function AssessmentPanel({
     }
   }
 
+  if (passed || result?.passed)
+    return (
+      <section className="assessment-panel">
+        <h2>اجتزت التقييم</h2>
+        <p>اكتمل هذا البرنامج. يمكنك عرض شهادتك من تبويب «الشهادات».</p>
+        {result?.certificate_code ? (
+          <a href={academyUrl(`/verify?code=${encodeURIComponent(result.certificate_code)}`)}>
+            التحقق من الشهادة
+          </a>
+        ) : null}
+      </section>
+    );
   if (!ready) {
     return (
       <section className="assessment-panel locked-panel">
@@ -1472,7 +1593,21 @@ function AssessmentPanel({
         <LoaderCircle className="spin" /> جارٍ تحميل التقييم…
       </div>
     );
-  if (questions.length === 0) return null;
+  if (error && questions.length === 0)
+    return (
+      <section className="assessment-panel">
+        <p role="alert">{error}</p>
+        <button type="button" className="secondary-button" onClick={() => setRetry((n) => n + 1)}>
+          إعادة تحميل التقييم
+        </button>
+      </section>
+    );
+  if (questions.length === 0)
+    return (
+      <section className="assessment-panel">
+        <p>لا يوجد تقييم متاح لهذا البرنامج حاليًا.</p>
+      </section>
+    );
 
   const title = questions[0].title;
   const passPercentage = questions[0].pass_percentage;
@@ -1491,17 +1626,12 @@ function AssessmentPanel({
         <>
           <Celebration trigger={result.passed ? 1 : 0} message="مبروك! اجتزت التقييم" />
           <div className={result.passed ? "tk-result-card passed" : "tk-result-card failed"}>
-            <ProgressRing
-              value={result.total ? (result.score / result.total) * 100 : 0}
-              size={86}
-              caption="نتيجتك"
-            />
             <div>
               <strong>{result.passed ? "تم اجتياز التقييم" : "لم تحقق نسبة النجاح بعد"}</strong>
               <p>
                 {result.passed
                   ? `أجبت بشكل صحيح على ${result.score} من ${result.total} — شهادتك جاهزة.`
-                  : `أجبت بشكل صحيح على ${result.score} من ${result.total}. راجع الدروس ثم أعد المحاولة.`}
+                  : "راجع الدروس قبل إعادة المحاولة. تتاح ثلاث محاولات خلال 24 ساعة بفاصل 15 دقيقة."}
               </p>
               {result.certificate_code ? <bdi>رمز الشهادة: {result.certificate_code}</bdi> : null}
             </div>
@@ -1521,7 +1651,7 @@ function AssessmentPanel({
         />
         <small>
           {questions.filter((question) => answers[question.question_id]).length} /{" "}
-          {questions.length} سؤال
+          {countLabel(questions.length, "question")}
         </small>
       </div>
 
@@ -1531,7 +1661,7 @@ function AssessmentPanel({
             <legend>
               {index + 1}. {question.question_text}
             </legend>
-            {(["a", "b", "c", "d"] as const).map((option) => (
+            {(optionOrders[question.question_id] ?? []).map((option, optionIndex) => (
               <label key={option}>
                 <input
                   type="radio"
@@ -1542,7 +1672,7 @@ function AssessmentPanel({
                     setAnswers((current) => ({ ...current, [question.question_id]: option }))
                   }
                 />
-                {question[`option_${option}`]}
+                {["أ", "ب", "ج", "د"][optionIndex]} — {question[`option_${option}`]}
               </label>
             ))}
           </fieldset>
@@ -1557,6 +1687,7 @@ function AssessmentPanel({
 }
 
 function Certificates() {
+  const [copied, setCopied] = useState<string | null>(null);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1603,16 +1734,25 @@ function Certificates() {
                   {certificate.valid ? "سارية" : "ملغاة"}
                 </span>
                 <h2>{certificate.program_title}</h2>
-                <p>تاريخ الإصدار: {new Date(certificate.issued_at).toLocaleDateString("ar-YE")}</p>
+                <p>
+                  تاريخ الإصدار:{" "}
+                  {new Date(certificate.issued_at).toLocaleDateString("ar-YE-u-nu-latn")}
+                </p>
                 <bdi>{certificate.certificate_code}</bdi>
                 <button
                   className="tk-copy-button"
                   type="button"
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(certificate.certificate_code);
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(certificate.certificate_code);
+                      setCopied(certificate.certificate_id);
+                    } catch {
+                      setError("تعذّر النسخ. يمكنك تحديد الرمز ونسخه يدويًا.");
+                    }
                   }}
                 >
-                  <Copy aria-hidden="true" /> نسخ رمز الشهادة
+                  <Copy aria-hidden="true" />{" "}
+                  {copied === certificate.certificate_id ? "تم النسخ" : "نسخ رمز الشهادة"}
                 </button>
                 <a
                   className="resource-link"
@@ -1637,17 +1777,40 @@ function Workspace({
   profile,
   capabilities,
   onProfileChanged,
+  initialView = "home",
 }: {
   portal: "teacher" | "admin";
   user: User;
   profile: TeacherProfile | null;
   capabilities: Set<AcademyCapability>;
   onProfileChanged: (profile: TeacherProfile) => void;
+  initialView?: WorkspaceView;
 }) {
   const hasAdminAccess = portal === "admin" && capabilities.size > 0;
   const hasTeacherAccess = portal === "teacher" && profile?.status === "ACTIVE";
-  const [view, setView] = useState<WorkspaceView>(() => (portal === "admin" ? "admin" : "home"));
+  const [view, setView] = useState<WorkspaceView>(() =>
+    portal === "admin" ? "admin" : initialView,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [programId, setProgramId] = useState<string>();
+  const keyboardOpen = useKeyboardOpen();
+  useEffect(() => {
+    if (portal === "teacher") rememberWorkspace(user.id, "teacher");
+  }, [portal, user.id]);
+  useEffect(() => {
+    const back = (event: Event) => {
+      if (menuOpen) {
+        event.preventDefault();
+        setMenuOpen(false);
+      } else if (view !== "home" && portal === "teacher") {
+        event.preventDefault();
+        setView("home");
+      }
+    };
+    window.addEventListener("tamkeen:academy-back", back);
+    return () => window.removeEventListener("tamkeen:academy-back", back);
+  }, [menuOpen, view, portal]);
 
   const navigation = useMemo(
     () => [
@@ -1687,6 +1850,7 @@ function Workspace({
           </span>
           <strong>أكاديمية تمكين</strong>
         </div>
+        <SignOutButton className="header-signout" />
         <button className="icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="القائمة">
           {menuOpen ? <X /> : <Menu />}
         </button>
@@ -1724,27 +1888,67 @@ function Workspace({
               <small>{displayMeta}</small>
             </div>
           </div>
-          <button className="nav-item" onClick={() => academySupabase.auth.signOut()}>
-            <LogOut /> تسجيل الخروج
-          </button>
+          <SignOutButton className="nav-item" />
         </div>
       </aside>
 
       {menuOpen ? <button className="menu-backdrop" onClick={() => setMenuOpen(false)} /> : null}
 
       <main className="workspace-content">
+        {notice ? (
+          <p className="notice" role="status">
+            {notice}
+          </p>
+        ) : null}
         {view === "home" && profile && hasTeacherAccess ? (
           <TeacherDashboard profile={profile} onNavigate={selectView} />
         ) : null}
-        {view === "catalog" && hasTeacherAccess ? <Catalog onChanged={() => undefined} /> : null}
-        {view === "learning" && hasTeacherAccess ? <Learning /> : null}
+        {view === "catalog" && hasTeacherAccess ? (
+          <Catalog
+            onChanged={(program) => {
+              setProgramId(program.program_version_id);
+              setNotice(
+                program.enrolled
+                  ? `تم فتح ${program.title}`
+                  : `تم الالتحاق ببرنامج ${program.title} بنجاح.`,
+              );
+              selectView("learning");
+            }}
+          />
+        ) : null}
+        {view === "learning" && hasTeacherAccess ? <Learning initialProgramId={programId} /> : null}
         {view === "certificates" && hasTeacherAccess ? <Certificates /> : null}
         {view === "profile" && profile && hasTeacherAccess ? (
-          <ProfileForm user={user} existing={profile} onSaved={onProfileChanged} embedded />
+          <>
+            <p className="notice">
+              ملف المعلم مستقل عن ملف الطالب في هذا الحساب. تسجيل الخروج ينهي الجلسة في المساحتين.
+            </p>
+            <ProfileForm
+              user={user}
+              existing={profile}
+              onSaved={(saved) => {
+                onProfileChanged(saved);
+                setNotice("تم حفظ ملفك المهني بنجاح.");
+                selectView("catalog");
+              }}
+              embedded
+            />
+            <button
+              type="button"
+              className="text-button"
+              onClick={async () => {
+                await rememberWorkspace(user.id, "student");
+                window.location.assign("/app");
+              }}
+            >
+              فتح مساحة الطالب
+            </button>
+            <SignOutButton />
+          </>
         ) : null}
         {view === "admin" && hasAdminAccess ? <AdminHome capabilities={capabilities} /> : null}
       </main>
-      {hasTeacherAccess ? (
+      {hasTeacherAccess && !keyboardOpen ? (
         <nav className="teacher-bottom-nav" aria-label="التنقل الرئيسي على الجوال">
           {navigation.slice(0, 5).map((item) => {
             const Icon = item.icon;
@@ -1789,9 +1993,7 @@ function PortalMismatch({
             {destinationLabel}
           </a>
         ) : null}
-        <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
-          <LogOut /> تسجيل الخروج وتبديل الحساب
-        </button>
+        <SignOutButton className="secondary-button" />
       </section>
     </main>
   );
@@ -1799,9 +2001,11 @@ function PortalMismatch({
 
 function AcademyContent({ portal }: { portal?: AcademyPortal }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profileOwner, setProfileOwner] = useState<string | null>(null);
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [capabilities, setCapabilities] = useState<Set<AcademyCapability>>(new Set());
   const [loadingSession, setLoadingSession] = useState(true);
+  const [startView, setStartView] = useState<WorkspaceView>("home");
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const activePortal: AcademyPortal =
@@ -1818,31 +2022,47 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
       return;
     }
 
-    academySupabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      setLoadingSession(false);
-    });
+    let active = true;
+    let receivedEvent = false;
+    academySupabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active || receivedEvent) return;
+        setUser(data.session?.user ?? null);
+        setLoadingSession(false);
+      })
+      .catch(() => {
+        if (active && !receivedEvent) setLoadingSession(false);
+      });
 
     const { data } = academySupabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      receivedEvent = true;
       setUser(session?.user ?? null);
       if (!session) {
         setProfile(null);
         setCapabilities(new Set());
       }
+      setLoadingSession(false);
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     let active = true;
     setLoadingProfile(true);
     setProfileError(null);
 
-    Promise.all([loadTeacherProfile(user.id), loadCapabilities()])
+    Promise.all([loadTeacherProfile(userId), loadCapabilities()])
       .then(([loadedProfile, loadedCapabilities]) => {
         if (!active) return;
+        setProfileOwner(userId);
         setProfile(loadedProfile);
         setCapabilities(loadedCapabilities);
       })
@@ -1856,12 +2076,13 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [userId]);
 
   if (!academyFeatureEnabled) return <AcademyUnavailable />;
   if (!academyBackendConfigured) return <ConfigurationRequired />;
   if (activePortal === "verify") return <VerifyCertificatePage />;
-  if (loadingSession || loadingProfile) return <LoadingScreen />;
+  if (loadingSession || loadingProfile || (user && profileOwner !== user.id && !profileError))
+    return <LoadingScreen />;
   if (!user) return activePortal === "admin" ? <AdminAuthPage /> : <TeacherAuthPage />;
   if (profileError) {
     return (
@@ -1873,9 +2094,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
             أُغلقت الواجهة لأن مخطط الأكاديمية أو صلاحياته غير جاهزة. لا يؤثر ذلك على تطبيق الطلاب.
           </p>
           <div className="notice error-notice">{profileError}</div>
-          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
-            <LogOut /> تسجيل الخروج
-          </button>
+          <SignOutButton className="secondary-button" />
         </section>
       </main>
     );
@@ -1894,6 +2113,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     }
     return (
       <Workspace
+        key={user.id}
         portal="admin"
         user={user}
         profile={null}
@@ -1920,7 +2140,16 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
     );
   }
   if (!profile) {
-    return <ProfileForm user={user} existing={null} onSaved={setProfile} />;
+    return (
+      <ProfileForm
+        user={user}
+        existing={null}
+        onSaved={(saved) => {
+          setStartView("catalog");
+          setProfile(saved);
+        }}
+      />
+    );
   }
   if (profile.status === "SUSPENDED") {
     return (
@@ -1929,9 +2158,7 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
           <School className="large-icon" />
           <h1>الحساب موقوف مؤقتًا</h1>
           <p className="muted">تواصل مع إدارة أكاديمية تمكين لمعرفة التفاصيل.</p>
-          <button className="secondary-button" onClick={() => academySupabase.auth.signOut()}>
-            <LogOut /> تسجيل الخروج
-          </button>
+          <SignOutButton className="secondary-button" />
         </section>
       </main>
     );
@@ -1939,7 +2166,9 @@ function AcademyContent({ portal }: { portal?: AcademyPortal }) {
 
   return (
     <Workspace
+      key={user.id}
       portal="teacher"
+      initialView={startView}
       user={user}
       profile={profile.status === "ACTIVE" ? profile : null}
       capabilities={new Set<AcademyCapability>()}

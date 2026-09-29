@@ -22,6 +22,7 @@ vi.mock("@/lib/offline/student-shell-cache", () => ({
   rememberStudentIdentity: api.remember,
   readStudentIdentity: vi.fn().mockResolvedValue(null),
   forgetStudentIdentity: vi.fn().mockResolvedValue(undefined),
+  clearStudentViews: vi.fn().mockResolvedValue(undefined),
 }));
 function deferred<T = any>() {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;

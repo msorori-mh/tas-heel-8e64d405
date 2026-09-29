@@ -6,7 +6,7 @@
   "lang": "ar",
   "dir": "rtl",
   "start_url": "/academy/",
-  "scope": "/academy/",
+  "scope": "/academy",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#f5f7fa",

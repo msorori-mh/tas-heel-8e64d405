@@ -1,0 +1,73 @@
+name: Teacher audit regression
+on:
+  pull_request:
+    branches: [main, fix/student-account-audit]
+permissions:
+  contents: read
+concurrency:
+  group: teacher-audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run academy:typecheck
+      - run: npm run test:core-reliability
+      - run: npm test
+      - run: npm run academy:test
+      - run: npm run build
+      - run: npm run academy:build
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: teacher_audit_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/teacher-academy/assessment-guards.runtime.test.mjs
+        env:
+          TEACHER_AUDIT_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/teacher_audit_test
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/teacher-audit/vite.config.ts
+      - run: node tests/e2e/teacher-audit/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teacher-audit-${{ github.sha }}
+          path: artifacts/teacher-audit-browser
+          if-no-files-found: error

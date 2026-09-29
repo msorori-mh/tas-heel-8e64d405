@@ -1,4 +1,4 @@
-const VERSION = "v1",
+const VERSION = "v2",
   SHELL = `tamkeen-academy-shell-${VERSION}`,
   STATIC = `tamkeen-academy-static-${VERSION}`;
 const FILES = [
@@ -35,7 +35,12 @@ self.addEventListener("message", (event) => {
 });
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (request.method !== "GET") return;
+  if (
+    request.method !== "GET" ||
+    request.cache === "no-store" ||
+    request.headers.has("Authorization")
+  )
+    return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (FILES.includes(url.pathname)) {
@@ -67,7 +72,7 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-  if (request.mode === "navigate" && url.pathname.startsWith("/academy")) {
+  if (request.mode === "navigate" && /^\/academy(?:\/|$)/.test(url.pathname)) {
     event.respondWith(
       fetch(request).catch(
         async () =>
