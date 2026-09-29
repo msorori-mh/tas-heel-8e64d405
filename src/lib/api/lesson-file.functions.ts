@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const ALLOWED_BUCKETS = new Set(["lesson-pdfs", "lesson-videos", "receipts"]);
+const ALLOWED_BUCKETS = new Set(["lesson-pdfs", "lesson-videos"]);
 const SIGNED_TTL = 600;
 
 /** Parse a stored URL or path into { bucket, path } if it points to a known private bucket. */
@@ -81,17 +81,28 @@ export const getLessonFileUrl = createServerFn({ method: "POST" })
       return { url: resolvedUrl, signed: false };
     }
     if (!ALLOWED_BUCKETS.has(ref.bucket)) {
-      return { url: resolvedUrl, signed: false };
+      // A managed Supabase Storage URL outside the lesson buckets must never
+      // be reflected or signed through the lesson-file endpoint.
+      throw new Error("forbidden");
     }
 
     let ok = !data.url; // when resolved via kind, already authoritative
     if (data.url) {
+      // Never interpolate client input into PostgREST filter syntax. Each
+      // equality predicate is parameterized by the client library, so crafted
+      // values cannot append another filter clause.
       const checks = await Promise.all([
         supabaseAdmin
           .from("lessons")
           .select("id")
           .eq("id", data.lessonId)
-          .or(`content_pdf_url.eq.${data.url},video_url.eq.${data.url}`)
+          .eq("content_pdf_url", data.url)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("lessons")
+          .select("id")
+          .eq("id", data.lessonId)
+          .eq("video_url", data.url)
           .maybeSingle(),
         supabaseAdmin
           .from("lesson_resources")
@@ -106,7 +117,7 @@ export const getLessonFileUrl = createServerFn({ method: "POST" })
           .eq("pdf_url", data.url)
           .maybeSingle(),
       ]);
-      ok = checks.some((c) => c.data);
+      ok = checks.some((check) => check.data);
     }
     if (!ok) throw new Error("forbidden");
 
