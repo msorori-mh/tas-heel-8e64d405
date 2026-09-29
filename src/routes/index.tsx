@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   BookOpen,
   ClipboardList,
@@ -8,7 +8,9 @@ import {
   Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
+import { useAuth } from "@/hooks/use-auth";
 import heroStudent from "@/assets/hero-tamkeen.png";
 import { PwaInstallHint } from "@/components/pwa/PwaInstallHint";
 import { StudentTamkeenMark } from "@/components/brand/StudentTamkeenBrand";
@@ -295,6 +297,17 @@ function CTAFooter() {
 }
 
 function LandingPage() {
+  const navigate = useNavigate();
+  const { loading, user, profileComplete } = useAuth();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || loading || !user) return;
+    void navigate({
+      to: profileComplete ? "/app" : "/complete-profile",
+      replace: true,
+    });
+  }, [loading, user, profileComplete, navigate]);
+
   return (
     <div className="ds-v2 min-h-screen text-foreground" dir="rtl">
       <HeroSection />
