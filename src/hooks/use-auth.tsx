@@ -68,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const rememberedIdentity = useRef<Awaited<ReturnType<typeof readStudentIdentity>>>(null);
   const explicitSignOut = useRef(false);
   const activeOwnerWrite = useRef<Promise<void>>(Promise.resolve());
+  const restoredFromDurableLease = useRef(false);
 
   const loadProfile = useCallback((userId: string, force = false): Promise<Profile | null> => {
     if (owner.current !== userId) return Promise.resolve(null);
@@ -233,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       rememberedIdentity.current = saved;
+      restoredFromDurableLease.current = true;
       if (generation.current !== bootstrapGeneration && owner.current !== saved.user.id) return;
       owner.current = saved.user.id;
       initialized = true;
@@ -271,11 +273,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void setActiveOfflineOwner(null).catch(() => undefined);
       }
       receivedAuthEvent = true;
+      const shouldRefreshRestoredLease =
+        event === "INITIAL_SESSION" && restoredFromDurableLease.current;
+      if (shouldRefreshRestoredLease) restoredFromDurableLease.current = false;
       acceptSession(
         sess,
-        (event === "INITIAL_SESSION" && rememberedIdentity.current !== null) ||
-          event === "SIGNED_IN" ||
-          event === "USER_UPDATED",
+        shouldRefreshRestoredLease || event === "SIGNED_IN" || event === "USER_UPDATED",
       );
     });
 
@@ -348,6 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     generation.current += 1;
     owner.current = null;
     rememberedIdentity.current = null;
+    restoredFromDurableLease.current = false;
     setOfflineUser(null);
     setSession(null);
     setProfile(null);
