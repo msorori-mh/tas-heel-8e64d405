@@ -26,14 +26,14 @@ function ExamHistoryDetailPage() {
 
   const Breadcrumb = (
     <nav className="text-xs text-muted-foreground" aria-label="مسار التنقل">
-      <Link to="/app" className="hover:text-primary">
+      <Link to="/semesters" className="hover:text-primary">
         موادي
       </Link>
-      <span className="mx-1">/</span>
+      <span className="mx-1">›</span>
       <Link to="/exams/history" className="hover:text-primary">
         سجل الاختبارات
       </Link>
-      <span className="mx-1">/</span>
+      <span className="mx-1">›</span>
       <span className="text-foreground">تفاصيل المحاولة</span>
     </nav>
   );

@@ -1,3 +1,4 @@
+import { formatModelCount } from "@/lib/ministerial/ministerial-student-api";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -161,6 +162,8 @@ function MinisterialExamsIndex() {
                   <Link
                     to="/ministerial-exams"
                     search={{ track: option.code }}
+                    disabled={modelsCount === 0}
+                    aria-disabled={modelsCount === 0}
                     className={
                       option.code === "sanaa"
                         ? "group flex h-full min-h-32 items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-5 transition hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -175,7 +178,7 @@ function MinisterialExamsIndex() {
                         {option.description}
                       </span>
                       <span className="mt-3 inline-flex rounded-full bg-card px-2.5 py-1 text-xs font-bold text-foreground shadow-sm">
-                        {modelsCount} نموذج متاح
+                        {formatModelCount(modelsCount)}
                       </span>
                     </span>
                     <ChevronLeft
@@ -315,7 +318,7 @@ function MinisterialExamsIndex() {
                   نماذج عام {year}
                 </h2>
                 <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-foreground">
-                  {models.length} نموذج
+                  {formatModelCount(models.length)}
                 </span>
               </div>
 

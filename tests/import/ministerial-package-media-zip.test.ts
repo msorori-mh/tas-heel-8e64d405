@@ -157,7 +157,10 @@ test("plain XLSX without media columns still parses as the v1 contract", async (
 });
 
 test("XLSX with empty media columns is still v1 (columns are optional)", async () => {
-  const bytes = await workbookBytes({ track: "aden", rows: [adenRow()] });
+  const bytes = await workbookBytes({
+    track: "aden",
+    rows: [adenRow({ "نص السؤال": "عرّف الخلية" })],
+  });
   const parsed = await parseMinisterialPackageFile(asFile(bytes, "aden.xlsx"), ADEN);
   assert.equal(parsed.package.contract_version, MINISTERIAL_PACKAGE_CONTRACT_VERSION);
   assert.equal(parsed.media.length, 0);
@@ -543,4 +546,15 @@ test("ZIP template ships the XLSX, the media/ folder and an Arabic README", asyn
   const adenReadme = await adenZip.file(MEDIA_README_NAME)!.async("string");
   assert.equal(adenReadme.includes(MEDIA_HEADERS.OPTION_A.file), false);
   assert.ok(adenReadme.includes(MEDIA_HEADERS.SOLUTION.file));
+});
+
+test("question references to attached figures cannot be imported without question media", async () => {
+  const bytes = await workbookBytes({
+    track: "aden",
+    rows: [adenRow({ "نص السؤال": "وضح أجزاء الشكل المرفق" })],
+  });
+  await rejects(
+    parseMinisterialPackageFile(asFile(bytes, "aden.xlsx"), ADEN),
+    /أرفق الصورة قبل الاستيراد/,
+  );
 });

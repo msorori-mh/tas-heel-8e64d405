@@ -10,6 +10,8 @@
  *   followed by a one-shot reload on `controllerchange`.
  */
 
+import { Capacitor } from "@capacitor/core";
+
 export const PWA_UPDATE_EVENT = "pwa:update-available";
 let registrationScheduled = false;
 
@@ -27,6 +29,32 @@ export function registerServiceWorker(): void {
   }
 
   if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  // Native Android has its own bundled offline entry. Retire older web workers
+  // without reloading an active lesson/exam; the next navigation uses the shell.
+  if (Capacitor.isNativePlatform()) {
+    void navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(
+          registrations
+            .filter((registration) => {
+              const script =
+                registration.active?.scriptURL ??
+                registration.waiting?.scriptURL ??
+                registration.installing?.scriptURL;
+              return (
+                script &&
+                new URL(script).origin === window.location.origin &&
+                new URL(script).pathname === "/sw.js"
+              );
+            })
+            .map((registration) => registration.unregister()),
+        ),
+      )
+      .catch(() => undefined);
     return;
   }
 

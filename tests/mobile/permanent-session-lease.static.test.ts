@@ -9,9 +9,11 @@ const root = read("src/routes/index.tsx");
 const studentView = read("src/hooks/use-student-view.ts");
 
 describe("durable student session lease", () => {
-  it("only erases the remembered student after an explicit local sign-out", () => {
+  it("revokes rejected online sessions while preserving offline access", () => {
     expect(auth).toContain("const explicitSignOut = useRef(false)");
-    expect(auth).toContain('event === "SIGNED_OUT" && explicitSignOut.current');
+    expect(auth).toContain(
+      'event === "SIGNED_OUT" && (explicitSignOut.current || onlineRef.current)',
+    );
     expect(auth).toContain("explicitSignOut.current = true");
     expect(auth).toContain("await forgetStudentIdentity()");
   });
@@ -24,7 +26,7 @@ describe("durable student session lease", () => {
 
   it("falls back to the durable identity at the protected route gate", () => {
     expect(guard).toContain("const saved = await readStudentIdentity()");
-    expect(guard).toContain("user = (await getRestoredUser(supabase.auth)) ?? user");
+    expect(guard).toContain("user = await getRestoredUser(supabase.auth)");
   });
 
   it("never leaves a remembered student sitting on the login page", () => {

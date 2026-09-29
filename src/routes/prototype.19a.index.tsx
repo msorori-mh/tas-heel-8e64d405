@@ -1,9 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { notFound, createFileRoute, Link } from "@tanstack/react-router";
 
 /**
  * TAMKEEN_FOCUSED_MOMENTUM_V2_PROTOTYPE_19A — prototype index (visual only).
  */
 export const Route = createFileRoute("/prototype/19a/")({
+  beforeLoad: () => {
+    if (import.meta.env.PROD) throw notFound();
+  },
   head: () => ({
     meta: [
       { title: "نموذج Focused Momentum V2 | تمكين" },

@@ -405,8 +405,10 @@ function UnitBlock({
       <AccordionTrigger className="gap-3 text-right hover:no-underline">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="truncate text-sm font-bold text-foreground">
-              {index ? <span className="text-muted-foreground">الوحدة {index}: </span> : null}
+            <h2 className="min-w-0 break-words text-sm font-bold text-foreground">
+              {index && !/^الوحدة\s/.test(title.trim()) ? (
+                <span className="text-muted-foreground">الوحدة {index}: </span>
+              ) : null}
               {title}
             </h2>
             {isFree !== null && !STUDENT_FREE_ACCESS && (
@@ -483,7 +485,11 @@ function LessonList({ lessons, completed }: { lessons: Lesson[]; completed: Set<
                 </div>
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold text-foreground">{l.title}</div>
-                  {l.duration && <div className="text-xs text-muted-foreground">{l.duration}</div>}
+                  {l.duration && (
+                    <div className="text-xs text-muted-foreground">
+                      {l.duration} {/^\d+$/.test(l.duration) ? "دقيقة" : ""}
+                    </div>
+                  )}
                 </div>
               </div>
               <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />

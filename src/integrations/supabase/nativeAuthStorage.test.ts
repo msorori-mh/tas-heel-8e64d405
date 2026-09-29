@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createDurableNativeAuthStorage } from "./nativeAuthStorage";
+import {
+  createDurableNativeAuthStorage,
+  createEncryptedNativeAuthStorage,
+} from "./nativeAuthStorage";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -96,5 +99,48 @@ describe("durable native auth storage", () => {
     await expect(storage.getItem("sb-auth-token")).resolves.toBe("compatible-session");
     await storage.removeItem("sb-auth-token");
     expect(fallback.getItem("sb-auth-token")).toBeNull();
+  });
+});
+
+describe("encrypted native auth upgrade", () => {
+  it("migrates the existing session before removing both plaintext copies", async () => {
+    const secure = memoryPreferences();
+    const legacy = memoryPreferences({ "sb-auth-token": "legacy-session" });
+    const fallback = memoryStorage({ "sb-auth-token": "stale-session" });
+    const storage = createEncryptedNativeAuthStorage(secure, legacy, fallback);
+    expect(await storage.getItem("sb-auth-token")).toBe("legacy-session");
+    expect(await secure.get({ key: "sb-auth-token" })).toEqual({ value: "legacy-session" });
+    expect(await legacy.get({ key: "sb-auth-token" })).toEqual({ value: null });
+    expect(fallback.getItem("sb-auth-token")).toBeNull();
+    await storage.setItem("sb-auth-token", "refreshed-session");
+    expect(await storage.getItem("sb-auth-token")).toBe("refreshed-session");
+    expect(fallback.getItem("sb-auth-token")).toBeNull();
+    await storage.removeItem("sb-auth-token");
+    expect(await storage.getItem("sb-auth-token")).toBeNull();
+  });
+  it("never downgrades a Keystore error to plaintext or erases the unmigrated session", async () => {
+    const legacy = memoryPreferences({ "sb-auth-token": "legacy-session" });
+    const secure = {
+      ...memoryPreferences(),
+      set: async () => {
+        throw new Error("Keystore locked");
+      },
+    };
+    const fallback = memoryStorage();
+    const storage = createEncryptedNativeAuthStorage(secure, legacy, fallback);
+    await expect(storage.getItem("sb-auth-token")).rejects.toThrow("Keystore locked");
+    expect(await legacy.get({ key: "sb-auth-token" })).toEqual({ value: "legacy-session" });
+    await expect(storage.setItem("sb-auth-token", "new-session")).rejects.toThrow();
+    expect(fallback.getItem("sb-auth-token")).toBeNull();
+  });
+  it("does not restore a stale plaintext copy when encrypted storage contains a newer session", async () => {
+    const legacy = memoryPreferences({ "sb-auth-token": "revoked-old-session" });
+    const storage = createEncryptedNativeAuthStorage(
+      memoryPreferences({ "sb-auth-token": "new-session" }),
+      legacy,
+      memoryStorage(),
+    );
+    expect(await storage.getItem("sb-auth-token")).toBe("new-session");
+    expect(await legacy.get({ key: "sb-auth-token" })).toEqual({ value: null });
   });
 });

@@ -148,7 +148,7 @@ export function LessonCapabilityTabs({
             role="tabpanel"
             aria-labelledby={`lesson-tab-${capability.type}`}
             hidden={!active}
-            className="bg-background/40 p-3 sm:p-4"
+            className="bg-background/40 p-3 pb-20 sm:p-4 sm:pb-20"
           >
             <div className="mb-4 flex items-start gap-3 border-b border-border/60 pb-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -169,7 +169,7 @@ export function LessonCapabilityTabs({
         <button
           type="button"
           onClick={returnToComponents}
-          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-primary shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:bottom-6"
+          className="lesson-return-button fixed bottom-[calc(5rem+var(--app-safe-bottom))] left-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-primary shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:bottom-6"
         >
           <ArrowUp className="h-4 w-4" aria-hidden />
           مكونات الدرس

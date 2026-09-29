@@ -22,6 +22,14 @@ import android.widget.HorizontalScrollView;
 import android.widget.ScrollView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.OnBackPressedCallback;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import java.io.File;
 
@@ -47,6 +55,12 @@ public class PdfViewerActivity extends AppCompatActivity {
     private PdfRenderer renderer;
     private Bitmap currentBitmap;
 
+    private final ExecutorService renderExecutor = Executors.newSingleThreadExecutor();
+    private final AtomicInteger renderGeneration = new AtomicInteger();
+    private volatile boolean destroyed;
+    // Bound each bitmap to 12 MiB; zoom still grows the scrollable display surface.
+    private static final long MAX_RENDER_PIXELS = 3L * 1024 * 1024;
+
     private ImageView pageView;
     private TextView pageLabel;
     private Button prevButton;
@@ -58,7 +72,18 @@ public class PdfViewerActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(buildLayout());
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        View root = buildLayout();
+        setContentView(root);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(root);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() { finishWithResult(); }
+        });
 
         String path = getIntent().getStringExtra(EXTRA_ABSOLUTE_PATH);
         String title = getIntent().getStringExtra(EXTRA_TITLE);
@@ -78,6 +103,7 @@ public class PdfViewerActivity extends AppCompatActivity {
             return;
         }
 
+        if (savedInstanceState != null) initialPage = savedInstanceState.getInt(EXTRA_LAST_PAGE, initialPage);
         pageIndex = Math.min(initialPage, renderer.getPageCount()) - 1;
         showPage(pageIndex);
     }
@@ -153,30 +179,49 @@ public class PdfViewerActivity extends AppCompatActivity {
         return root;
     }
 
-    /** Renders exactly one page; the previous bitmap is recycled first. */
+    /** PdfRenderer is confined to one worker; stale pinch/page requests are discarded. */
     private void showPage(int index) {
-        if (renderer == null) return;
-        if (index < 0 || index >= renderer.getPageCount()) return;
+        if (renderer == null || destroyed || index < 0 || index >= renderer.getPageCount()) return;
         pageIndex = index;
-
-        PdfRenderer.Page page = renderer.openPage(index);
-        int width = (int) (page.getWidth() * 2 * scale);
-        int height = (int) (page.getHeight() * 2 * scale);
-
-        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        bitmap.eraseColor(Color.WHITE);
-        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-        page.close();
-
-        pageView.setImageBitmap(bitmap);
-        if (currentBitmap != null && !currentBitmap.isRecycled()) {
-            currentBitmap.recycle();
-        }
-        currentBitmap = bitmap;
-
+        int generation = renderGeneration.incrementAndGet();
+        float requestedScale = scale;
+        int viewportWidth = getResources().getDisplayMetrics().widthPixels;
         pageLabel.setText("صفحة " + (pageIndex + 1) + " من " + renderer.getPageCount());
         prevButton.setEnabled(pageIndex > 0);
         nextButton.setEnabled(pageIndex < renderer.getPageCount() - 1);
+        renderExecutor.execute(() -> {
+            if (destroyed || generation != renderGeneration.get()) return;
+            Bitmap bitmap = null;
+            try (PdfRenderer.Page page = renderer.openPage(index)) {
+                int displayWidth = Math.max(1, Math.round(viewportWidth * requestedScale));
+                int displayHeight = Math.max(1, Math.round((float) displayWidth * page.getHeight() / page.getWidth()));
+                double factor = Math.min(1, Math.sqrt((double) MAX_RENDER_PIXELS / ((long) displayWidth * displayHeight)));
+                int width = Math.max(1, (int) (displayWidth * factor));
+                int height = Math.max(1, (int) (displayHeight * factor));
+                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                bitmap.eraseColor(Color.WHITE);
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                Bitmap rendered = bitmap;
+                runOnUiThread(() -> {
+                    if (destroyed || generation != renderGeneration.get()) { rendered.recycle(); return; }
+                    pageView.setLayoutParams(new FrameLayout.LayoutParams(displayWidth, displayHeight));
+                    pageView.setImageBitmap(rendered);
+                    if (currentBitmap != null && !currentBitmap.isRecycled()) currentBitmap.recycle();
+                    currentBitmap = rendered;
+                });
+            } catch (Exception | OutOfMemoryError error) {
+                if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+                runOnUiThread(() -> {
+                    if (!destroyed && generation == renderGeneration.get()) Toast.makeText(this, "تعذّر عرض الصفحة. جرّب تقليل التكبير.", Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        state.putInt(EXTRA_LAST_PAGE, pageIndex + 1);
+        super.onSaveInstanceState(state);
     }
 
     private void finishWithResult() {
@@ -187,20 +232,19 @@ public class PdfViewerActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onBackPressed() {
-        finishWithResult();
-    }
-
-    @Override
     protected void onDestroy() {
-        super.onDestroy();
+        destroyed = true;
+        renderGeneration.incrementAndGet();
+        pageView.setImageDrawable(null);
         if (currentBitmap != null && !currentBitmap.isRecycled()) currentBitmap.recycle();
         currentBitmap = null;
-        try {
-            if (renderer != null) renderer.close();
-            if (descriptor != null) descriptor.close();
-        } catch (Exception ignored) {
-            // closing twice is harmless
-        }
+        renderExecutor.execute(() -> {
+            try {
+                if (renderer != null) renderer.close();
+                if (descriptor != null) descriptor.close();
+            } catch (Exception ignored) { /* already closed */ }
+        });
+        renderExecutor.shutdown();
+        super.onDestroy();
     }
 }

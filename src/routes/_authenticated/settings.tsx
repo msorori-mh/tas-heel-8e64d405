@@ -1,7 +1,11 @@
+import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
+import { getReleaseInfo } from "@/lib/release-info";
+import { requestStudentSignOut } from "@/hooks/use-exam-navigation-guard";
 import { useConnectivity } from "@/hooks/use-connectivity";
 import { useStudentView } from "@/hooks/use-student-view";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -59,12 +63,10 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? "1.0.0";
-
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString("ar-EG", {
+    return new Date(iso).toLocaleDateString("ar-EG-u-nu-latn", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -82,6 +84,16 @@ function daysBetween(iso: string | null): number | null {
 }
 
 function SettingsPage() {
+  const [appVersion, setAppVersion] = useState(
+    (import.meta.env.VITE_APP_VERSION as string | undefined) ??
+      `ويب — ${getReleaseInfo().shortSha}`,
+  );
+  useEffect(() => {
+    if (Capacitor.isNativePlatform())
+      void App.getInfo()
+        .then((info) => setAppVersion(`${info.version} (${info.build})`))
+        .catch(() => undefined);
+  }, []);
   const { user, profile, signOut } = useAuth();
   const online = useConnectivity();
   const navigate = useNavigate();
@@ -236,6 +248,7 @@ function SettingsPage() {
   async function handleSignOut() {
     setSigningOut(true);
     try {
+      if (!requestStudentSignOut()) return;
       await signOut();
       queryClient.clear();
       navigate({ to: "/auth", search: { mode: "login" }, replace: true });
@@ -346,7 +359,7 @@ function SettingsPage() {
                       <p className="text-[11px] text-muted-foreground">
                         متبقّي{" "}
                         <span className="font-semibold text-foreground">
-                          {daysLeft.toLocaleString("ar-EG")}
+                          {daysLeft.toLocaleString("ar-EG-u-nu-latn")}
                         </span>{" "}
                         يوم
                       </p>
@@ -406,7 +419,7 @@ function SettingsPage() {
                 <div className="rounded-lg border border-border bg-background p-2">
                   <p className="text-muted-foreground">عدد الطلبات</p>
                   <p className="mt-0.5 font-semibold text-foreground">
-                    {totalPays.toLocaleString("ar-EG")}
+                    {totalPays.toLocaleString("ar-EG-u-nu-latn")}
                   </p>
                 </div>
                 <div className="rounded-lg border border-border bg-background p-2">
@@ -441,6 +454,7 @@ function SettingsPage() {
               to="/contact"
               icon={<HelpCircle className="h-4 w-4" />}
               label="الأسئلة الشائعة"
+              hash="faq"
             />
             <SupportLink
               to="/privacy"
@@ -604,7 +618,7 @@ function SettingsPage() {
             <p className="text-xs text-muted-foreground">
               الإصدار:{" "}
               <span className="font-medium text-foreground" dir="ltr">
-                {APP_VERSION}
+                {appVersion}
               </span>
             </p>
           </div>
@@ -691,7 +705,7 @@ function Detail({
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-border bg-background p-2 text-center">
-      <p className="text-lg font-bold text-foreground">{value.toLocaleString("ar-EG")}</p>
+      <p className="text-lg font-bold text-foreground">{value.toLocaleString("ar-EG-u-nu-latn")}</p>
       <p className="text-[11px] text-muted-foreground">{label}</p>
     </div>
   );
@@ -718,10 +732,12 @@ function QuickLink({
 }
 
 function SupportLink({
+  hash,
   to,
   icon,
   label,
 }: {
+  hash?: string;
   to: "/contact" | "/privacy" | "/terms";
   icon: React.ReactNode;
   label: string;
@@ -729,12 +745,13 @@ function SupportLink({
   return (
     <Link
       to={to}
-      className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
+      hash={hash}
+      className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
     >
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
         {icon}
       </span>
-      <span className="truncate">{label}</span>
+      <span className="min-w-0 break-words leading-relaxed">{label}</span>
     </Link>
   );
 }

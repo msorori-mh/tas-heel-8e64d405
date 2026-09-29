@@ -24,7 +24,7 @@ describe("STUDENT_HOME_SERVICES_CLOSURE_01", () => {
     expect(shell).toContain('label: "الاختبارات"');
     expect(shell).toContain('to: "/exams"');
     expect(exams).toContain('createFileRoute("/_authenticated/exams/")');
-    expect(exams).toContain("اختبارات المواد");
+    expect(exams).toContain("تصفح المواد والتدريبات");
     expect(exams).toContain("سجل الاختبارات");
     expect(exams).toContain("النماذج الوزارية");
   });

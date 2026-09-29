@@ -586,3 +586,34 @@ html[dir="rtl"] body {
     font-size: 17px;
   }
 }
+
+/* Capacitor supplies zero insets when the native WebView is already padded. */
+:root {
+  --app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --app-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --app-safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --app-safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+}
+.safe-area-top {
+  padding-top: var(--app-safe-top);
+}
+.student-shell-main {
+  padding-bottom: calc(6rem + var(--app-safe-bottom));
+}
+.student-shell-header,
+.student-bottom-nav {
+  padding-left: var(--app-safe-left);
+  padding-right: var(--app-safe-right);
+}
+.student-bottom-nav {
+  padding-bottom: var(--app-safe-bottom);
+}
+.student-bottom-nav[hidden] {
+  display: none;
+}
+@media (max-width: 1023px) {
+  .student-app-bg:has(input:focus, textarea:focus, [contenteditable="true"]:focus)
+    .lesson-return-button {
+    display: none;
+  }
+}

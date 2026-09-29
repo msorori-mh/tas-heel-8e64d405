@@ -122,7 +122,15 @@ function MinisterialPerformancePage() {
       )}
 
       {data && summary && summary.attempts_count === 0 && (
-        <StateMessage>لم تُكمل أي نموذج وزاري بعد. ابدأ أول محاولة لترى تحليل أدائك.</StateMessage>
+        <StateMessage>
+          <p>لم تُكمل أي نموذج وزاري بعد. ابدأ أول محاولة لترى تحليل أدائك.</p>
+          <Link
+            to="/ministerial-exams"
+            className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 font-semibold text-primary-foreground"
+          >
+            ابدأ نموذجًا وزاريًا
+          </Link>
+        </StateMessage>
       )}
 
       {data && summary && summary.attempts_count > 0 && (

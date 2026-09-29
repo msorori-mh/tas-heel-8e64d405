@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { notFound, createFileRoute } from "@tanstack/react-router";
 import { BookOpen, Target, Trophy, Zap } from "lucide-react";
 import heroAsset from "@/assets/prototype/fm-v2-hero-real.png.asset.json";
 import featureImage from "@/assets/prototype/fm-v2-feature.png";
@@ -8,6 +8,9 @@ import featureImage from "@/assets/prototype/fm-v2-feature.png";
  * Compact mobile-first hero, static copy, no data and no auth wiring.
  */
 export const Route = createFileRoute("/prototype/19a/landing")({
+  beforeLoad: () => {
+    if (import.meta.env.PROD) throw notFound();
+  },
   head: () => ({
     meta: [
       { title: "تمكين — استعد للثانوية والوزاري بذكاء" },

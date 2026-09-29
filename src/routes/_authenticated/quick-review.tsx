@@ -37,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/quick-review")({
 function QuickReviewPage() {
   const { profile, user, loading } = useAuth();
   const navigate = useNavigate();
+  const [visibleCount, setVisibleCount] = useState(24);
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
 
@@ -171,6 +172,7 @@ function QuickReviewPage() {
               count={index?.total ?? 0}
               onClick={() => {
                 setSubjectFilter(null);
+                setVisibleCount(24);
                 setFocusIndex(null);
               }}
             />
@@ -182,6 +184,7 @@ function QuickReviewPage() {
                 count={g.count}
                 onClick={() => {
                   setSubjectFilter(g.id);
+                  setVisibleCount(24);
                   setFocusIndex(null);
                 }}
               />
@@ -198,7 +201,7 @@ function QuickReviewPage() {
             />
           ) : (
             <ul className="space-y-3">
-              {filtered.map((item, i) => (
+              {filtered.slice(0, visibleCount).map((item, i) => (
                 <li key={item.lessonId}>
                   <ReviewCard item={item} index={i} onFocus={() => setFocusIndex(i)} />
                 </li>
@@ -208,6 +211,15 @@ function QuickReviewPage() {
         </>
       )}
 
+      {filtered.length > visibleCount && (
+        <button
+          type="button"
+          className="min-h-11 w-full rounded-xl border bg-card px-4 font-semibold text-primary"
+          onClick={() => setVisibleCount((count) => count + 24)}
+        >
+          عرض ملخصات إضافية ({filtered.length - visibleCount})
+        </button>
+      )}
       <FocusReader
         open={focusIndex !== null}
         startIndex={focusIndex ?? 0}

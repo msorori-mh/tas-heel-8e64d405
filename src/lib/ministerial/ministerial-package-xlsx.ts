@@ -19,6 +19,8 @@ import {
   type MinisterialPackageMedia,
 } from "./ministerial-media-contract";
 
+import { assertQuestionFigure } from "./question-requirements";
+
 export const MINISTERIAL_PACKAGE_CONTRACT_VERSION = "ministerial_track_package_v1" as const;
 /** v2 = v1 + optional per-question `media` (images shipped inside a ZIP). */
 export const MINISTERIAL_PACKAGE_CONTRACT_VERSION_V2 = "ministerial_track_package_v2" as const;
@@ -756,6 +758,11 @@ async function parseWorkbookBytes(
       const explanation = rowValue(worksheet, rowNumber, header.columns, "الشرح");
       if (explanation.length > MAX_TEXT_LENGTH) throw new Error(`${context}: الشرح طويل جدًا.`);
       const refs = readMediaRefs(worksheet, rowNumber, header.columns, mediaPlacements, context);
+      assertQuestionFigure(
+        questionText,
+        refs.some((ref) => ref.placement === "QUESTION"),
+        context,
+      );
 
       if (isSanaa) {
         const optionTexts = ["الخيار أ", "الخيار ب", "الخيار ج", "الخيار د"].map((label) =>

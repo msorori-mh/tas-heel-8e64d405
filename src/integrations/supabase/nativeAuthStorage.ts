@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 
 type BrowserStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -67,11 +67,53 @@ export function createDurableNativeAuthStorage(
   };
 }
 
+/** Upgrade only after the encrypted copy has been written durably. No plaintext mirror. */
+export function createEncryptedNativeAuthStorage(
+  secure: NativePreferences,
+  legacy: NativePreferences,
+  fallback: BrowserStorage,
+) {
+  const removeLegacy = async (key: string) => {
+    await legacy.remove({ key });
+    fallback.removeItem(key);
+  };
+  return {
+    async getItem(key: string): Promise<string | null> {
+      const { value } = await secure.get({ key });
+      if (value !== null) {
+        await removeLegacy(key);
+        return value;
+      }
+      const old = (await legacy.get({ key })).value ?? fallback.getItem(key);
+      if (old !== null) {
+        await secure.set({ key, value: old });
+        await removeLegacy(key);
+      }
+      return old;
+    },
+    async setItem(key: string, value: string): Promise<void> {
+      await secure.set({ key, value });
+      await removeLegacy(key);
+    },
+    async removeItem(key: string): Promise<void> {
+      await removeLegacy(key);
+      await secure.remove({ key });
+    },
+  };
+}
+
+const secureStorage = registerPlugin<NativePreferences>("TamkeenSecureStorage");
 export function persistentAuthStorage():
   | ReturnType<typeof createDurableNativeAuthStorage>
   | Storage
   | undefined {
   if (typeof window === "undefined") return undefined;
   if (!Capacitor.isNativePlatform()) return undefined;
+  // The remote web bundle still serves older installed APKs. They retain their
+  // existing storage until upgraded; a Keystore failure in a new APK never
+  // silently downgrades it to plaintext storage.
+  if (Capacitor.isPluginAvailable("TamkeenSecureStorage")) {
+    return createEncryptedNativeAuthStorage(secureStorage, Preferences, window.localStorage);
+  }
   return createDurableNativeAuthStorage(Preferences, window.localStorage);
 }

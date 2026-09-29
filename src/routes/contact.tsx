@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/use-auth";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,8 +29,11 @@ export const Route = createFileRoute("/contact")({
 });
 
 function ContactPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const { user, profile } = useAuth();
+  const [enteredName, setName] = useState<string | null>(null);
+  const [enteredEmail, setEmail] = useState<string | null>(null);
+  const name = enteredName ?? profile?.full_name ?? "";
+  const email = enteredEmail ?? user?.email ?? "";
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -37,6 +41,18 @@ function ContactPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setErr("يرجى كتابة الاسم.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setErr("يرجى كتابة بريد إلكتروني صحيح.");
+      return;
+    }
+    if (message.trim().length < 10) {
+      setErr("يرجى كتابة رسالة من 10 أحرف على الأقل.");
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -48,8 +64,8 @@ function ContactPage() {
       });
       if (error) throw error;
       setDone(true);
-    } catch (e) {
-      setErr((e as Error).message);
+    } catch {
+      setErr("تعذّر إرسال الرسالة. تحقق من الاتصال وحاول مرة أخرى.");
     } finally {
       setBusy(false);
     }
@@ -70,11 +86,40 @@ function ContactPage() {
           أو استخدم النموذج التالي:
         </p>
 
+        <section id="faq" className="mt-6 space-y-3 rounded-2xl border bg-card p-5">
+          <h2 className="font-bold">الأسئلة الشائعة</h2>
+          <details>
+            <summary className="min-h-11 cursor-pointer font-semibold">
+              كيف أستخدم المحتوى دون إنترنت؟
+            </summary>
+            <p className="text-sm leading-relaxed">
+              نزّل محتوى المادة من التطبيق، وانتظر اكتمال التنزيل، ثم افتح الدروس المحفوظة. تتطلب
+              الاختبارات الوزارية اتصالًا بالإنترنت.
+            </p>
+          </details>
+          <details>
+            <summary className="min-h-11 cursor-pointer font-semibold">
+              لماذا لا تظهر درجة في المراجعة الذاتية؟
+            </summary>
+            <p className="text-sm leading-relaxed">
+              قارن إجابتك النصية بالإجابة النموذجية. لا تمنح المراجعة الذاتية درجة آلية ولا تدخل في
+              متوسط النتائج المصححة.
+            </p>
+          </details>
+          <details>
+            <summary className="min-h-11 cursor-pointer font-semibold">
+              كيف أعدّل بياناتي الدراسية؟
+            </summary>
+            <p className="text-sm leading-relaxed">
+              افتح «حسابي» ثم تعديل الملف الشخصي، واختر البيانات المناسبة لك.
+            </p>
+          </details>
+        </section>
         <div className="mt-6 rounded-2xl border bg-card p-6 shadow-card">
           {done ? (
             <p className="text-primary">شكراً لتواصلك. سنرد عليك قريباً.</p>
           ) : (
-            <form onSubmit={submit} className="space-y-3">
+            <form noValidate onSubmit={submit} className="space-y-3">
               <div>
                 <Label htmlFor="n">الاسم</Label>
                 <Input id="n" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -101,7 +146,11 @@ function ContactPage() {
                   minLength={10}
                 />
               </div>
-              {err && <p className="text-sm text-destructive">{err}</p>}
+              {err && (
+                <p role="alert" className="text-sm text-destructive">
+                  {err}
+                </p>
+              )}
               <Button type="submit" disabled={busy} className="w-full">
                 {busy ? "..." : "إرسال"}
               </Button>

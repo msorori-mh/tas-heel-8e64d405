@@ -1,3 +1,4 @@
+import { RouteIndexContent } from "@/components/student/RouteIndexContent";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,11 @@ import { StateMessage } from "@/components/student/StudentNav";
 import { ChevronLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/grades")({
-  component: GradesPage,
+  component: () => (
+    <RouteIndexContent routeId={Route.id}>
+      <GradesPage />
+    </RouteIndexContent>
+  ),
 });
 
 type Grade = { id: string; name: string; category: string; sort_order: number };
