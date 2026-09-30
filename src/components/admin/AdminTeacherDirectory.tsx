@@ -129,6 +129,7 @@ export function AdminTeacherDirectory() {
           <label className="space-y-1 text-sm">
             <span>المحافظة</span>
             <select
+              aria-label="المحافظة"
               className={selectClass}
               value={draft.governorateId}
               onChange={(e) => field("governorateId", e.target.value)}
@@ -144,6 +145,7 @@ export function AdminTeacherDirectory() {
           <label className="space-y-1 text-sm">
             <span>المادة</span>
             <select
+              aria-label="المادة"
               className={selectClass}
               value={draft.subjectId}
               onChange={(e) => field("subjectId", e.target.value)}
@@ -159,6 +161,7 @@ export function AdminTeacherDirectory() {
           <label className="space-y-1 text-sm">
             <span>حالة الحساب</span>
             <select
+              aria-label="حالة الحساب"
               className={selectClass}
               value={draft.status}
               onChange={(e) => field("status", e.target.value)}
@@ -171,6 +174,7 @@ export function AdminTeacherDirectory() {
           <label className="space-y-1 text-sm">
             <span>المسار التدريبي</span>
             <select
+              aria-label="المسار التدريبي"
               className={selectClass}
               value={draft.activity}
               onChange={(e) => field("activity", e.target.value)}
