@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "releaseCommit": "d170d05c17b1a79a53c601de954d45932a278dbf",
+  "deploymentId": "70392eab-a1eb-46b7-9092-d47ea7b997aa",
+  "liveBuiltAt": "2026-09-30T01:27:41.654Z",
+  "schema": "tamkeen-web-source-v1",
+  "files": 645,
+  "matchingFiles": 644,
+  "localSourceSha256": "f72b7ae92e11838ae2c6653048f050ce6aba8f4b9e5ee6537c25a34aa7da2186",
+  "productionSourceSha256": "d418d0e740e85c220e7287cf4c4200d4c7685038ba9fa7c612aa4c9dd7889781",
+  "independentlyRecomputed": true,
+  "sourceAppsPublicAndReleaseScriptGroupsMatch": true,
+  "changed": [
+    {
+      "path": "bun.lock",
+      "localSha256": "801e980f86c81f99af8f50cbf2f18edfb299d74d89b5990a673052f0bea09860",
+      "productionSha256": "4c674ed20b3cc13f3673fe570444fe9dd47f04c94fc6527794ac42d4513be1a4"
+    }
+  ],
+  "verification": "Observed production manifest and recomputed it independently in the browser runtime; compared group digests and all root entries; substituting only the observed bun.lock digest into the local manifest reproduces the complete production fingerprint."
+}
