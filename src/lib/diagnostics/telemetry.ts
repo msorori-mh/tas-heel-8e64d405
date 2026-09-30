@@ -63,7 +63,7 @@ function readContext() {
         : "web";
 
   return {
-    appVersion: release.verifiable ? release.shortSha : "unknown",
+    appVersion: release.verifiable ? release.shortId : "unknown",
     appBuild: release.builtAt,
     platform,
     osVersion: android ? `Android ${android[1]}` : "",
