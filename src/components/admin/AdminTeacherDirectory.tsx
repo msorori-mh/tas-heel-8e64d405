@@ -36,7 +36,7 @@ const date = (s: string | null) =>
         timeZone: "Asia/Riyadh",
       })
     : "—";
-const selectClass = "h-11 w-full rounded-lg border border-input bg-background px-3 text-sm";
+const selectClass = "h-11 min-w-0 w-full rounded-lg border border-input bg-background px-3 text-sm";
 const programStatus = { ACTIVE: "قيد التعلم", COMPLETED: "مكتمل", CANCELLED: "ملغى" };
 function Status({ value }: { value: TeacherRow["status"] }) {
   return (
@@ -115,7 +115,7 @@ export function AdminTeacherDirectory() {
       </div>
       <form onSubmit={apply} className="rounded-2xl border bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="space-y-1 text-sm">
+          <label className="min-w-0 space-y-1 text-sm">
             <span>البحث</span>
             <Input
               className="min-h-11"
@@ -126,7 +126,7 @@ export function AdminTeacherDirectory() {
               placeholder="الاسم أو البريد أو الهاتف أو المدرسة"
             />
           </label>
-          <label className="space-y-1 text-sm">
+          <label className="min-w-0 space-y-1 text-sm">
             <span>المحافظة</span>
             <select
               aria-label="المحافظة"
@@ -142,7 +142,7 @@ export function AdminTeacherDirectory() {
               ))}
             </select>
           </label>
-          <label className="space-y-1 text-sm">
+          <label className="min-w-0 space-y-1 text-sm">
             <span>المادة</span>
             <select
               aria-label="المادة"
@@ -158,7 +158,7 @@ export function AdminTeacherDirectory() {
               ))}
             </select>
           </label>
-          <label className="space-y-1 text-sm">
+          <label className="min-w-0 space-y-1 text-sm">
             <span>حالة الحساب</span>
             <select
               aria-label="حالة الحساب"
@@ -171,7 +171,7 @@ export function AdminTeacherDirectory() {
               <option value="SUSPENDED">موقوف</option>
             </select>
           </label>
-          <label className="space-y-1 text-sm">
+          <label className="min-w-0 space-y-1 text-sm">
             <span>المسار التدريبي</span>
             <select
               aria-label="المسار التدريبي"
@@ -186,7 +186,7 @@ export function AdminTeacherDirectory() {
               <option value="CERTIFIED">لديه شهادة سارية</option>
             </select>
           </label>
-          <div className="flex items-end gap-2">
+          <div className="flex min-w-0 flex-wrap items-end gap-2">
             <Button className="min-h-11 gap-2" type="submit">
               <Search className="h-4 w-4" /> تطبيق الفلاتر
             </Button>

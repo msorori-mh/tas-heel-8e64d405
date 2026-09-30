@@ -23,9 +23,22 @@ try {
       width: innerWidth,
       scroll: document.documentElement.scrollWidth,
     }));
-    assert.equal(size.width, size.scroll);
     measurements.push(size);
     await page.screenshot({ path: `${dir}/directory-${width}.png` });
+    if (size.width !== size.scroll) {
+      const overflow = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("body *"))
+          .map((e) => ({
+            tag: e.tagName,
+            className: e.className,
+            left: e.getBoundingClientRect().left,
+            right: e.getBoundingClientRect().right,
+          }))
+          .filter((e) => e.left < -1 || e.right > innerWidth + 1),
+      );
+      await writeFile(`${dir}/overflow-${width}.json`, JSON.stringify(overflow, null, 2));
+    }
+    assert.equal(size.width, size.scroll);
     await page.getByRole("button", { name: "عرض ملف معلم تجريبي", exact: true }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.getByText("teacher0@example.test", { exact: true }).waitFor();
