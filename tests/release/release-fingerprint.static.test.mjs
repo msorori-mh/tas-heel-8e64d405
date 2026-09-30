@@ -12,7 +12,7 @@ test("the build embeds Git provenance and a computed portable source identity", 
   assert.match(vite, /buildRelease\(process\.cwd\(\)\)/);
   assert.match(build, /GITHUB_SHA/);
   assert.match(build, /git\(\["rev-parse", "HEAD"\]\)/);
-  assert.match(build, /sourceSha256: sourceFingerprint\(root\)/);
+  assert.match(build, /sourceSha256: manifest\.sourceSha256/);
   assert.match(vite, /__TAMKEEN_RELEASE__/);
   assert.match(release, /\^\[0-9a-f\]\{40\}\$/);
   assert.match(release, /verifiable/);

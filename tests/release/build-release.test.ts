@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
@@ -47,6 +48,14 @@ describe("portable release identity", () => {
     expect(release.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(Number.isFinite(Date.parse(release.builtAt))).toBe(true);
     expect(sourceFingerprint(root)).toBe(release.sourceSha256);
+    const independent = createHash("sha256").update("tamkeen-web-source-v1\n");
+    for (const row of release.sourceManifest.files) independent.update(JSON.stringify(row) + "\n");
+    expect(independent.digest("hex")).toBe(release.sourceSha256);
+    expect(
+      release.sourceManifest.files.every(
+        ([path, hash]) => !path.startsWith(".") && /^[0-9a-f]{64}$/.test(hash),
+      ),
+    ).toBe(true);
   });
   it("validates each supplied SHA before falling back, without inventing a commit", () => {
     const root = fixture();

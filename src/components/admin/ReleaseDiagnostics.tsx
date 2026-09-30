@@ -31,6 +31,16 @@ export function ReleaseDiagnostics({ release }: { release: ReleaseInfo }) {
           بصمة محسوبة من ملفات المصدر وقت البناء.
         </p>
       )}
+      {/^[0-9a-f]{64}$/i.test(release.sourceSha256) && (
+        <a
+          className="mt-3 inline-flex min-h-11 items-center text-xs text-primary underline"
+          href={`/release-source-${release.sourceSha256}.json`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          سجل بصمة ملفات المصدر
+        </a>
+      )}
       {!release.verifiable && (
         <p role="alert" className="mt-3 text-xs text-destructive">
           تعذر إثبات بصمة هذا الإصدار؛ لا تعتمد النسخة للنشر قبل إعادة بناء موثقة.
