@@ -85,8 +85,7 @@ function daysBetween(iso: string | null): number | null {
 
 function SettingsPage() {
   const [appVersion, setAppVersion] = useState(
-    (import.meta.env.VITE_APP_VERSION as string | undefined) ??
-      `ويب — ${getReleaseInfo().shortSha}`,
+    (import.meta.env.VITE_APP_VERSION as string | undefined) ?? `ويب — ${getReleaseInfo().shortId}`,
   );
   useEffect(() => {
     if (Capacitor.isNativePlatform())
