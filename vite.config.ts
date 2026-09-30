@@ -7,10 +7,23 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { buildRelease } from "./scripts/release/build-release";
 
-const release = buildRelease(process.cwd());
+const { sourceManifest, ...release } = buildRelease(process.cwd());
 
 export default defineConfig({
   vite: {
+    plugins: [
+      {
+        name: "tamkeen-release-proof",
+        apply: "build",
+        generateBundle() {
+          this.emitFile({
+            type: "asset",
+            fileName: `release-source-${release.sourceSha256}.json`,
+            source: JSON.stringify(sourceManifest),
+          });
+        },
+      },
+    ],
     // Lovable publishes the student app from the repository root. The academy
     // database passed production post-verify before this route was enabled, so
     // the root build deliberately exposes the isolated academy UI below /academy.

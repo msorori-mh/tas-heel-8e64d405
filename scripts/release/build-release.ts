@@ -21,7 +21,7 @@ const optionalFiles = [
   "apps/teacher-academy/index.html",
 ];
 
-export function sourceFingerprint(root: string): string {
+export function sourceManifest(root: string) {
   const files: string[] = [];
   const visit = (path: string) => {
     const stat = lstatSync(join(root, path));
@@ -38,13 +38,18 @@ export function sourceFingerprint(root: string): string {
   for (const path of optionalFiles) if (existsSync(join(root, path))) visit(path);
 
   const hash = createHash("sha256").update("tamkeen-web-source-v1\n");
-  for (const path of files.sort()) {
+  const entries = files.sort().map((path) => {
     const digest = createHash("sha256")
       .update(readFileSync(join(root, path)))
       .digest("hex");
     hash.update(JSON.stringify([path, digest]) + "\n");
-  }
-  return hash.digest("hex");
+    return [path, digest] as const;
+  });
+  return { schema: "tamkeen-web-source-v1", sourceSha256: hash.digest("hex"), files: entries };
+}
+
+export function sourceFingerprint(root: string): string {
+  return sourceManifest(root).sourceSha256;
 }
 
 export function resolveBuildSha(root: string, env: NodeJS.ProcessEnv = process.env): string {
@@ -71,9 +76,11 @@ export function resolveBuildSha(root: string, env: NodeJS.ProcessEnv = process.e
 }
 
 export function buildRelease(root: string, env: NodeJS.ProcessEnv = process.env) {
+  const manifest = sourceManifest(root);
   return Object.freeze({
     sha: resolveBuildSha(root, env),
-    sourceSha256: sourceFingerprint(root),
+    sourceSha256: manifest.sourceSha256,
     builtAt: new Date().toISOString(),
+    sourceManifest: manifest,
   });
 }

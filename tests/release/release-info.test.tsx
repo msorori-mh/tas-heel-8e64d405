@@ -20,6 +20,7 @@ describe("release diagnostics", () => {
     const html = renderToStaticMarkup(<ReleaseDiagnostics release={release} />);
     expect(html).toContain("بصمة ملفات المصدر (SHA-256)");
     expect(html).toContain(source);
+    expect(html).toContain(`href="/release-source-${source}.json"`);
     expect(html).not.toContain("التزام الإصدار (Git)");
     expect(html).not.toContain("تعذر إثبات");
     expect(html).not.toContain("غير معروف");
