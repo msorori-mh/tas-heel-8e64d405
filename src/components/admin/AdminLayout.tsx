@@ -33,6 +33,7 @@ type LinkItem = {
   href:
     | "/admin"
     | "/admin/students"
+    | "/admin/teachers"
     | "/admin/schools"
     | "/admin/users"
     | "/admin/academic"
@@ -65,6 +66,7 @@ type DisabledItem = {
 const activeLinks: LinkItem[] = [
   { href: "/admin", label: "لوحة الإدارة", icon: LayoutDashboard, end: true },
   { href: "/admin/students", label: "الطلاب", icon: Users },
+  { href: "/admin/teachers", label: "المعلمون وإحصاءاتهم", icon: GraduationCap },
   { href: "/admin/schools", label: "دليل المدارس", icon: Landmark },
   { href: "/admin/users", label: "المستخدمون والصلاحيات", icon: UserCog },
   { href: "/admin/academic", label: "اكتمال المحتوى", icon: BookOpen },

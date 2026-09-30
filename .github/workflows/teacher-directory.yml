@@ -1,0 +1,43 @@
+name: Teacher directory
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/components/admin/AdminTeacherDirectory.tsx"
+      - "src/lib/admin-teachers.ts"
+      - "src/routes/_authenticated/admin.teachers.tsx"
+      - "supabase/migrations/20260930020000_admin_teacher_directory.sql"
+      - "tests/teacher-directory/**"
+      - "tests/admin-audit/teacher-directory.test.ts"
+      - "tests/e2e/teacher-directory/**"
+      - ".github/workflows/teacher-directory.yml"
+permissions:
+  contents: read
+concurrency:
+  group: teacher-directory-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: node --test tests/teacher-directory/database.test.mjs
+      - run: npx vitest run tests/admin-audit/teacher-directory.test.ts tests/admin-audit/auth-gate.runtime.test.tsx
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/teacher-directory/vite.config.ts
+      - run: node tests/e2e/teacher-directory/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teacher-directory-${{ github.sha }}
+          path: artifacts/teacher-directory-browser
+          if-no-files-found: warn
