@@ -5586,6 +5586,19 @@ export type Database = {
         Args: { _curriculum_track_id: string; _subject_id: string }
         Returns: Json
       }
+      admin_teacher_detail: { Args: { p_user_id: string }; Returns: Json }
+      admin_teacher_directory: {
+        Args: {
+          p_activity?: string
+          p_governorate_id?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_status?: string
+          p_subject_id?: string
+        }
+        Returns: Json
+      }
       answer_exam_question: {
         Args: {
           _question_id: string
