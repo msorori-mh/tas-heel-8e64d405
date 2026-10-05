@@ -114,7 +114,7 @@ jobs:
       - name: Upload installable APK for device testing
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-android-1.1.2-code-7-test-apk
+          name: tamkeen-android-1.1.3-code-8-test-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -197,7 +197,7 @@ jobs:
       - name: Upload signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-play-1.1.2-code-7-signed-aab
+          name: tamkeen-play-1.1.3-code-8-signed-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
