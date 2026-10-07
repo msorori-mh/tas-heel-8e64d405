@@ -12,11 +12,17 @@ function announce(status: string) {
 }
 async function sync() {
   if (disposed || running) return;
-  if (!navigator.onLine) { announce("offline"); return; }
+  if (!navigator.onLine) {
+    announce("offline");
+    return;
+  }
   running = true;
   try {
     const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session) { announce("sign-in"); return; }
+    if (error || !data.session) {
+      announce("sign-in");
+      return;
+    }
     const userId = data.session.user.id;
     announce("syncing");
     const result = await drainLocalQueue(queue, userId, async (record) => {
@@ -26,7 +32,8 @@ async function sync() {
       // The SQL contract accepts null for fields not used by this mutation kind.
       // Generated database typings currently omit that nullability (as in offline-sync.ts).
       const rpc = supabase.rpc.bind(supabase) as unknown as (
-        name: "apply_offline_learning_mutation", args: Record<string, unknown>
+        name: "apply_offline_learning_mutation",
+        args: Record<string, unknown>,
       ) => Promise<{ error: unknown }>;
       const { error: failure } = await rpc("apply_offline_learning_mutation", {
         _idempotency_key: record.idempotencyKey,
@@ -42,16 +49,28 @@ async function sync() {
     });
     announce(result.pending ? "pending" : "synced");
     if (result.fullBatch) schedule();
-  } catch { announce("pending"); }
-  finally { running = false; }
+  } catch {
+    announce("pending");
+  } finally {
+    running = false;
+  }
 }
 function schedule() {
   if (disposed || timer !== undefined) return;
-  timer = setTimeout(() => { timer = undefined; void sync(); }, offlineReconnectDelay());
+  timer = setTimeout(() => {
+    timer = undefined;
+    void sync();
+  }, offlineReconnectDelay());
 }
 window.addEventListener("online", schedule);
 window.addEventListener("tamkeen:sync-request", () => void sync());
-document.addEventListener("visibilitychange", () => { if (!document.hidden) schedule(); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) schedule();
+});
 const retry = setInterval(schedule, 60_000);
-window.addEventListener("pagehide", () => { disposed = true; clearInterval(retry); clearTimeout(timer); });
+window.addEventListener("pagehide", () => {
+  disposed = true;
+  clearInterval(retry);
+  clearTimeout(timer);
+});
 schedule();

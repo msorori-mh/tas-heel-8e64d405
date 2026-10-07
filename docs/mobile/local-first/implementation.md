@@ -50,6 +50,13 @@ A physical-device check of Google sign-in, real material downloading, airplane
 mode, answer synchronization and updating an existing install remains a separate
 release gate. No production publication is implied by a passing simulated test.
 
+## Dependency release gate
+
+CI detected newly reported high/critical dependency advisories in the baseline.
+The existing seroval override is updated to 1.6.8 and source-map-js to 1.2.2 in
+the lockfile. The production high-severity audit passes; low/moderate findings
+are unchanged. No forced major dependency upgrade is included.
+
 ## Recovery
 
 Revert this branch to restore the prior remote-first entry. No journal migration

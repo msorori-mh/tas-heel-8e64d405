@@ -80,7 +80,9 @@ describe("registry contract", () => {
 
 describe("offline entry surface", () => {
   it("6 — no remote asset or network dependency", () => {
-    expect([...offlineHtml.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1])).toEqual(["local-runtime.js"]);
+    expect([...offlineHtml.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1])).toEqual([
+      "local-runtime.js",
+    ]);
     expect(offlineHtml).not.toMatch(/<link[^>]+href=/i);
     expect(stripComments(offlineHtml)).not.toMatch(/fetch\(/);
     expect(offlineHtml).not.toMatch(/XMLHttpRequest/);
@@ -119,10 +121,10 @@ describe("regression guards", () => {
 
   it("the bundled entry reads through narrow native bridges only", () => {
     expect(offlineHtml).toContain('plugin("TamkeenOfflineContent")');
-    expect(stripComments(offlineHtml)).not.toMatch(
-      /indexedDB|Filesystem|sessionStorage/,
-    );
-    expect([...offlineHtml.matchAll(/localStorage\.(?:getItem|setItem)\("([^"]+)"/g)].map(m => m[1])).toEqual(["tamkeen.local.reading-size", "tamkeen.local.reading-size"]);
+    expect(stripComments(offlineHtml)).not.toMatch(/indexedDB|Filesystem|sessionStorage/);
+    expect(
+      [...offlineHtml.matchAll(/localStorage\.(?:getItem|setItem)\("([^"]+)"/g)].map((m) => m[1]),
+    ).toEqual(["tamkeen.local.reading-size", "tamkeen.local.reading-size"]);
     expect(registryTs).not.toMatch(/from "@\/integrations\/supabase/);
   });
 });

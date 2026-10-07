@@ -9,6 +9,8 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "mobile/www/local-runtime.js",
+      "android/app/src/main/assets/public/local-runtime.js",
       "dist-academy",
       ".output",
       ".vinxi",

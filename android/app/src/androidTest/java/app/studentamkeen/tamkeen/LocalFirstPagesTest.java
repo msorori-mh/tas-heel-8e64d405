@@ -30,6 +30,14 @@ public class LocalFirstPagesTest {
             byte[] bytes = new byte[1024]; while (stream.read(bytes) >= 0) { }
         }
     }
+    private void screenshot(Context context, String name) throws Exception {
+        android.graphics.Bitmap bitmap = instrumentation.getUiAutomation().takeScreenshot();
+        if (bitmap != null) {
+            try (FileOutputStream stream = new FileOutputStream(new File(context.getExternalFilesDir(null), name + ".png"))) {
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream);
+            } finally { bitmap.recycle(); }
+        }
+    }
     private String js(String expression) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> result = new AtomicReference<>();
@@ -66,8 +74,11 @@ public class LocalFirstPagesTest {
         JSONObject manifest = new JSONObject().put("revision", 1).put("scope", scope).put("artifacts", new JSONArray().put(artifact));
         JSONObject pack = new JSONObject().put("ownerId", "TEST_ONLY_A").put("status", "ready")
             .put("manifest", manifest).put("verifiedArtifactIds", new JSONArray().put("mind-map:test-only"));
+        JSONObject mutation = new JSONObject().put("id", "op-test-a").put("ownerId", "TEST_ONLY_A")
+            .put("payloadSha256", "test-payload-hash").put("status", "pending")
+            .put("nextAttemptAt", "2026-01-01T00:00:00.000Z").put("attempts", 0);
         JSONObject state = new JSONObject().put("schemaVersion", 1).put("activeOwnerId", owner)
-            .put("packs", new JSONArray().put(pack)).put("learning", new JSONArray()).put("outbox", new JSONArray());
+            .put("packs", new JSONArray().put(pack)).put("learning", new JSONArray()).put("outbox", new JSONArray().put(mutation));
         write(context, "tamkeen/offline/foundation-v1.json", state.toString());
         write(context, "tamkeen/offline-artifacts/TEST_ONLY_A/packs/test-iron.html", body);
     }
@@ -87,15 +98,28 @@ public class LocalFirstPagesTest {
             eventually("window.testConnected === false");
             eventually("document.querySelector('#subjects .lesson-button') !== null");
             assertEquals("true", js("document.querySelector('.brand-mark').complete && document.querySelector('.brand-mark').naturalWidth > 0"));
+            screenshot(context, "local-pages-home");
             for (String id : new String[]{"subjects-view", "exams-view", "progress-view", "account-view", "downloads-view", "settings-view"}) {
                 js("document.querySelector('[data-go=\"" + id + "\"]').click()");
                 assertEquals("false", js("document.getElementById('" + id + "').hidden"));
             }
+            screenshot(context, "local-pages-settings");
             js("document.querySelector('#subjects .lesson-button').click()");
             eventually("!document.getElementById('lesson-view').hidden && document.querySelector('#components iframe') !== null");
             assertEquals("true", js("document.querySelector('#components iframe').srcdoc.includes('TEST_ONLY_IRON')"));
+            screenshot(context, "local-pages-lesson");
             js("window.dispatchEvent(new Event('online'))");
             assertEquals("false", js("document.getElementById('lesson-view').hidden"));
+            js("window.Capacitor.Plugins.TamkeenOfflineContent.getPendingMutations({sessionUserId:'TEST_ONLY_B'}).catch(()=>window.ownerRejected=true)");
+            eventually("window.ownerRejected === true");
+            js("window.Capacitor.Plugins.TamkeenOfflineContent.acknowledgeMutation({sessionUserId:'TEST_ONLY_A',id:'op-test-a',payloadSha256:'wrong-hash',delivered:true}).catch(()=>window.hashRejected=true)");
+            eventually("window.hashRejected === true");
+            js("window.Capacitor.Plugins.TamkeenOfflineContent.getPendingMutations({sessionUserId:'TEST_ONLY_A'}).then(v=>window.queueBefore=v)");
+            eventually("window.queueBefore && window.queueBefore.records.length === 1");
+            js("window.Capacitor.Plugins.TamkeenOfflineContent.acknowledgeMutation({sessionUserId:'TEST_ONLY_A',id:'op-test-a',payloadSha256:'test-payload-hash',delivered:true}).then(()=>window.acked=true)");
+            eventually("window.acked === true");
+            js("window.Capacitor.Plugins.TamkeenOfflineContent.getPendingMutations({sessionUserId:'TEST_ONLY_A'}).then(v=>window.queueAfter=v)");
+            eventually("window.queueAfter && window.queueAfter.pendingCount === 0");
             // Activity recreation is a cold WebView start; native files remain intact.
             instrumentation.runOnMainSync(() -> activity.finish());
             instrumentation.waitForIdleSync();

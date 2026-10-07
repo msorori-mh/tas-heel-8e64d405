@@ -136,7 +136,7 @@
     "vitest": "^4.0.18"
   },
   "overrides": {
-    "seroval": "1.5.6",
+    "seroval": "1.6.8",
     "seroval-plugins": "1.5.6"
   }
 }
