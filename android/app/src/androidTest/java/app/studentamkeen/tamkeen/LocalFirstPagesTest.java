@@ -31,12 +31,8 @@ public class LocalFirstPagesTest {
         }
     }
     private void screenshot(Context context, String name) throws Exception {
-        android.graphics.Bitmap bitmap = instrumentation.getUiAutomation().takeScreenshot();
-        if (bitmap != null) {
-            try (FileOutputStream stream = new FileOutputStream(new File(context.getExternalFilesDir(null), name + ".png"))) {
-                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream);
-            } finally { bitmap.recycle(); }
-        }
+        // Shell-owned screenshots survive the runner's target-package cleanup.
+        shell("screencap -p /sdcard/" + name + ".png");
     }
     private String js(String expression) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);

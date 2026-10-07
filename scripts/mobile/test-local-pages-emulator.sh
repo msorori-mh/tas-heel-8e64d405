@@ -30,7 +30,9 @@ if [[ "$booted" != true ]]; then cat "$RUNNER_TEMP/tamkeen-emulator.log"; exit 1
 adb shell input keyevent 82
 cd android
 test_status=0
-./gradlew testDebugUnitTest connectedDebugAndroidTest --stacktrace || test_status=$?
+./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest --stacktrace || test_status=$?
 mkdir -p app/build/reports/local-pages-screenshots
-adb pull /sdcard/Android/data/app.studentamkeen.tamkeen/files/. app/build/reports/local-pages-screenshots/ >/dev/null 2>&1 || true
+for screen in home settings lesson; do
+  adb pull "/sdcard/local-pages-$screen.png" app/build/reports/local-pages-screenshots/ >/dev/null 2>&1 || true
+done
 exit "$test_status"
