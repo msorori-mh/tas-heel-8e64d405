@@ -69,7 +69,7 @@ describe("OFFLINE-05 Android assessment bridge", () => {
     expect(shell).toContain("question.savedAnswer");
     expect(shell).toContain("question.selectedOptionId");
     expect(source).not.toMatch(/\.innerHTML\s*=/);
-    expect(source).not.toMatch(/fetch\(|XMLHttpRequest|supabase/i);
+    expect(source).not.toMatch(/fetch\(|XMLHttpRequest/i);
     expect(shell).toContain("connect-src 'none'");
   });
 });

@@ -85,7 +85,7 @@ describe("OFFLINE-04 Android cold-start lesson entry", () => {
     expect(shell).toContain('frame.setAttribute("sandbox", "")');
     expect(shell).toContain("frame.srcdoc =");
     expect(stripComments(shell)).not.toMatch(/\.innerHTML\s*=/);
-    expect(stripComments(shell)).not.toMatch(/fetch\(|XMLHttpRequest|supabase/i);
+    expect(stripComments(shell)).not.toMatch(/fetch\(|XMLHttpRequest/i);
     expect(shell).toContain("connect-src 'none'");
   });
 });

@@ -544,6 +544,114 @@ public class TamkeenOfflineContentPlugin extends Plugin {
         return label.length() <= 240 ? label : label.substring(0, 240);
     }
 
+    /** Presentation snapshot only; the active owner comes from the private journal. */
+    @PluginMethod
+    public void getLocalLibrary(PluginCall call) {
+        JSONObject state = readState();
+        String ownerId = activeOwner(state);
+        JSObject result = new JSObject();
+        JSArray packs = new JSArray();
+        result.put("available", ownerId != null);
+        result.put("displayName", "");
+        if (ownerId != null) {
+            try {
+                String value = getContext().getSharedPreferences("CapacitorStorage", 0)
+                    .getString("tamkeen.student-shell.identity.v1", "{}");
+                JSONObject profile = new JSONObject(value).optJSONObject("profile");
+                if (profile != null && ownerId.equals(profile.optString("user_id"))) {
+                    result.put("displayName", safeLabel(profile, "full_name", ""));
+                }
+            } catch (Exception ignored) { /* Missing identity must not block local lessons. */ }
+            JSONArray records = state.optJSONArray("packs");
+            for (int i = 0; records != null && i < records.length(); i++) {
+                JSONObject record = records.optJSONObject(i);
+                if (record == null || !ownerId.equals(record.optString("ownerId"))) continue;
+                JSONObject manifest = record.optJSONObject("manifest");
+                JSONObject scope = manifest == null ? null : manifest.optJSONObject("scope");
+                if (scope == null) continue;
+                JSObject pack = new JSObject();
+                pack.put("title", safeLabel(scope, "subjectTitle", "مادة محفوظة"));
+                pack.put("status", record.optString("status", "failed"));
+                pack.put("downloadedBytes", Math.max(0L, record.optLong("downloadedBytes", 0L)));
+                pack.put("updatedAt", record.optString("updatedAt", ""));
+                packs.put(pack);
+            }
+        }
+        result.put("packs", packs);
+        call.resolve(result);
+    }
+
+    /** Read-only batch. Session identity must match before any activity is returned. */
+    @PluginMethod
+    public void getPendingMutations(PluginCall call) {
+        synchronized (STATE_WRITE_LOCK) {
+            JSONObject state = readState();
+            String ownerId = activeOwner(state);
+            if (ownerId == null || !ownerId.equals(call.getString("sessionUserId"))) {
+                call.reject("offline_sync_owner_mismatch"); return;
+            }
+            JSArray pending = new JSArray();
+            JSONArray outbox = state.optJSONArray("outbox");
+            String now = nowIso();
+            int pendingCount = 0;
+            for (int i = 0; outbox != null && i < outbox.length(); i++) {
+                JSONObject record = outbox.optJSONObject(i);
+                if (record == null || !ownerId.equals(record.optString("ownerId"))) continue;
+                String status = record.optString("status");
+                if ("delivered".equals(status)) continue;
+                pendingCount++;
+                if (pending.length() >= 25) continue;
+                if ("processing".equals(status) && record.optString("leaseUntil", "").compareTo(now) > 0) continue;
+                if (record.optString("nextAttemptAt", "").compareTo(now) > 0) continue;
+                pending.put(record);
+            }
+            JSObject result = new JSObject();
+            result.put("records", pending);
+            result.put("pendingCount", pendingCount);
+            call.resolve(result);
+        }
+    }
+
+    /** Merge acknowledgement into fresh state under the same lock as answer saves. */
+    @PluginMethod
+    public void acknowledgeMutation(PluginCall call) {
+        synchronized (STATE_WRITE_LOCK) {
+            try {
+                JSONObject state = readState();
+                String ownerId = activeOwner(state);
+                if (ownerId == null || !ownerId.equals(call.getString("sessionUserId"))) {
+                    call.reject("offline_sync_owner_mismatch"); return;
+                }
+                String previous = state.toString();
+                JSONArray outbox = state.optJSONArray("outbox");
+                for (int i = 0; outbox != null && i < outbox.length(); i++) {
+                    JSONObject record = outbox.optJSONObject(i);
+                    if (record == null || !ownerId.equals(record.optString("ownerId")) ||
+                        !record.optString("id").equals(call.getString("id")) ||
+                        !record.optString("payloadSha256").equals(call.getString("payloadSha256"))) continue;
+                    if ("delivered".equals(record.optString("status"))) { call.resolve(); return; }
+                    String now = nowIso();
+                    boolean delivered = Boolean.TRUE.equals(call.getBoolean("delivered", false));
+                    record.put("status", delivered ? "delivered" : "failed");
+                    record.put("updatedAt", now);
+                    record.put("leaseUntil", JSONObject.NULL);
+                    record.put("deliveredAt", delivered ? now : JSONObject.NULL);
+                    record.put("lastErrorCode", delivered ? JSONObject.NULL : "OFFLINE_SYNC_RETRY");
+                    int attempts = Math.min(30, record.optInt("attempts", 0) + 1);
+                    record.put("attempts", attempts);
+                    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT);
+                    format.setTimeZone(TimeZone.getTimeZone("UTC"));
+                    long delay = Math.min(21600000L, 1000L * (1L << Math.min(24, attempts - 1)));
+                    record.put("nextAttemptAt", format.format(new Date(System.currentTimeMillis() + delay)));
+                    state.put("updatedAt", now);
+                    replaceState(state, previous);
+                    call.resolve(); return;
+                }
+                call.reject("offline_sync_record_changed");
+            } catch (Exception ignored) { call.reject("offline_sync_ack_failed"); }
+        }
+    }
+
 
     @PluginMethod
     public void getOfflineOverview(PluginCall call) {

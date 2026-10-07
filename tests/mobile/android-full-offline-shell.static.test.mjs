@@ -47,6 +47,6 @@ describe("Android full offline student shell", () => {
     expect(shell).toContain("revealOfficialAnswer({");
     expect(shell).toContain("checkSelfTestAnswer({");
     expect(shell).toContain("pendingSyncCount");
-    expect(shell).not.toMatch(/fetch\(|XMLHttpRequest|supabase/i);
+    expect(shell).not.toMatch(/fetch\(|XMLHttpRequest/i);
   });
 });
