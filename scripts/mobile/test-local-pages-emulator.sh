@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Command-line tools and emulator releases differ in their default AVD directory.
+# Give both the same explicit, disposable location without changing HOME.
+export ANDROID_AVD_HOME="$RUNNER_TEMP/tamkeen-avd"
+mkdir -p "$ANDROID_AVD_HOME"
 sdkmanager 'system-images;android-35;default;x86_64' 'emulator'
-printf 'no\n' | avdmanager create avd --force --name tamkeen-local-pages --package 'system-images;android-35;default;x86_64' --device 'pixel_2'
+printf 'no\n' | avdmanager create avd --force --name tamkeen-local-pages --package 'system-images;android-35;default;x86_64' --device 'pixel_2' --path "$ANDROID_AVD_HOME/tamkeen-local-pages.avd"
+test -f "$ANDROID_AVD_HOME/tamkeen-local-pages.ini"
+"$ANDROID_HOME/emulator/emulator" -list-avds
 sudo chmod a+rw /dev/kvm
 "$ANDROID_HOME/emulator/emulator" -avd tamkeen-local-pages -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader -no-metrics -accel on -memory 2048 > "$RUNNER_TEMP/tamkeen-emulator.log" 2>&1 &
 emulator_pid=$!
