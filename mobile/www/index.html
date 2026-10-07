@@ -8,9 +8,9 @@
     />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' data: gap:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self' data: gap:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://zbdhxyuulyovihjgeqbn.supabase.co; frame-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>تمكين الطالب — دون اتصال</title>
+    <title>تمكين الطالب</title>
     <style>
       :root {
         color-scheme: light;
@@ -166,6 +166,9 @@
       .back { width:auto; padding-inline:14px; }
       .sync-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
       .sync-row p { margin:0; }
+      .large-reading .meta, .large-reading .muted, .large-reading .empty { font-size:17px; }
+      .large-reading .title, .large-reading .lesson-button, .large-reading .question-text { font-size:19px; }
+      [aria-disabled="true"] { opacity:.65; }
       @media(min-width:720px){
         body { max-width:900px; margin-inline:auto; }
         .stats { grid-template-columns:repeat(4,minmax(0,1fr)); }
@@ -185,9 +188,9 @@
     </header>
 
     <main id="home-view" class="screen">
-      <div class="offline-badge">أنت الآن في وضع عدم الاتصال</div>
+      <div class="offline-badge" id="connection-status" role="status">صفحاتك جاهزة على جهازك</div>
       <section class="card hero">
-        <h2 style="margin-top:0">مرحباً بك في تمكين</h2>
+        <h2 id="welcome" style="margin-top:0">مرحباً بك في تمكين</h2>
         <p class="muted">يمكنك تصفح المواد والدروس والاختبارات المحفوظة ومتابعة تقدمك محلياً.</p>
         <div id="overview" class="stats">
           <div class="stat"><strong>—</strong><span>مواد محفوظة</span></div>
@@ -203,6 +206,15 @@
         </div>
       </section>
 
+      <section class="card">
+        <h2 style="margin-top:0">محتوى جديد وخدمات الحساب</h2>
+        <p class="meta">سجّل الدخول أول مرة أو نزّل مواد جديدة عند توفر الإنترنت. صفحاتك المحفوظة تفتح مباشرة في كل مرة.</p>
+        <div class="actions">
+          <button class="primary" type="button" data-online="app">تصفح وتنزيل المواد</button>
+          <button class="secondary" type="button" data-go="downloads-view">تنزيلاتي</button>
+        </div>
+        <p id="network-message" class="error" role="status"></p>
+      </section>
       <h2>آخر المواد المحفوظة</h2>
       <div id="home-subjects" class="card empty">جارٍ التحقق من المواد المحفوظة…</div>
 
@@ -232,17 +244,45 @@
     <main id="account-view" class="screen" hidden>
       <h2>حسابي</h2>
       <section class="card">
-        <p class="title">وضع العمل دون اتصال</p>
+        <p id="account-name" class="title">حسابك على هذا الجهاز</p>
         <p class="meta">هذا الجهاز مرتبط بآخر حساب تم تسجيل دخوله بنجاح. لا يتم عرض أو تخزين كلمات مرور داخل شاشة الأوفلاين.</p>
         <div class="sync-row">
           <p id="account-sync" class="muted">جارٍ قراءة حالة المزامنة…</p>
           <span class="offline-badge">محلي</span>
         </div>
       </section>
-      <button id="retry" class="ghost" type="button">إعادة المحاولة والاتصال</button>
-      <p class="muted" style="margin-top:10px">
-        عند عودة الشبكة سيعود التطبيق تلقائياً إلى النسخة الكاملة ويزامن النشاط المحفوظ.
-      </p>
+      <div class="actions">
+        <button id="sync-now" class="primary" type="button">مزامنة الآن</button>
+        <button class="secondary" type="button" data-go="settings-view">الإعدادات</button>
+        <button class="secondary" type="button" data-go="downloads-view">تنزيلاتي</button>
+        <button id="retry" class="ghost" type="button" data-online="settings">إدارة الحساب عبر الإنترنت</button>
+      </div>
+      <p id="sync-status" class="meta" role="status">النشاط المحفوظ يبقى على جهازك حتى تنجح مزامنته.</p>
+      <p class="muted" style="margin-top:10px">تتم محاولة المزامنة عند عودة الإنترنت دون إغلاق الدرس. تسجيل الدخول وتعديل الحساب يحتاجان إلى اتصال.</p>
+    </main>
+
+    <main id="downloads-view" class="screen" hidden>
+      <h2>تنزيلاتي</h2>
+      <p class="meta">حالة آخر تنزيل لكل حزمة على جهازك. افتح موادي لعرض الدروس التي اجتازت التحقق.</p>
+      <div id="download-list" class="card empty">جارٍ قراءة التنزيلات…</div>
+      <button class="primary" type="button" data-online="app">تنزيل مواد أو استكمال التنزيل</button>
+    </main>
+
+    <main id="settings-view" class="screen" hidden>
+      <h2>الإعدادات</h2>
+      <section class="card">
+        <label for="reading-size" class="title">حجم خط الواجهة</label>
+        <select id="reading-size" class="answer-input" style="min-height:44px">
+          <option value="normal">عادي</option><option value="large">كبير</option>
+        </select>
+        <p class="meta">يمكنك أيضًا تكبير محتوى الدرس بإصبعين.</p>
+        <p id="app-version" class="meta"></p>
+      </section>
+      <section class="card">
+        <h3>كيف يعمل التطبيق دون إنترنت؟</h3>
+        <p class="meta">الواجهات مضمّنة داخل التطبيق. نزّل المواد مرة واحدة لفتح محتواها دون اتصال. التجارب التي تعتمد على مواقع خارجية تحتاج إلى الإنترنت.</p>
+        <button class="secondary" type="button" data-go="downloads-view">عرض التنزيلات</button>
+      </section>
     </main>
 
     <main id="lesson-view" class="screen" hidden>
@@ -258,7 +298,7 @@
       <p id="lesson-error" class="error" role="alert"></p>
     </main>
 
-    <nav class="bottom-nav" aria-label="التنقل دون اتصال">
+    <nav class="bottom-nav" aria-label="التنقل في تمكين">
       <button class="nav-button active" type="button" data-go="home-view"><span class="nav-icon">⌂</span>الرئيسية</button>
       <button class="nav-button" type="button" data-go="subjects-view"><span class="nav-icon">▣</span>موادي</button>
       <button class="nav-button" type="button" data-go="exams-view"><span class="nav-icon">✓</span>الاختبارات</button>
@@ -269,6 +309,7 @@
     <script>
       (function () {
         var ORIGIN = "https://studentamkeen.com";
+        var connected = navigator.onLine;
         var subjectsCache = [];
         var overviewCache = null;
         var currentScreen = "home-view";
@@ -351,21 +392,6 @@
             "لديك " + (overviewCache.attemptCount || 0) + " نشاط محفوظ على الجهاز و" +
               (overviewCache.pendingSyncCount || 0) + " عملية بانتظار المزامنة.",
           );
-          var bar = document.createElement("div");
-          bar.style.height = "9px";
-          bar.style.borderRadius = "999px";
-          bar.style.background = "#eceaf3";
-          var fill = document.createElement("div");
-          fill.style.height = "100%";
-          fill.style.borderRadius = "999px";
-          fill.style.background = "#06b6d4";
-          var lessonCount = overviewCache.lessonCount || 0;
-          var attempts = overviewCache.attemptCount || 0;
-          var percent = lessonCount ? Math.min(100, Math.round((attempts / lessonCount) * 100)) : 0;
-          fill.style.width = percent + "%";
-          bar.appendChild(fill);
-          progressEl.appendChild(bar);
-
           accountSyncEl.textContent =
             (overviewCache.pendingSyncCount || 0) > 0
               ? (overviewCache.pendingSyncCount || 0) + " عملية ستتم مزامنتها عند عودة الإنترنت."
@@ -812,6 +838,8 @@
               if (answer.explanation) lines.push(answer.explanation);
               result.textContent = lines.join("\n\n");
               result.hidden = false;
+              refreshOverview();
+              window.dispatchEvent(new Event("tamkeen:sync-request"));
             }).catch(function () {
               result.textContent = "تعذر التحقق من الإجابة المحفوظة. حدّث المادة عند توفر الإنترنت.";
               result.hidden = false;
@@ -900,6 +928,8 @@
             return;
           }
           button.disabled = true;
+          componentsEl.replaceChildren();
+          assessmentsEl.replaceChildren();
           Promise.all([
             content.readLesson({ lessonId: lessonId }),
             content.readLessonAssessments({ lessonId: lessonId }).catch(function () {
@@ -967,19 +997,95 @@
 
         function loadAll() {
           homeErrorEl.textContent = "";
-          return Promise.all([loadSubjects(), loadBooks()]).then(refreshOverview);
+          return Promise.all([loadSubjects(), loadBooks(), loadLibrary()]).then(refreshOverview);
         }
 
-        document.getElementById("retry").addEventListener("click", function () {
-          window.location.assign(ORIGIN + "/app");
-        });
+        function loadLibrary() {
+          var content = plugin("TamkeenOfflineContent");
+          if (!content || !content.getLocalLibrary) return Promise.resolve();
+          return content.getLocalLibrary().then(function (data) {
+            document.getElementById("account-name").textContent = data.displayName || (data.available ? "حسابك المحفوظ على الجهاز" : "لم يتم تسجيل الدخول بعد");
+            document.getElementById("welcome").textContent = data.displayName ? "مرحباً " + data.displayName : "مرحباً بك في تمكين";
+            var list = document.getElementById("download-list");
+            list.replaceChildren();
+            var packs = data.packs || [];
+            if (!packs.length) { empty(list, "لا توجد تنزيلات لهذا الحساب بعد."); return; }
+            list.className = "";
+            var labels = { ready:"اكتمل التنزيل", registered:"بانتظار التنزيل", downloading:"تنزيل غير مكتمل", failed:"يحتاج استكمال التنزيل", corrupt:"يحتاج إعادة التنزيل", stale:"يحتاج تحديث" };
+            packs.forEach(function (pack) {
+              var card = document.createElement("section");
+              card.className = "card";
+              appendText(card, "h3", "title", pack.title);
+              appendText(card, "p", "meta", (labels[pack.status] || "يحتاج مراجعة") + " — " + (Math.max(0, Number(pack.downloadedBytes) || 0) / 1048576).toFixed(1) + " ميجابايت");
+              list.appendChild(card);
+            });
+          }).catch(function () { empty(document.getElementById("download-list"), "تعذر قراءة سجل التنزيلات. لم يتم حذف أي محتوى."); });
+        }
 
-        window.addEventListener("online", function () {
-          window.location.assign(ORIGIN + "/app");
+        function updateConnectivity(value) {
+          connected = value;
+          document.getElementById("connection-status").textContent = value ? "الشبكة متاحة — صفحاتك تفتح من الجهاز" : "دون اتصال — تابع المحتوى المحفوظ";
+          document.querySelectorAll("[data-online]").forEach(function (button) {
+            button.setAttribute("aria-disabled", String(!value));
+          });
+        }
+        document.querySelectorAll("[data-online]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            if (!connected) {
+              showScreen("home-view");
+              document.getElementById("network-message").textContent = "هذه الخدمة تحتاج إلى الإنترنت. يمكنك متابعة المواد المحفوظة الآن.";
+              return;
+            }
+            var navigation = plugin("TamkeenLocalPages");
+            if (!navigation) { homeErrorEl.textContent = "تعذر فتح الخدمة. أعد تشغيل التطبيق."; return; }
+            navigation.openOnline({ destination:button.getAttribute("data-online") }).catch(function () {
+              homeErrorEl.textContent = "تعذر فتح الخدمة. حاول مرة أخرى.";
+            });
+          });
+        });
+        document.getElementById("sync-now").addEventListener("click", function () {
+          window.dispatchEvent(new Event("tamkeen:sync-request"));
+        });
+        window.addEventListener("tamkeen:sync-status", function (event) {
+          var labels = { "authenticating":"جارٍ إكمال تسجيل الدخول…", "auth-error":"تعذر إكمال تسجيل الدخول. افتح إدارة الحساب للمحاولة مجددًا.", offline:"لا يوجد اتصال. النشاط محفوظ على جهازك.", "sign-in":"سجّل الدخول عبر إدارة الحساب لبدء المزامنة.", syncing:"جارٍ مزامنة النشاط…", synced:"تمت مزامنة النشاط المتاح بنجاح.", pending:"تعذرت المزامنة الآن. سيبقى النشاط محفوظًا لإعادة المحاولة." };
+          document.getElementById("sync-status").textContent = labels[event.detail.status] || "";
+          if (event.detail.status === "auth-error" || event.detail.status === "authenticating") showScreen("account-view");
+          if (event.detail.status === "synced" || event.detail.status === "pending") refreshOverview();
+        });
+        window.addEventListener("online", function () { updateConnectivity(true); });
+        window.addEventListener("offline", function () { updateConnectivity(false); });
+        var network = plugin("Network");
+        if (network) {
+          network.getStatus().then(function (value) { updateConnectivity(value.connected); }).catch(function () {});
+          network.addListener("networkStatusChange", function (value) {
+            updateConnectivity(value.connected);
+            if (value.connected) window.dispatchEvent(new Event("tamkeen:sync-request"));
+          });
+        }
+        updateConnectivity(connected);
+        var app = plugin("App");
+        if (app) {
+          app.getInfo().then(function (info) { document.getElementById("app-version").textContent = "الإصدار " + info.version + " (" + info.build + ")"; }).catch(function () {});
+          app.addListener("backButton", function () {
+            if (currentScreen === "lesson-view") showScreen("subjects-view");
+            else if (currentScreen !== "home-view") showScreen("home-view");
+            else app.minimizeApp();
+          });
+        }
+        var sizeSelect = document.getElementById("reading-size");
+        function setReadingSize(value) {
+          sizeSelect.value = value === "large" ? "large" : "normal";
+          document.body.classList.toggle("large-reading", sizeSelect.value === "large");
+        }
+        try { setReadingSize(localStorage.getItem("tamkeen.local.reading-size")); } catch (_) {}
+        sizeSelect.addEventListener("change", function () {
+          setReadingSize(sizeSelect.value);
+          try { localStorage.setItem("tamkeen.local.reading-size", sizeSelect.value); } catch (_) {}
         });
 
         loadAll();
       })();
     </script>
+    <script src="local-runtime.js" defer></script>
   </body>
 </html>
