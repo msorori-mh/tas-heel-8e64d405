@@ -1,3 +1,4 @@
+import { replayStudentIntro } from "@/lib/onboarding/student-intro";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { getReleaseInfo } from "@/lib/release-info";
@@ -447,6 +448,13 @@ function SettingsPage() {
 
         {/* الدعم والمساعدة */}
         <SectionItem value="help" icon={<LifeBuoy className="h-4 w-4" />} title="الدعم والمساعدة">
+          <button
+            type="button"
+            onClick={() => replayStudentIntro()}
+            className="mb-3 min-h-11 w-full rounded-xl border border-border px-4 py-3 text-right font-semibold"
+          >
+            جولة تعريفية بتطبيق تمكين
+          </button>
           <div className="grid grid-cols-2 gap-2">
             <SupportLink to="/contact" icon={<Mail className="h-4 w-4" />} label="تواصل معنا" />
             <SupportLink

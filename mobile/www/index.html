@@ -981,5 +981,16 @@
         loadAll();
       })();
     </script>
+    <script type="module">
+      import { INTRO_KEY, mountStudentIntro } from "./student-intro.js";
+      const preferences = window.Capacitor?.Plugins?.Preferences;
+      if (preferences) {
+        let done = false;
+        try { done = (await preferences.get({ key: INTRO_KEY })).value === "done"; } catch {}
+        if (!done) mountStudentIntro(async () => {
+          try { await preferences.set({ key: INTRO_KEY, value: "done" }); } catch {}
+        });
+      }
+    </script>
   </body>
 </html>
