@@ -1,3 +1,4 @@
+import { StudentIntroGate } from "@/components/onboarding/StudentIntroGate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -227,7 +228,9 @@ function RootComponent() {
           queryClient.clear();
         }}
       >
-        <Outlet />
+        <StudentIntroGate>
+          <Outlet />
+        </StudentIntroGate>
         {!academyRouteActive ? <DiagnosticsBridge /> : null}
         <AndroidBackHandler />
         <NativeAuthDeepLinkHandler />
