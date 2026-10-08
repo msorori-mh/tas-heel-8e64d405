@@ -24,7 +24,7 @@ try {
   // No network is required by any page of the tour.
   await page.route("**/*", (route) => route.abort());
   await page.setContent(
-    '<html lang="ar" dir="rtl"><body><button id="entry">تمكين</button></body></html>',
+    '<html lang="ar" dir="rtl"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><button id="entry">تمكين</button></body></html>',
   );
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
   await page.evaluate(() => {
