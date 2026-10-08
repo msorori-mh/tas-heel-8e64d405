@@ -120,5 +120,11 @@ test("bundled offline tour exactly matches shared source", async () => {
     target: "es2020",
     write: false,
   });
-  assert.equal(await readFile("mobile/www/student-intro.js", "utf8"), result.outputFiles[0].text);
+  const { format, resolveConfig } = await import("prettier");
+  const outfile = "mobile/www/student-intro.js";
+  const formatted = await format(result.outputFiles[0].text, {
+    ...(await resolveConfig(outfile)),
+    filepath: outfile,
+  });
+  assert.equal(await readFile(outfile, "utf8"), formatted);
 });
