@@ -31,7 +31,7 @@ describe("Android teacher academy V1", () => {
     expect(studentShell).toContain('href="/academy"');
     expect(studentShell).toContain("أكاديمية المعلمين");
     expect(read("capacitor.config.ts")).toContain('appName: "تمكين"');
-    expect(read("android/app/build.gradle")).toContain("versionCode 8");
+    expect(read("android/app/build.gradle")).toContain("versionCode 9");
   });
 
   it("keeps public student and teacher entry Google-only while admin stays separate", () => {
