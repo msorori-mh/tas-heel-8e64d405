@@ -25,13 +25,17 @@ try {
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route("**/*", (route) =>
-      new URL(route.request().url()).origin === "http://127.0.0.1:4390"
+      new URL(route.request().url()).origin === "http://127.0.0.1:4390" ||
+      ["fonts.googleapis.com", "fonts.gstatic.com"].includes(
+        new URL(route.request().url()).hostname,
+      )
         ? route.continue()
         : route.abort(),
     );
     await page.goto(`http://127.0.0.1:4390${path}`);
     await page
       .getByRole("heading", {
+        exact: true,
         name: path.startsWith("/exams")
           ? baseline
             ? "الاختبارات"
@@ -46,6 +50,7 @@ try {
     } else if (!baseline) {
       await page
         .getByRole("heading", {
+          exact: true,
           name: path.includes("returning") ? "الكيمياء · الحديد وخواصه" : "ابدأ أول درس",
         })
         .waitFor();

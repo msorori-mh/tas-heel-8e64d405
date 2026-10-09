@@ -58,6 +58,9 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - run: npm ci
       - run: npx cap sync android
       - run: ./gradlew assembleDebug
@@ -67,3 +70,25 @@ jobs:
           name: tamkeen-home-exams-v2-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Install and inspect native status bar on Android 16
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n app.studentamkeen.tamkeen/.MainActivity
+            sleep 20
+            mkdir -p docs/ui/student-home-exams-v2
+            adb shell screencap -p /sdcard/tamkeen-status-bar.png
+            adb pull /sdcard/tamkeen-status-bar.png docs/ui/student-home-exams-v2/android-16-status-bar.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tamkeen-home-exams-v2-native-status-bar
+          path: docs/ui/student-home-exams-v2/android-16-status-bar.png
+          if-no-files-found: warn
