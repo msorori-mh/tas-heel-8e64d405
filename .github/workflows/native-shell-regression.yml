@@ -1,0 +1,66 @@
+name: Native offline cold-start regression
+on:
+  push:
+    branches: [fix/independent-offline-cold-start-20261009]
+  pull_request:
+    paths:
+      - "scripts/independent/package-native-shell.mjs"
+      - "android/app/src/main/java/**/PackagedShellWebViewClient.java"
+      - "tests/mobile/native-shell-cold-start.mjs"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-offline-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      TAMKEEN_STAGING_ORIGIN: ${{ vars.TAMKEEN_STAGING_ORIGIN }}
+      TAMKEEN_NATIVE_SHELL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: npm ci
+      - run: npm run test:independent
+      - run: npx tsc --noEmit
+      - run: npm run build:independent
+      - run: node scripts/independent/package-native-shell.mjs
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:native-shell
+      - run: node scripts/independent/prepare-android.mjs
+      - run: npx cap sync android
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+        working-directory: android
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: bash scripts/independent/test-native-emulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-offline-evidence-${{ github.sha }}
+          path: artifacts/native-shell
+          retention-days: 14
