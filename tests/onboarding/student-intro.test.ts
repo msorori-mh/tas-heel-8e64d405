@@ -13,7 +13,7 @@ function setup() {
   dom.window.document.querySelector<HTMLButtonElement>("#before")!.focus();
   return dom;
 }
-test("six pages advance, go back, finish once and restore focus", async () => {
+test("four pages advance, go back, finish once and restore focus", async () => {
   const dom = setup();
   let finished = 0;
   mountStudentIntro(async () => {
@@ -21,12 +21,12 @@ test("six pages advance, go back, finish once and restore focus", async () => {
   });
   assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[0].title);
   const next = document.querySelector<HTMLButtonElement>(".intro-next")!;
-  for (let i = 1; i < 6; i++) {
+  for (let i = 1; i < 4; i++) {
     next.click();
     assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[i].title);
   }
   document.querySelector<HTMLButtonElement>(".intro-prev")!.click();
-  assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[4].title);
+  assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[2].title);
   next.click();
   next.click();
   next.click();
@@ -127,4 +127,75 @@ test("bundled offline tour exactly matches shared source", async () => {
     filepath: outfile,
   });
   assert.equal(await readFile(outfile, "utf8"), formatted);
+});
+
+test("four neutral pages put offline second and hide skip only on the last page", () => {
+  const dom = setup();
+  assert.deepEqual(
+    INTRO_SLIDES.map((slide) => slide.kind),
+    ["brand", "offline", "practice", "deeper"],
+  );
+  const dispose = mountStudentIntro(async () => {});
+  assert.equal(document.querySelector(".intro-tags, .intro-hint, .intro-top strong"), null);
+  const skip = document.querySelector<HTMLButtonElement>(".intro-skip")!;
+  assert.equal(skip.textContent, "تخطّي");
+  assert.equal(skip.hidden, false);
+  for (let i = 0; i < 3; i++) document.querySelector<HTMLButtonElement>(".intro-next")!.click();
+  assert.equal(skip.hidden, true);
+  assert.notEqual(document.activeElement, skip);
+  document.querySelector<HTMLButtonElement>(".intro-prev")!.click();
+  assert.equal(skip.hidden, false);
+  dispose();
+  const replay = mountStudentIntro(async () => {}, true);
+  for (let i = 0; i < 3; i++) document.querySelector<HTMLButtonElement>(".intro-next")!.click();
+  assert.equal(document.querySelector<HTMLButtonElement>(".intro-skip")!.hidden, false);
+  assert.equal(document.querySelector(".intro-next")!.textContent, "إنهاء الجولة");
+  replay();
+  dom.window.close();
+});
+
+test("tour source preserves the completion key and uses embedded assets without region names", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile("src/lib/onboarding/student-intro.ts", "utf8");
+  assert.ok(source.includes('"tamkeen.student-intro.v1"'));
+  assert.doesNotMatch(source, /صنعاء|عدن|intro-tags|intro-hint|تمكين الطالب/);
+  assert.doesNotMatch(source, /<img|https?:\/\//);
+});
+
+test("native edge-to-edge fallback does not add padding to older non-overlay shells", () => {
+  const dom = setup();
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: dom.window.navigator,
+  });
+  Object.assign(dom.window, {
+    Capacitor: { isNativePlatform: () => true, getPlatform: () => "android" },
+  });
+  try {
+    Object.defineProperty(dom.window.navigator, "userAgent", {
+      configurable: true,
+      value: "Android 16",
+    });
+    let dispose = mountStudentIntro(async () => {});
+    assert.ok(
+      document.querySelector<HTMLElement>(".tamkeen-intro")!.style.paddingTop.includes("32px"),
+    );
+    dispose();
+    document.documentElement.classList.add("native-status-inset-consumed");
+    dispose = mountStudentIntro(async () => {});
+    assert.equal(document.querySelector<HTMLElement>(".tamkeen-intro")!.style.paddingTop, "");
+    dispose();
+    document.documentElement.classList.remove("native-status-inset-consumed");
+    Object.defineProperty(dom.window.navigator, "userAgent", {
+      configurable: true,
+      value: "Android 14",
+    });
+    dispose = mountStudentIntro(async () => {});
+    assert.equal(document.querySelector<HTMLElement>(".tamkeen-intro")!.style.paddingTop, "");
+    dispose();
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    dom.window.close();
+  }
 });
