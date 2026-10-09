@@ -55,6 +55,10 @@ try {
       );
       assert.equal(await page.locator(".intro-skip").isVisible(), i < 3);
       assert.equal(await page.locator(".intro-tags, .intro-hint, .intro-top strong").count(), 0);
+      if (i === 0 && viewport.width === 390) {
+        const mark = await page.locator(".intro-art > rect").boundingBox();
+        assert.ok(Math.abs(mark.width - 128) < 1, "brand square renders at 128px");
+      }
       for (const button of await page.locator(".tamkeen-intro button:visible").all()) {
         const box = await button.boundingBox();
         assert.ok(box.height >= 44 && box.width >= 44);

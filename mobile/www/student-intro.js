@@ -27,7 +27,7 @@ var INTRO_SLIDES = [
 ];
 var art = {
   brand:
-    '<rect x="116" y="29" width="128" height="128" rx="32" fill="#1E2A63" stroke="none"/><g transform="translate(116 29) scale(.25)"><path d="M140.516 269.938 L220.160 357.547 L371.484 190.293" fill="none" stroke="#FFFFFF" stroke-width="55.751"/><circle cx="160.427" cy="158.436" r="31.858" fill="#2FD0C5" stroke="none"/><circle cx="248.036" cy="158.436" r="31.858" fill="#FF7A6B" stroke="none"/></g><text x="180" y="207" text-anchor="middle" fill="#1E2A63" stroke="none" font-size="26" font-weight="700" font-family="system-ui,sans-serif">\u062A\u0645\u0643\u064A\u0646</text>',
+    '<rect x="103.2" y="29" width="153.6" height="153.6" rx="38.4" fill="#1E2A63" stroke="none"/><g transform="translate(103.2 29) scale(.3)"><path d="M140.516 269.938 L220.160 357.547 L371.484 190.293" fill="none" stroke="#FFFFFF" stroke-width="55.751"/><circle cx="160.427" cy="158.436" r="31.858" fill="#2FD0C5" stroke="none"/><circle cx="248.036" cy="158.436" r="31.858" fill="#FF7A6B" stroke="none"/></g><text x="180" y="234" text-anchor="middle" fill="#1E2A63" stroke="none" font-size="31.2" font-weight="700" font-family="system-ui,sans-serif">\u062A\u0645\u0643\u064A\u0646</text>',
   offline:
     '<rect x="106" y="26" width="148" height="225" rx="24" fill="white"/><path d="M159 44h42"/><circle cx="180" cy="130" r="54" fill="#cff5ef" stroke="none"/><path d="M180 96v63m-23-23 23 23 23-23M151 182h58"/><circle cx="246" cy="196" r="27" fill="#1E2A63"/><path d="m234 196 8 8 17-20" stroke="white"/>',
   practice:
