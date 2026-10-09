@@ -76,7 +76,6 @@ export function schedulesOverlap(a: ExamSchedule, b: ExamSchedule): boolean {
     a.curriculum_track_id === b.curriculum_track_id &&
     (a.grade_id === null || b.grade_id === null || a.grade_id === b.grade_id) &&
     a.exam_kind === b.exam_kind &&
-    (a.semester === null || b.semester === null || a.semester === b.semester) &&
     a.starts_on <= (b.ends_on ?? b.starts_on) &&
     b.starts_on <= (a.ends_on ?? a.starts_on)
   );

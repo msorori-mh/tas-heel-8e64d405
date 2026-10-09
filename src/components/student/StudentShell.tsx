@@ -159,7 +159,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5">
             <Link
               to="/app"
-              className="flex min-w-0 items-center gap-2 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-11 min-w-0 items-center gap-2 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <StudentTamkeenMark className="h-8 w-8 rounded-lg bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
               <span className="truncate text-sm">تمكين الطالب</span>
@@ -170,7 +170,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   to={(isAdmin ? "/admin" : "/admin/academic") as any}
                   aria-label="الإدارة"
-                  className="rounded-lg p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Shield className="h-4 w-4" aria-hidden />
                 </Link>

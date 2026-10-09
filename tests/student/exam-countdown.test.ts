@@ -64,6 +64,7 @@ describe("exam countdown", () => {
   });
   it("warns about overlapping global or specific published dates only", () => {
     expect(schedulesOverlap(row(), row({ id: "b", grade_id: null }))).toBe(true);
+    expect(schedulesOverlap(row(), row({ id: "b", semester: 1 }))).toBe(true);
     expect(schedulesOverlap(row(), row({ id: "b", curriculum_track_id: "aden" }))).toBe(false);
     expect(schedulesOverlap(row(), row({ id: "b", is_published: false }))).toBe(false);
   });

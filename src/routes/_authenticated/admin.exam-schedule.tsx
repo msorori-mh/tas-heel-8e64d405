@@ -43,6 +43,7 @@ const newSchedule = (): ExamSchedule => ({
   ends_on: null,
   is_published: false,
 });
+const ADMIN_KIND_LABEL = { ...EXAM_KIND_LABEL, semester_final: "اختبار نهاية الفصل" };
 const selectClass = "h-11 w-full rounded-md border border-input bg-background px-3 text-sm";
 function ExamSchedulePage() {
   const access = useRequireAdminSection("full");
@@ -244,7 +245,7 @@ function ExamSchedulePage() {
                                   : "غير مرتبط"}
                             </td>
                             <td className="p-3 whitespace-nowrap">
-                              {EXAM_KIND_LABEL[row.exam_kind]}
+                              {ADMIN_KIND_LABEL[row.exam_kind]}
                             </td>
                             <td className="p-3 whitespace-nowrap">{row.starts_on}</td>
                             <td className="p-3 whitespace-nowrap">{row.ends_on ?? "—"}</td>
@@ -307,7 +308,10 @@ function ExamSchedulePage() {
             if (!open && !busy) setDraft(null);
           }}
         >
-          <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto">
+          <DialogContent
+            dir="rtl"
+            className="max-h-[90vh] overflow-y-auto [&>button]:min-h-11 [&>button]:min-w-11"
+          >
             <DialogHeader>
               <DialogTitle>{draft?.id ? "تعديل موعد الاختبار" : "إضافة موعد الاختبار"}</DialogTitle>
             </DialogHeader>
@@ -384,7 +388,7 @@ function ExamSchedulePage() {
                       updateChoices({ exam_kind: e.target.value as ExamSchedule["exam_kind"] })
                     }
                   >
-                    {Object.entries(EXAM_KIND_LABEL).map(([key, label]) => (
+                    {Object.entries(ADMIN_KIND_LABEL).map(([key, label]) => (
                       <option key={key} value={key}>
                         {label}
                       </option>
@@ -394,6 +398,7 @@ function ExamSchedulePage() {
                 <label className="block">
                   العنوان
                   <Input
+                    className="min-h-11"
                     required
                     minLength={3}
                     maxLength={80}
@@ -405,6 +410,7 @@ function ExamSchedulePage() {
                   <label>
                     تاريخ البداية
                     <Input
+                      className="min-h-11"
                       required
                       type="date"
                       value={draft.starts_on}
@@ -414,6 +420,7 @@ function ExamSchedulePage() {
                   <label>
                     تاريخ النهاية (اختياري)
                     <Input
+                      className="min-h-11"
                       type="date"
                       min={draft.starts_on || undefined}
                       value={draft.ends_on ?? ""}
@@ -459,8 +466,11 @@ function ExamSchedulePage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={busy}>إلغاء</AlertDialogCancel>
+              <AlertDialogCancel className="min-h-11" disabled={busy}>
+                إلغاء
+              </AlertDialogCancel>
               <AlertDialogAction
+                className="min-h-11"
                 disabled={busy}
                 onClick={async (e) => {
                   e.preventDefault();

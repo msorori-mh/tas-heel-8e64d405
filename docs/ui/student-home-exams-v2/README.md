@@ -11,7 +11,9 @@ Android is version 1.1.5 / code 10 (owner confirmed highest Play code was 9). St
 ## Verification
 
 - `npm ci`: PASS.
-- TypeScript: PASS before final verification.
+- TypeScript: PASS.
+- `npm run lint`: PASS (0 errors; 44 warnings).
+- Recursive student/security/mobile verification: PASS, 50 Vitest files / 354 tests plus 64 Node assertions; no exclusions. Run `node scripts/testing/run-student-home-exams-v2.mjs`.
 - Production build: PASS locally.
 - `npm run test:mobile-release`: PASS, 22 files / 136 tests.
 - Real RLS test using disposable PGlite: PASS; student/content-manager reads hide drafts, writes are rejected; scoped admin operations succeed; anonymous reads are denied.

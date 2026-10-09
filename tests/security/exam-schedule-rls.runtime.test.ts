@@ -51,6 +51,13 @@ describe("exam schedule real RLS", () => {
         ).rows,
       ).toHaveLength(1);
       expect((await db.query("select id from public.exam_schedule")).rows).toHaveLength(1);
+      expect(
+        (
+          await db.query(
+            `insert into public.exam_schedule(curriculum_track_id,exam_kind,title,starts_on) values ('00000000-0000-0000-0000-000000000001','midterm','موعد المدير','2027-03-01') returning created_by`,
+          )
+        ).rows,
+      ).toEqual([{ created_by: "00000000-0000-0000-0000-000000000020" }]);
       await db.exec("reset role;set role anon");
       await expect(db.query("select * from public.exam_schedule")).rejects.toThrow(
         /permission denied/i,

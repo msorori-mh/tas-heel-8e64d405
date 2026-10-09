@@ -41,7 +41,7 @@ export function DailyGoalCard({
       <p className="mt-3 flex items-center gap-1.5 text-xs leading-relaxed text-muted-foreground">
         <Flame className="h-4 w-4 shrink-0 text-amber-700" aria-hidden />
         {streakDays > 0
-          ? `استمرارية ${arabicCount(streakDays, DAY_FORMS)}`
+          ? `استمرارية: ${arabicCount(streakDays, DAY_FORMS)}`
           : "أكمل درسك الأول لتبدأ سلسلة أيامك المتتالية"}
       </p>
       {doneToday > 0 && (

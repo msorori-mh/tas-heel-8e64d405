@@ -81,6 +81,20 @@ try {
       path: `${output}/${name}-${baseline ? "before" : "after"}.png`,
       fullPage: false,
     });
+    if (!baseline && !path.startsWith("/exams")) {
+      const description = page.getByText("ملخصات دروسك في بطاقات", { exact: true });
+      assert.equal(
+        await description.evaluate(
+          (element) =>
+            element.clientHeight <= Number.parseFloat(getComputedStyle(element).lineHeight) + 1,
+        ),
+        true,
+      );
+      if (name.startsWith("home-")) {
+        await description.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: `${output}/${name}-review-after.png`, fullPage: false });
+      }
+    }
     results.push({ name, width, height, errors, overflow: false });
     await page.close();
   }
