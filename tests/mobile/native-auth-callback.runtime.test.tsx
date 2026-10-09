@@ -122,8 +122,11 @@ it("teacher navigation does not reload and a later process launch does not re-ex
   api.navigate.mockClear();
   api.launch.mockResolvedValue({ url: callback });
   await mount();
-  await act(async () => {
-    await vi.waitFor(() => expect(host.textContent).toBe(""));
+  await vi.waitFor(async () => {
+    // Flush React before observing the DOM. Keeping waitFor inside one act
+    // blocks the idle-state render until waitFor itself has already timed out.
+    await act(async () => {});
+    expect(host.textContent).toBe("");
   });
   expect(api.exchange).toHaveBeenCalledTimes(1);
   expect(api.navigate).not.toHaveBeenCalled();
