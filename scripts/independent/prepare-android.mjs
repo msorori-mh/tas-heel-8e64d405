@@ -14,6 +14,7 @@ export function prepareAndroid(root, value) {
       [
         ['appId: "app.studentamkeen.tamkeen"', `appId: "${APP_ID}"`],
         ['appName: "تمكين"', 'appName: "تمكين — اختبار مستقل"'],
+        ['webDir: "mobile/www"', 'webDir: "mobile/native-www"'],
         ['url: "https://studentamkeen.com"', `url: "${origin}"`],
         ['hostname: "studentamkeen.com"', `hostname: "${new URL(origin).hostname}"`],
       ],

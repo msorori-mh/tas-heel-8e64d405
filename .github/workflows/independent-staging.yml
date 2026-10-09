@@ -62,6 +62,12 @@ jobs:
       - run: npm ci
       - name: Require the same commit on the independent HTTPS host
         run: node scripts/independent/verify-deployment.mjs
+      - name: Bundle the real student UI for offline cold starts
+        env:
+          TAMKEEN_NATIVE_SHELL: '1'
+        run: |
+          npm run build:independent
+          node scripts/independent/package-native-shell.mjs
       - name: Prepare side-by-side staging app and callbacks
         run: node scripts/independent/prepare-android.mjs
       - run: node node_modules/@capacitor/cli/bin/capacitor sync android

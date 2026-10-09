@@ -13,12 +13,16 @@ import {
 } from "./scripts/independent/config.mjs";
 
 const origin = validateStagingOrigin(process.env.TAMKEEN_STAGING_ORIGIN);
+const nativeShell = process.env.TAMKEEN_NATIVE_SHELL === "1";
 const { sourceManifest, ...release } = buildRelease(process.cwd());
 export default defineConfig({
   plugins: [
     tsconfigPaths(),
     tailwindcss(),
-    tanstackStart({ server: { entry: "server" } }),
+    tanstackStart({
+      server: { entry: "server" },
+      ...(nativeShell ? { spa: { enabled: true }, prerender: { concurrency: 1 } } : {}),
+    }),
     react(),
     nitro({ preset: "node-server" }),
     {
@@ -45,7 +49,9 @@ export default defineConfig({
     },
   ],
   resolve: { dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-start"] },
+  ...(nativeShell ? { build: { assetsDir: "native-shell/assets" } } : {}),
   define: {
+    "import.meta.env.VITE_NATIVE_SHELL": JSON.stringify(nativeShell ? "true" : "false"),
     "import.meta.env.VITE_INDEPENDENT_STAGING": JSON.stringify("true"),
     "import.meta.env.VITE_STAGING_ORIGIN": JSON.stringify(origin),
     "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(TARGET_URL),
