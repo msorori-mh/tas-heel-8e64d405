@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   useAuth: vi.fn(),
 }));
 vi.mock("@/hooks/use-auth", () => ({ useAuth: api.useAuth }));
+vi.mock("@/hooks/use-connectivity", () => ({ useConnectivity: () => true }));
 vi.mock("@/lib/auth/google-sign-in", () => ({ startGoogleSignIn: vi.fn() }));
 vi.mock("@/lib/auth-helpers", () => ({ translateAuthError: (error: Error) => error.message }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -33,6 +34,7 @@ let host: HTMLDivElement, root: Root;
 let router: ReturnType<typeof createRouter>;
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   api.useAuth.mockReturnValue({ loading: false, session: null });
   api.session.mockResolvedValue({
@@ -106,6 +108,7 @@ it("mounts the web callback instead of the login form and enters the student's h
   expect(api.useAuth).not.toHaveBeenCalled();
   expect(api.exchange).not.toHaveBeenCalled();
   expect(api.profile).toHaveBeenCalled();
+  expect(localStorage.getItem("tamkeen.workspace.v1:TEST_ONLY_STUDENT")).toBe("student");
 });
 it("only routes a genuinely incomplete profile to completion", async () => {
   api.profile.mockResolvedValue({ data: null, error: null });
@@ -137,4 +140,31 @@ it("still renders the Google-only entry at /auth", async () => {
   expect(host.textContent).toContain("المتابعة باستخدام Google");
   expect(api.useAuth).toHaveBeenCalled();
   expect(api.session).not.toHaveBeenCalled();
+});
+
+it("explicit student entry overrides the same account's remembered teacher workspace", async () => {
+  localStorage.setItem("tamkeen.workspace.v1:TEST_ONLY_STUDENT", "teacher");
+  api.useAuth.mockReturnValue({
+    loading: false,
+    session: { user: { id: "TEST_ONLY_STUDENT" } },
+    profileComplete: true,
+  });
+  await mount("/auth");
+  await act(async () => {
+    await vi.waitFor(() => expect(host.textContent).toContain("TEST_ONLY_STUDENT_HOME"));
+  });
+  expect(localStorage.getItem("tamkeen.workspace.v1:TEST_ONLY_STUDENT")).toBe("student");
+});
+
+it("an incomplete student selection goes to student completion, never teacher auto-detection", async () => {
+  localStorage.setItem("tamkeen.workspace.v1:TEST_ONLY_STUDENT", "teacher");
+  api.useAuth.mockReturnValue({
+    loading: false,
+    session: { user: { id: "TEST_ONLY_STUDENT" } },
+    profileComplete: false,
+  });
+  await mount("/auth");
+  await act(async () => {
+    await vi.waitFor(() => expect(host.textContent).toContain("TEST_ONLY_PROFILE_FORM"));
+  });
 });
