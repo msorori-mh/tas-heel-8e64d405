@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
   ScrollText,
   FileText,
   Sparkles,
@@ -17,36 +18,14 @@ export function LessonCapabilityTabs({
   actions,
   renderBody,
   waitingForPrimary,
+  readingKey,
 }: {
   actions: LessonCapability[];
   renderBody: (capability: LessonCapability) => React.ReactNode;
   waitingForPrimary: boolean;
+  readingKey?: string;
 }) {
   const tabListRef = useRef<HTMLDivElement>(null);
-  const [showReturn, setShowReturn] = useState(false);
-
-  useEffect(() => {
-    const tabList = tabListRef.current;
-    if (!tabList) return;
-    // Keep navigation usable in runtimes without visibility observation.
-    if (typeof IntersectionObserver === "undefined") {
-      setShowReturn(true);
-      return;
-    }
-    const observer = new IntersectionObserver(([entry]) => {
-      setShowReturn(!entry.isIntersecting && entry.boundingClientRect.bottom < 0);
-    });
-    observer.observe(tabList);
-    return () => observer.disconnect();
-  }, []);
-
-  const returnToComponents = () => {
-    tabListRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
-    tabListRef.current
-      ?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
-      ?.focus({ preventScroll: true });
-  };
-
   const firstType = waitingForPrimary ? null : (actions[0]?.type ?? null);
   const [activeType, setActiveType] = useState<LessonCapabilityType | null>(firstType);
   const [visitedTypes, setVisitedTypes] = useState<Set<LessonCapabilityType>>(
@@ -69,10 +48,78 @@ export function LessonCapabilityTabs({
     }
   }, [actions, activeType, hasManualSelection, waitingForPrimary]);
 
+  const positions = useRef<Partial<Record<LessonCapabilityType, number>>>({});
+  const restored = useRef(false);
+  useEffect(() => {
+    if (!readingKey || restored.current || !actions.length || waitingForPrimary) return;
+    restored.current = true;
+    try {
+      const saved = JSON.parse(localStorage.getItem(readingKey) || "null");
+      if (saved && actions.some((item) => item.type === saved.type)) {
+        positions.current = saved.positions || {};
+        setHasManualSelection(true);
+        setActiveType(saved.type);
+        setVisitedTypes((current) => new Set(current).add(saved.type));
+        requestAnimationFrame(() =>
+          window.scrollTo({
+            top: Number(positions.current[saved.type as LessonCapabilityType]) || 0,
+          }),
+        );
+      }
+    } catch {
+      /* Reading remains available if storage is unavailable. */
+    }
+  }, [readingKey, actions, waitingForPrimary]);
+  useEffect(() => {
+    if (!readingKey || !activeType) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const save = () => {
+      positions.current[activeType] = window.scrollY;
+      try {
+        localStorage.setItem(
+          readingKey,
+          JSON.stringify({ type: activeType, positions: positions.current }),
+        );
+      } catch {
+        /* Optional preference. */
+      }
+    };
+    const onScroll = () => {
+      clearTimeout(timer);
+      timer = setTimeout(save, 200);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pagehide", save);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pagehide", save);
+    };
+  }, [readingKey, activeType]);
+
   const selectTab = (type: LessonCapabilityType) => {
+    if (activeType) positions.current[activeType] = window.scrollY;
+    if (readingKey) {
+      try {
+        localStorage.setItem(readingKey, JSON.stringify({ type, positions: positions.current }));
+      } catch {
+        /* Optional preference. */
+      }
+    }
     setHasManualSelection(true);
     setActiveType(type);
     setVisitedTypes((current) => new Set(current).add(type));
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`lesson-tab-${type}`)
+        ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      window.scrollTo({
+        top:
+          positions.current[type] ??
+          Math.max(0, (tabListRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY),
+        behavior: "instant",
+      });
+    });
   };
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -92,16 +139,13 @@ export function LessonCapabilityTabs({
   };
 
   return (
-    <section
-      aria-label="محتويات الدرس"
-      className="min-w-0 rounded-2xl border border-border bg-card shadow-card"
-    >
+    <section aria-label="محتويات الدرس" className="min-w-0 bg-background">
       <div
         ref={tabListRef}
         role="tablist"
         aria-label="محتويات الدرس"
         aria-orientation="horizontal"
-        className="grid w-full scroll-mt-20 grid-cols-2 gap-2 rounded-t-2xl border-b border-border bg-muted/20 p-2 sm:grid-cols-3 xl:grid-cols-4"
+        className="sticky top-[var(--lesson-reader-top,0px)] lg:top-0 z-20 flex w-full gap-1 overflow-x-auto border-b border-border bg-background/95 py-2 backdrop-blur-md"
       >
         {actions.map((capability, index) => {
           const active = capability.type === activeType;
@@ -116,23 +160,20 @@ export function LessonCapabilityTabs({
               tabIndex={active ? 0 : -1}
               onClick={() => selectTab(capability.type)}
               onKeyDown={(event) => handleTabKeyDown(event, index)}
-              className={`flex min-h-14 min-w-0 items-center justify-start gap-2 rounded-xl px-2 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+              className={`flex min-h-11 shrink-0 items-center justify-start gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 active
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               <span
-                className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg ${
                   active ? "bg-primary-foreground/15" : "bg-primary/10 text-primary"
                 }`}
               >
                 <CapabilityIcon type={capability.type} />
               </span>
               <span className="min-w-0 text-start leading-relaxed">{capability.label}</span>
-              <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
-                {index + 1}
-              </span>
             </button>
           );
         })}
@@ -148,33 +189,34 @@ export function LessonCapabilityTabs({
             role="tabpanel"
             aria-labelledby={`lesson-tab-${capability.type}`}
             hidden={!active}
-            className="bg-background/40 p-3 pb-20 sm:p-4 sm:pb-20"
+            className="py-4"
           >
-            <div className="mb-4 flex items-start gap-3 border-b border-border/60 pb-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                <CapabilityIcon type={capability.type} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">{capability.label}</h2>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {capability.description}
-                </p>
-              </div>
-            </div>
             {renderBody(capability)}
           </div>
         );
       })}
-      {showReturn && (
-        <button
-          type="button"
-          onClick={returnToComponents}
-          className="lesson-return-button fixed bottom-[calc(5rem+var(--app-safe-bottom))] left-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-primary shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:bottom-6"
-        >
-          <ArrowUp className="h-4 w-4" aria-hidden />
-          مكونات الدرس
-        </button>
-      )}
+      <nav
+        aria-label="التنقل بين مكونات الدرس"
+        className="flex justify-between gap-2 border-t border-border py-4"
+      >
+        {actions.map((item, index) => {
+          const activeIndex = actions.findIndex((action) => action.type === activeType);
+          if (Math.abs(index - activeIndex) !== 1) return null;
+          const previous = index < activeIndex;
+          return (
+            <button
+              key={item.type}
+              type="button"
+              onClick={() => selectTab(item.type)}
+              className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm text-primary"
+            >
+              {previous && <ChevronRight className="h-4 w-4" aria-hidden />}
+              {previous ? "السابق" : "التالي"}: {item.label}
+              {!previous && <ChevronLeft className="h-4 w-4" aria-hidden />}
+            </button>
+          );
+        })}
+      </nav>
     </section>
   );
 }

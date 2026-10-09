@@ -1,6 +1,7 @@
 import { requestStudentSignOut } from "@/hooks/use-exam-navigation-guard";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
+  ChevronRight,
   BarChart3,
   BookOpen,
   ClipboardList,
@@ -63,6 +64,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   const { signOut, isAdmin, isContentStaff } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const lessonReader = /^\/lessons\/[^/]+\/?$/.test(pathname);
   const keyboardOpen = useKeyboardOpen();
   const usesWideLearningCanvas =
     pathname === "/app" || pathname === "/semesters" || /^\/semesters\/[12]$/.test(pathname);
@@ -76,6 +78,13 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="student-theme student-app-bg min-h-screen w-full max-w-full overflow-x-clip text-foreground"
+      style={
+        lessonReader
+          ? ({
+              "--lesson-reader-top": "calc(44px + var(--app-safe-top, 0px))",
+            } as React.CSSProperties)
+          : undefined
+      }
       dir="rtl"
     >
       <OfflineSyncBridge />
@@ -145,50 +154,72 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="student-shell-header safe-area-top sticky top-0 z-30 border-b border-border/60 bg-card/90 backdrop-blur-md lg:hidden">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5">
-          <Link
-            to="/app"
-            className="flex min-w-0 items-center gap-2 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <StudentTamkeenMark className="h-8 w-8 rounded-lg bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
-            <span className="truncate text-sm">تمكين الطالب</span>
-          </Link>
-          <div className="flex shrink-0 items-center gap-1">
-            <a
-              href="/academy"
-              aria-label="أكاديمية المعلمين"
-              className="rounded-lg p-2 text-muted-foreground hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      {!lessonReader && (
+        <header className="student-shell-header safe-area-top sticky top-0 z-30 border-b border-border/60 bg-card/90 backdrop-blur-md lg:hidden">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5">
+            <Link
+              to="/app"
+              className="flex min-w-0 items-center gap-2 font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <GraduationCap className="h-4 w-4" aria-hidden />
-            </a>
-            {isContentStaff && (
-              <Link
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                to={(isAdmin ? "/admin" : "/admin/academic") as any}
-                aria-label="الإدارة"
-                className="rounded-lg p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              <StudentTamkeenMark className="h-8 w-8 rounded-lg bg-[#FBFAF7] p-1 ring-1 ring-border/60" />
+              <span className="truncate text-sm">تمكين الطالب</span>
+            </Link>
+            <div className="flex shrink-0 items-center gap-1">
+              <a
+                href="/academy"
+                aria-label="أكاديمية المعلمين"
+                className="rounded-lg p-2 text-muted-foreground hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Shield className="h-4 w-4" aria-hidden />
-              </Link>
-            )}
-            <button
-              type="button"
-              aria-label="تسجيل الخروج"
-              onClick={handleSignOut}
-              className="rounded-lg p-2 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-            </button>
+                <GraduationCap className="h-4 w-4" aria-hidden />
+              </a>
+              {isContentStaff && (
+                <Link
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  to={(isAdmin ? "/admin" : "/admin/academic") as any}
+                  aria-label="الإدارة"
+                  className="rounded-lg p-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Shield className="h-4 w-4" aria-hidden />
+                </Link>
+              )}
+              <button
+                type="button"
+                aria-label="تسجيل الخروج"
+                onClick={handleSignOut}
+                className="rounded-lg p-2 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
+      {lessonReader && (
+        <header className="safe-area-top sticky top-0 z-30 border-b border-border bg-card lg:hidden">
+          <Link
+            to="/semesters"
+            className="flex min-h-11 items-center gap-2 px-3 text-sm font-semibold"
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden />
+            العودة إلى موادي
+          </Link>
+        </header>
+      )}
 
-      <main className="student-shell-main min-w-0 w-full max-w-full flex-1 overflow-x-hidden pt-4 lg:pr-60 lg:pb-12 lg:pt-8">
+      <main
+        style={
+          lessonReader ? { paddingBottom: "calc(1.5rem + var(--app-safe-bottom))" } : undefined
+        }
+        className={cn(
+          "student-shell-main min-w-0 w-full max-w-full flex-1 pt-4 lg:pr-60 lg:pb-12 lg:pt-8",
+          !lessonReader && "overflow-x-hidden",
+        )}
+      >
         <div
           data-student-canvas={usesWideLearningCanvas ? "wide" : "standard"}
           className={cn(
-            "mx-auto min-w-0 w-full max-w-full overflow-x-hidden px-4 sm:px-6 lg:px-8",
+            "mx-auto min-w-0 w-full max-w-full",
+            lessonReader ? "px-2 sm:px-4 lg:px-8 pb-6" : "overflow-x-hidden px-4 sm:px-6 lg:px-8",
             usesWideLearningCanvas ? "max-w-[1360px]" : "max-w-[1200px]",
           )}
         >
@@ -199,7 +230,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom navigation */}
       <nav
         aria-label="التنقل السفلي"
-        hidden={keyboardOpen}
+        hidden={keyboardOpen || lessonReader}
         className="student-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur-md lg:hidden"
       >
         <ul className="grid grid-cols-5">
