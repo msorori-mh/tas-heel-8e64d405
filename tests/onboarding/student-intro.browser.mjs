@@ -89,7 +89,10 @@ try {
   const requests = [];
   entry.on("request", (request) => requests.push(request.url()));
   await entry.route("**/*", (route) => route.abort());
-  await entry.setContent('<html lang="ar" dir="rtl"><body></body></html>');
+  const legacyStyles = offlineHtml.match(/<style>([\s\S]*?)<\/style>/)?.[1];
+  await entry.setContent(
+    `<html lang="ar" dir="rtl"><head><style>${legacyStyles}</style></head><body></body></html>`,
+  );
   await entry.evaluate(() => {
     window.Capacitor = {
       isNativePlatform: () => true,
@@ -106,6 +109,21 @@ try {
   await entry.addScriptTag({ content: bootstrap });
   await entry.getByRole("heading", { name: "منهجك بين يديك", exact: true }).waitFor();
   assert.deepEqual(requests, []);
+  const header = await entry.locator(".intro-top").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      border: style.borderBottomWidth,
+      position: style.position,
+      margin: style.marginTop,
+    };
+  });
+  assert.deepEqual(header, {
+    background: "rgba(0, 0, 0, 0)",
+    border: "0px",
+    position: "static",
+    margin: "0px",
+  });
   await entry.close();
   console.log(
     "PASS: four Arabic pages, offline network isolation, touch targets, skip state, mobile/tablet/landscape layouts and completion.",

@@ -39,7 +39,7 @@ const css = `
 .tamkeen-intro *{box-sizing:border-box}.tamkeen-intro [hidden]{display:none!important}
 .tamkeen-intro .intro-wrap{max-width:480px;margin:auto;min-height:calc(100dvh - var(--intro-top-padding,max(24px,var(--safe-area-inset-top,env(safe-area-inset-top,0px)))) - max(24px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))));display:flex;flex-direction:column}
 .tamkeen-intro button{font:inherit;cursor:pointer;min-height:44px;border:0;border-radius:16px}
-.tamkeen-intro .intro-top{display:flex;justify-content:flex-end;min-height:44px}
+.tamkeen-intro .intro-top{display:flex;justify-content:flex-end;min-height:44px;position:static;top:auto;z-index:auto;margin:0;padding:0;background:transparent;border:0;backdrop-filter:none}
 .tamkeen-intro .intro-skip{height:44px;border-radius:24px;background:#EEF0F7;color:#1E2A63;padding:8px 20px;font-size:15px;font-weight:600}
 .tamkeen-intro .intro-stage{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;touch-action:pan-y pinch-zoom;padding:24px 0}
 .tamkeen-intro .intro-art{display:block;width:300px;height:240px;max-width:100%;flex-shrink:0;border-radius:28px;background:#EEF0F8;margin:0 auto 28px}
