@@ -37,6 +37,7 @@ try {
     if (width <= 600)
       assert.ok(cells.every((cell) => cell.display === "block" && cell.width > width * 0.65));
     assert.equal(await frame.locator("script").count(), 0);
+    await page.screenshot({ path: `${output}/table-${width}.png`, fullPage: false });
     for (const tab of await page.getByRole("tab").all()) {
       await tab.tap();
       const box = await tab.boundingBox();
