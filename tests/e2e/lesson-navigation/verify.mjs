@@ -10,7 +10,10 @@ const server = await preview({
 });
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.LESSON_TEST_CHROME,
+  });
   const results = [];
   for (const width of [360, 768, 960, 1366]) {
     const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: true });
@@ -19,24 +22,26 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("http://127.0.0.1:4388");
     await page.getByRole("tab").last().waitFor();
-    const geometry = await page.getByRole("tab").evaluateAll((tabs) =>
-      tabs.map((tab) => {
-        const box = tab.getBoundingClientRect();
-        const list = tab.parentElement.getBoundingClientRect();
-        return (
-          box.left >= list.left &&
-          box.right <= list.right &&
-          box.top >= list.top &&
-          box.bottom <= list.bottom &&
-          box.height >= 44
-        );
-      }),
-    );
-    assert.deepEqual(
-      geometry,
-      Array(7).fill(true),
-      `${width}: every component must fit the chooser`,
-    );
+    const frame = page.frameLocator('iframe[title="جدول الخواص"]');
+    await frame.getByRole("table").waitFor();
+    const cells = await frame
+      .locator("tr")
+      .last()
+      .locator("td")
+      .evaluateAll((cells) =>
+        cells.map((cell) => ({
+          display: getComputedStyle(cell).display,
+          width: cell.getBoundingClientRect().width,
+        })),
+      );
+    if (width <= 600)
+      assert.ok(cells.every((cell) => cell.display === "block" && cell.width > width * 0.65));
+    assert.equal(await frame.locator("script").count(), 0);
+    for (const tab of await page.getByRole("tab").all()) {
+      await tab.tap();
+      const box = await tab.boundingBox();
+      assert.ok(box && box.height >= 44 && box.x >= 0 && box.x + box.width <= width + 1);
+    }
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,
@@ -57,13 +62,14 @@ try {
     const lower = await page.evaluate(() => scrollY);
     await page.mouse.wheel(0, -450);
     await page.waitForFunction((before) => scrollY < before - 200, lower);
-    const back = page.getByRole("button", { name: "مكونات الدرس", exact: true });
-    await back.waitFor();
-    await page.screenshot({ path: `${output}/return-${width}.png`, fullPage: false });
-    await back.tap();
-    await page.waitForFunction(
-      () => document.querySelector('[role="tablist"]').getBoundingClientRect().top >= 0,
+    assert.ok(
+      await page.getByRole("tablist").evaluate((list) => list.getBoundingClientRect().top >= 0),
     );
+    await page.screenshot({ path: `${output}/reading-${width}.png`, fullPage: false });
+    await page.waitForTimeout(300);
+    const savedY = await page.evaluate(() => scrollY);
+    await page.reload();
+    await page.waitForFunction((y) => Math.abs(scrollY - y) < 5, savedY);
     assert.equal(
       await page.locator("#lesson-tab-OFFICIAL_QUESTIONS").getAttribute("aria-selected"),
       "true",
@@ -71,11 +77,11 @@ try {
     assert.deepEqual(errors, []);
     results.push({
       width,
-      allSevenFit: true,
+      allSevenReachable: true,
       lastTabsTappable: true,
       answersPreserved: true,
       scrollDownUp: true,
-      returnToActive: true,
+      resumeReading: true,
     });
     await context.close();
   }

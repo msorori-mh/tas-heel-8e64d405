@@ -1126,7 +1126,7 @@ function LessonPage() {
 
   return (
     // 19D — route-level Design System V2 opt-in (presentation only).
-    <article className="ds-v2 min-w-0 w-full max-w-full overflow-x-hidden space-y-3.5" dir="rtl">
+    <article className="ds-v2 min-w-0 w-full max-w-full space-y-3.5" dir="rtl">
       {previewMode && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700">
           وضع المعاينة لفريق المحتوى — يعرض المحتوى المتاح في الصفحة الحالية، بينما تبقى الأسئلة
@@ -1140,7 +1140,7 @@ function LessonPage() {
       />
 
       {/* Lesson header */}
-      <header className="rounded-2xl border border-border bg-card p-4 shadow-card">
+      <header className="border-b border-border px-2 py-3">
         {titleParts.context && (
           <p className="mb-1 text-[11px] text-muted-foreground">{titleParts.context}</p>
         )}
@@ -1160,7 +1160,7 @@ function LessonPage() {
         {lessonProgress.measurable && (
           <div className="mt-4">
             <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">التقدم في الدرس</span>
+              <span className="text-muted-foreground">الأنشطة المكتملة في الدرس</span>
               <span className="font-semibold text-foreground">
                 {lessonProgress.numerator}/{lessonProgress.denominator} · {lessonProgress.percent}%
               </span>
@@ -1185,7 +1185,10 @@ function LessonPage() {
       {/* Content-driven learning actions — only what actually exists */}
       {actions.length > 0 && (
         <LessonCapabilityTabs
-          key={lessonId}
+          readingKey={
+            profile?.user_id ? `lesson-reading:${profile.user_id}:${lessonId}` : undefined
+          }
+          key={`${profile?.user_id ?? "guest"}:${lessonId}`}
           actions={actions}
           waitingForPrimary={waitingForPrimary}
           renderBody={renderCapabilityBody}
