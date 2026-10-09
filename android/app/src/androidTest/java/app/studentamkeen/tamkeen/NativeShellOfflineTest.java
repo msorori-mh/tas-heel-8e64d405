@@ -57,14 +57,18 @@ public class NativeShellOfflineTest {
         while (System.currentTimeMillis() < until) {
             CountDownLatch ready = new CountDownLatch(1);
             AtomicReference<String> value = new AtomicReference<>("");
-            instrumentation.runOnMainSync(() -> activity.getBridge().getWebView().evaluateJavascript(
+            AtomicReference<Boolean> focused = new AtomicReference<>(false);
+            instrumentation.runOnMainSync(() -> {
+                focused.set(activity.hasWindowFocus());
+                activity.getBridge().getWebView().evaluateJavascript(
                     "JSON.stringify({home:document.body.innerText.includes('خطوة واحدة اليوم تصنع الفرق.'),"
                     + "legacy:!!document.getElementById('home-view'),"
                     + "logo:[...document.querySelectorAll('img[src=\"/brand/student-tamkeen-mark.png\"]')].some(i=>i.naturalWidth>0)})",
-                    response -> { value.set(response); ready.countDown(); }));
+                    response -> { value.set(response); ready.countDown(); });
+            });
             assertTrue(ready.await(5, TimeUnit.SECONDS));
             result = value.get();
-            if (result.contains("\\\"home\\\":true") && result.contains("\\\"logo\\\":true")
+            if (focused.get() && result.contains("\\\"home\\\":true") && result.contains("\\\"logo\\\":true")
                     && result.contains("\\\"legacy\\\":false")) {
                 File image = new File(context.getExternalFilesDir(null), "offline-" + phase + ".png");
                 try (FileOutputStream out = new FileOutputStream(image)) {

@@ -7,6 +7,9 @@ adb shell svc wifi disable
 adb shell svc data disable
 adb shell cmd connectivity airplane-mode enable
 run_case() {
+  # AOSP Quickstep may ANR during emulator boot. Stop only that unrelated launcher;
+  # keep app error dialogs enabled, and require our Activity to own window focus.
+  adb shell am force-stop com.android.launcher3
   adb shell am instrument -w -r -e class "app.studentamkeen.tamkeen.NativeShellOfflineTest#$1" "$app.test/androidx.test.runner.AndroidJUnitRunner" | tee "artifacts/native-shell/emulator-$1.txt"
   grep -Fq 'OK (1 test)' "artifacts/native-shell/emulator-$1.txt"
   adb pull "/sdcard/Android/data/$app/files/offline-$1.png" "artifacts/native-shell/emulator-$1.png"
