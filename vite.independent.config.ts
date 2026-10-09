@@ -21,7 +21,9 @@ export default defineConfig({
     tailwindcss(),
     tanstackStart({
       server: { entry: "server" },
-      ...(nativeShell ? { spa: { enabled: true, maskPath: "/app" }, prerender: { concurrency: 1 } } : {}),
+      ...(nativeShell
+        ? { spa: { enabled: true, maskPath: "/app" }, prerender: { concurrency: 1 } }
+        : {}),
     }),
     react(),
     nitro({ preset: "node-server" }),

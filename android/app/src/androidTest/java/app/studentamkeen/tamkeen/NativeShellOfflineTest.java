@@ -4,6 +4,7 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
+import android.graphics.Bitmap;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import java.io.File;
@@ -33,17 +34,17 @@ public class NativeShellOfflineTest {
             out.write(("{\"schemaVersion\":1,\"updatedAt\":\"2026-10-09T00:00:00.000Z\",\"activeOwnerId\":\""
                     + OWNER + "\",\"packs\":[],\"outbox\":[],\"learning\":[]}").getBytes(StandardCharsets.UTF_8));
         }
-        checkOfflineReactHome();
+        checkOfflineReactHome("seedAndOpen");
     }
 
     @Test public void restoreAfterProcessDeath() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertTrue(context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)
                 .contains("tamkeen.student-shell.identity.v1"));
-        checkOfflineReactHome();
+        checkOfflineReactHome("restoreAfterProcessDeath");
     }
 
-    private void checkOfflineReactHome() throws Exception {
+    private void checkOfflineReactHome(String phase) throws Exception {
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         Context context = instrumentation.getTargetContext();
         ConnectivityManager network = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -64,7 +65,13 @@ public class NativeShellOfflineTest {
             assertTrue(ready.await(5, TimeUnit.SECONDS));
             result = value.get();
             if (result.contains("\\\"home\\\":true") && result.contains("\\\"logo\\\":true")
-                    && result.contains("\\\"legacy\\\":false")) return;
+                    && result.contains("\\\"legacy\\\":false")) {
+                File image = new File(context.getExternalFilesDir(null), "offline-" + phase + ".png");
+                try (FileOutputStream out = new FileOutputStream(image)) {
+                    instrumentation.getUiAutomation().takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, out);
+                }
+                return;
+            }
             Thread.sleep(250);
         }
         fail("Offline React home did not load: " + result);

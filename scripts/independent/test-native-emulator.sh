@@ -9,8 +9,7 @@ adb shell cmd connectivity airplane-mode enable
 run_case() {
   adb shell am instrument -w -r -e class "app.studentamkeen.tamkeen.NativeShellOfflineTest#$1" "$app.test/androidx.test.runner.AndroidJUnitRunner" | tee "artifacts/native-shell/emulator-$1.txt"
   rg -q 'OK \(1 test\)' "artifacts/native-shell/emulator-$1.txt"
-  adb shell screencap -p /sdcard/native-offline.png
-  adb pull /sdcard/native-offline.png "artifacts/native-shell/emulator-$1.png"
+  adb pull "/sdcard/Android/data/$app/files/offline-$1.png" "artifacts/native-shell/emulator-$1.png"
 }
 run_case seedAndOpen
 adb shell am force-stop "$app"

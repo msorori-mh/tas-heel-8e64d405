@@ -24,7 +24,7 @@ const canonical = (v) =>
       : JSON.stringify(v);
 const owner = "offline-test-student";
 const lesson = "test-lesson";
-const body = "<h1>درس الكيمياء المحفوظ</h1><p>هذا محتوى محلي للتحقق من إعادة التشغيل دون شبكة.</p>";
+const body = "درس الكيمياء المحفوظ\nهذا محتوى محلي للتحقق من إعادة التشغيل دون شبكة.";
 const artifact = {
   artifactId: "book-1",
   kind: "lesson-html",
@@ -85,6 +85,15 @@ const preferences = {
       curriculum_track_id: "track-1",
     },
   }),
+  [`tamkeen.student-view.v1:${owner}:${JSON.stringify(["home-stats", owner, "grade-12", "track-1"])}`]:
+    JSON.stringify({
+      streakDays: 2,
+      totalPoints: 40,
+      examsCompleted: 0,
+      progressPercent: 75,
+      completedLessons: 3,
+      totalLessons: 4,
+    }),
 };
 const files = {
   "tamkeen/offline/foundation-v1.json": JSON.stringify(state),
@@ -239,6 +248,18 @@ try {
       fullPage: true,
     });
     const nav = page.getByRole("navigation", { name: "التنقل السفلي", exact: true });
+    await nav.getByRole("link", { name: "التقدم", exact: true }).click();
+    await page.getByRole("heading", { name: "تقدمي", exact: true }).waitFor();
+    await page.getByText("75%", { exact: true }).first().waitFor();
+    await page.getByText("هذا آخر تقدم تمت مزامنته.", { exact: false }).waitFor();
+    await page.screenshot({
+      path: resolve(artifactDir, `progress-cold-${launch}.png`),
+      fullPage: true,
+    });
+    await nav.getByRole("link", { name: "الاختبارات", exact: true }).click();
+    await page
+      .getByRole("heading", { name: "نتابع التعلّم، حتى دون اتصال", exact: true })
+      .waitFor();
     await nav.getByRole("link", { name: "موادي", exact: true }).click();
     await page.getByRole("heading", { name: "موادي", exact: true }).waitFor();
     await page.getByText("الكيمياء", { exact: true }).first().waitFor();
@@ -250,11 +271,9 @@ try {
     await page.getByText("الروابط الكيميائية", { exact: true }).first().waitFor();
     await page.locator('a[href*="/lessons/test-lesson"]').first().click();
     await page.getByText("الروابط الكيميائية", { exact: true }).first().waitFor();
-    await page.waitForFunction(
-      () =>
-        document.body.innerText.includes("نص الكتاب") ||
-        document.body.innerText.includes("درس الكيمياء المحفوظ"),
-    );
+    await page
+      .getByText("هذا محتوى محلي للتحقق من إعادة التشغيل دون شبكة.", { exact: false })
+      .waitFor();
     await page.screenshot({
       path: resolve(artifactDir, `lesson-cold-${launch}.png`),
       fullPage: true,
@@ -264,6 +283,11 @@ try {
     await context.close();
   }
   assert.deepEqual(errors, []);
+  assert.deepEqual(
+    forbidden,
+    [],
+    "No screen, font, or data dependency may reach the network offline",
+  );
   writeFileSync(
     resolve(artifactDir, "result.json"),
     JSON.stringify(
