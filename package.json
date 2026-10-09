@@ -30,7 +30,10 @@
     "generate:content-templates": "bun scripts/generate-content-templates.mjs",
     "content:preflight": "node scripts/content-import/validate-content-package.mjs",
     "build:student-intro": "node scripts/mobile/build-student-intro.mjs",
-    "test:student-intro": "vitest run tests/onboarding"
+    "test:student-intro": "vitest run tests/onboarding",
+    "build:independent": "vite build --config vite.independent.config.ts",
+    "start:independent": "node scripts/independent/start.mjs",
+    "test:independent": "node --import tsx --test tests/independent/*.test.* && vitest run tests/mobile/independent-staging-auth.runtime.test.ts"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

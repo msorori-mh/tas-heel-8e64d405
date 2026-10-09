@@ -1,3 +1,7 @@
+import {
+  getIndependentConnectivity,
+  updateIndependentNativeNetwork,
+} from "@/lib/network/independent-connectivity";
 /**
  * 18C-4 — network conditions for smart prefetch.
  *
@@ -14,8 +18,10 @@ export async function getNetworkState(): Promise<NetworkState> {
     if (Capacitor.isNativePlatform()) {
       const { Network } = await import("@capacitor/network");
       const status = await Network.getStatus();
+      const reachability = getIndependentConnectivity();
+      if (reachability) updateIndependentNativeNetwork(status.connected);
       return {
-        online: status.connected,
+        online: reachability ? await reachability.check() : status.connected,
         wifi: status.connectionType === "wifi",
         type: status.connectionType,
       };
@@ -24,9 +30,14 @@ export async function getNetworkState(): Promise<NetworkState> {
     /* fall through to web detection */
   }
 
-  const online = typeof navigator === "undefined" ? true : navigator.onLine;
+  const reachability = getIndependentConnectivity();
+  const online = reachability
+    ? await reachability.check()
+    : typeof navigator === "undefined"
+      ? true
+      : navigator.onLine;
   const conn = (
-    navigator as unknown as {
+    (typeof navigator === "undefined" ? undefined : navigator) as unknown as {
       connection?: { type?: string; effectiveType?: string; saveData?: boolean };
     }
   )?.connection;

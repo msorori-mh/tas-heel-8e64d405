@@ -1,3 +1,4 @@
+import { independentResponse } from "./lib/network/independent-response";
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
@@ -55,7 +56,7 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return independentResponse(await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
       await captureSsrDiagnostic(error, request.url);

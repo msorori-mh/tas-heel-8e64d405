@@ -1,0 +1,76 @@
+name: Independent staging web and Android
+on:
+  push:
+    branches: [feat/independent-staging-20261009]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: independent-staging-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TAMKEEN_STAGING_ORIGIN: ${{ vars.TAMKEEN_STAGING_ORIGIN || 'https://tamkeen-staging.invalid' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run test:independent
+      - run: npx tsc --noEmit
+      - run: npm run build:independent
+      - name: Verify runtime and client target isolation
+        run: |
+          node scripts/independent/verify-build.mjs
+          node scripts/independent/smoke-build.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: independent-node-build-${{ github.sha }}
+          path: |
+            .output
+            scripts/independent
+          include-hidden-files: true
+          retention-days: 14
+  android:
+    needs: web
+    if: vars.TAMKEEN_STAGING_ORIGIN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TAMKEEN_STAGING_ORIGIN: ${{ vars.TAMKEEN_STAGING_ORIGIN }}
+      TAMKEEN_EXPECTED_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm ci
+      - name: Require the same commit on the independent HTTPS host
+        run: node scripts/independent/verify-deployment.mjs
+      - name: Prepare side-by-side staging app and callbacks
+        run: node scripts/independent/prepare-android.mjs
+      - run: node node_modules/@capacitor/cli/bin/capacitor sync android
+      - run: ./gradlew assembleDebug --stacktrace
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tamkeen-Independent-Staging-APK-${{ github.run_number }}
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            artifacts/independent-android-target.json
+          retention-days: 14
