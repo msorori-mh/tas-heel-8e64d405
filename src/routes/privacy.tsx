@@ -31,7 +31,7 @@ function PrivacyPage() {
         </Link>
         <header>
           <h1 className="text-3xl font-bold">سياسة الخصوصية</h1>
-          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: أغسطس 2026</p>
+          <p className="mt-2 text-xs text-muted-foreground">آخر تحديث: أكتوبر 2026</p>
         </header>
 
         <p className="text-muted-foreground">
@@ -75,14 +75,12 @@ function PrivacyPage() {
         <section>
           <h2 className="text-xl font-semibold">2. استخدام التحليل الآلي (OCR)</h2>
           <p className="mt-2 text-muted-foreground">
-            عند رفع صورة سند حوالة، قد نُمرّرها إلى نموذج ذكاء اصطناعي (Gemini عبر بوابة Lovable AI)
-            لاستخراج بيانات الحوالة تلقائيًا (اسم المرسل، رقم العملية، المبلغ، التاريخ). الهدف:
-            تسريع الإدخال وتقليل الأخطاء.
+            قراءة بيانات السند آليًا غير متاحة في هذا الإصدار. لا تُرسل صور السندات من هذه الميزة
+            إلى مزود ذكاء اصطناعي. عند إتاحة إدخال بيانات الحوالة، يمكنك تعبئتها ومراجعتها يدويًا.
           </p>
           <ul className="mt-2 list-disc space-y-1 pr-6 text-muted-foreground">
-            <li>النتائج تظهر لك للمراجعة قبل الإرسال — أنت المسؤول عن صحتها.</li>
-            <li>لا تُستخدم صور السندات لتدريب نماذج الذكاء الاصطناعي.</li>
-            <li>التحليل اختياري عمليًا — يمكنك تعديل أي حقل يدويًا.</li>
+            <li>راجع اسم المرسل ورقم العملية والمبلغ والتاريخ قبل الإرسال.</li>
+            <li>إدخال بيانات السند لا يعني اعتماد الدفع؛ يخضع الطلب للمراجعة.</li>
           </ul>
         </section>
 
@@ -97,13 +95,11 @@ function PrivacyPage() {
               وتخزين صور السندات.
             </li>
             <li>
-              <strong className="text-foreground">Lovable AI Gateway (Gemini)</strong> — مكوّن تحليل
-              سندات غير مستخدم في الإصدار المجاني الحالي، ولا تُرسل إليه صور دفع ما دامت الخدمة غير
-              مفعّلة.
-            </li>
-            <li>
               <strong className="text-foreground">Cloudflare</strong> — استضافة التطبيق وتسريع
               الوصول.
+            </li>
+            <li>
+              <strong className="text-foreground">Render</strong> — استضافة بيئة الاختبار المستقلة.
             </li>
           </ul>
           <p className="mt-2 text-muted-foreground">
