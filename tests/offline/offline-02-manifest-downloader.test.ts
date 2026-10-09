@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildOfflineSubjectPack,
@@ -11,6 +11,7 @@ import {
 } from "../../src/lib/offline/offline-pack-contract";
 import {
   downloadOfflinePackManifest,
+  fetchOfflineArtifactWithDeadline,
   type OfflinePackDownloadIo,
 } from "../../src/lib/offline/offline-pack-downloader";
 import {
@@ -230,7 +231,7 @@ class MemoryIo implements OfflinePackDownloadIo {
     this.fetches.set(artifact.artifactId, count);
     if (this.failOnceFor === artifact.artifactId) {
       this.failOnceFor = null;
-      throw new Error("NETWORK_ONCE");
+      throw new TypeError("NETWORK_ONCE");
     }
     return encoder.encode(this.bodies[artifact.artifactId]);
   }
@@ -331,4 +332,148 @@ describe("OFFLINE-02 resumable differential downloader", () => {
     expect(record.verifiedArtifactIds).toEqual(["one"]);
     expect(record.downloadedBytes).toBe(3);
   });
+});
+
+afterEach(() => vi.useRealTimers());
+
+it("bounds parallel transfers to three and accounts for overlapping byte progress", async () => {
+  const manifest = await manifestForDownload();
+  manifest.artifacts = ["one", "two", "three", "four"].map((id, index) => ({
+    ...manifest.artifacts[0],
+    artifactId: id,
+    resourceId: `official-book:${id}`,
+    relativePath: `packs/subject/${id}.html`,
+    sortOrder: index,
+  }));
+  const repository = new OfflineStateRepository(new MemoryOfflineStateAdapter());
+  const io = new MemoryIo(Object.fromEntries(manifest.artifacts.map((a) => [a.artifactId, "abc"])));
+  const releases: (() => void)[] = [];
+  let active = 0;
+  let peak = 0;
+  io.fetch = async (artifact, ...args: unknown[]) => {
+    active++;
+    peak = Math.max(peak, active);
+    const progress = args[1] as ((loaded: number) => void) | undefined;
+    progress?.(1);
+    await new Promise<void>((resolve) => releases.push(resolve));
+    progress?.(3);
+    active--;
+    return encoder.encode("abc");
+  };
+  const samples: number[] = [];
+  const verifiedCounts: number[] = [];
+  const done = downloadOfflinePackManifest({
+    ownerId: "student-a",
+    manifest,
+    repository,
+    io,
+    onProgress: (p) => {
+      samples.push(p.loadedBytes);
+      verifiedCounts.push(p.verifiedFiles ?? 0);
+    },
+  });
+  await vi.waitFor(() => expect(releases).toHaveLength(3));
+  releases[1]();
+  await vi.waitFor(() => expect(releases).toHaveLength(4));
+  releases[3]();
+  releases[2]();
+  releases[0]();
+  const record = await done;
+  expect(peak).toBe(3);
+  expect(record.verifiedArtifactIds).toHaveLength(4);
+  expect(record.downloadedBytes).toBe(12);
+  expect(samples.at(-1)).toBe(12);
+  expect(verifiedCounts.at(-1)).toBe(4);
+  expect(verifiedCounts.every((value, i) => i === 0 || value >= verifiedCounts[i - 1])).toBe(true);
+  expect(samples.every((value, i) => value <= 12 && (i === 0 || value >= samples[i - 1]))).toBe(
+    true,
+  );
+});
+
+it("times out a stalled transfer, saves other files, and resumes only the missing file", async () => {
+  const manifest = await manifestForDownload();
+  const repository = new OfflineStateRepository(new MemoryOfflineStateAdapter());
+  const io = new MemoryIo({ one: "abc", two: "def" });
+  const originalFetch = io.fetch.bind(io);
+  let stalledSignal: AbortSignal | undefined;
+  io.fetch = async (artifact, ...args: unknown[]) => {
+    if (artifact.artifactId === "one") {
+      stalledSignal = args[0] as AbortSignal;
+      return new Promise<Uint8Array>(() => {});
+    }
+    return originalFetch(artifact);
+  };
+  vi.useFakeTimers();
+  const failure = expect(
+    downloadOfflinePackManifest({ ownerId: "student-a", manifest, repository, io }),
+  ).rejects.toThrow("OFFLINE_ARTIFACT_TIMEOUT");
+  await vi.waitFor(() => expect(stalledSignal).toBeDefined());
+  await vi.runAllTimersAsync();
+  await failure;
+  expect(stalledSignal?.aborted).toBe(true);
+  expect((await repository.read()).packs[0].verifiedArtifactIds).toEqual(["two"]);
+  io.fetch = originalFetch;
+  expect(
+    (await downloadOfflinePackManifest({ ownerId: "student-a", manifest, repository, io })).status,
+  ).toBe("ready");
+  expect(io.fetches.get("two")).toBe(1);
+});
+
+it("keeps a slow active stream alive and cancels immediately on user abort", async () => {
+  const artifact = (await manifestForDownload()).artifacts[0];
+  const io = new MemoryIo({ one: "abc" });
+  let progress: ((loaded: number) => void) | undefined;
+  let finish: (bytes: Uint8Array) => void = () => {};
+  io.fetch = async (_artifact, ...args: unknown[]) => {
+    progress = args[1] as (loaded: number) => void;
+    return new Promise<Uint8Array>((resolve) => {
+      finish = resolve;
+    });
+  };
+  vi.useFakeTimers();
+  const done = fetchOfflineArtifactWithDeadline(io, artifact, undefined, undefined, 30);
+  await vi.advanceTimersByTimeAsync(20);
+  progress?.(1);
+  await vi.advanceTimersByTimeAsync(20);
+  progress?.(2);
+  await vi.advanceTimersByTimeAsync(20);
+  finish(encoder.encode("abc"));
+  expect(await done).toEqual(encoder.encode("abc"));
+  const controller = new AbortController();
+  const canceled = expect(
+    fetchOfflineArtifactWithDeadline(io, artifact, controller.signal),
+  ).rejects.toThrow("OFFLINE_DOWNLOAD_ABORTED");
+  controller.abort();
+  await canceled;
+});
+
+it("aborts all active transfers without saving late bytes or claiming readiness", async () => {
+  const manifest = await manifestForDownload();
+  const repository = new OfflineStateRepository(new MemoryOfflineStateAdapter());
+  const io = new MemoryIo({ one: "abc", two: "def" });
+  const signals: AbortSignal[] = [];
+  const releases: (() => void)[] = [];
+  io.fetch = async (artifact, ...args: unknown[]) => {
+    signals.push(args[0] as AbortSignal);
+    await new Promise<void>((resolve) => releases.push(resolve));
+    return encoder.encode(io.bodies[artifact.artifactId]);
+  };
+  const controller = new AbortController();
+  const aborted = expect(
+    downloadOfflinePackManifest({
+      ownerId: "student-a",
+      manifest,
+      repository,
+      io,
+      signal: controller.signal,
+    }),
+  ).rejects.toThrow("OFFLINE_DOWNLOAD_ABORTED");
+  await vi.waitFor(() => expect(signals).toHaveLength(2));
+  controller.abort();
+  await aborted;
+  releases.forEach((resolve) => resolve());
+  await Promise.resolve();
+  expect(signals.every((signal) => signal.aborted)).toBe(true);
+  expect(io.files.size).toBe(0);
+  expect((await repository.read()).packs[0].status).toBe("failed");
 });

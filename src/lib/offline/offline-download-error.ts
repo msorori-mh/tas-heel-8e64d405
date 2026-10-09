@@ -61,6 +61,11 @@ function errorGuidance(failure: unknown): string {
       "تغيّر المحتوى أو لم يطابق الملف النسخة المطلوبة. حدّث قائمة المحتوى ثم استكمل التنزيل." +
       saved
     );
+  if (code === "OFFLINE_ARTIFACT_TIMEOUT")
+    return (
+      "توقف وصول بيانات أحد الملفات لمدة طويلة. استُكملت بقية الملفات المتاحة؛ حاول الاستكمال." +
+      saved
+    );
   if (code === "OFFLINE_METADATA_TIMEOUT")
     return "استغرق تجهيز قائمة المحتوى وقتًا طويلًا. أعد المحاولة عند استقرار الاتصال." + saved;
   if (code === "OFFLINE_ARTIFACT_PERSISTENCE_FAILED" || /^OFFLINE_IDB_/.test(code))
