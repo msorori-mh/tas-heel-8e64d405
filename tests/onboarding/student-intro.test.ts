@@ -234,14 +234,9 @@ test("native edge-to-edge fallback does not add padding to older non-overlay she
 test("bundled first launch registers Preferences before deciding whether to show the tour", async () => {
   const { readFile } = await import("node:fs/promises");
   const html = await readFile("mobile/www/index.html", "utf8");
-  const start = html.indexOf("      const bridge = window.Capacitor;");
+  const start = html.indexOf("      (async () => {");
   const code = html.slice(start, html.indexOf("</script>", start));
-  const run = new Function(
-    "window",
-    "INTRO_KEY",
-    "mountStudentIntro",
-    `return (async () => {${code}})()`,
-  );
+  const run = new Function("window", "INTRO_KEY", "mountStudentIntro", `return ${code.trim()}`);
   for (const returning of [false, true]) {
     let mounted = 0,
       saved = 0,

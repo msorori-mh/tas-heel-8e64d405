@@ -1244,6 +1244,7 @@ var TamkeenStudentIntro = (() => {
 })();
 </script>
     <script>
+      (async () => {
       const { INTRO_KEY, mountStudentIntro } = window.TamkeenStudentIntro;
       const bridge = window.Capacitor;
       const preferences = bridge?.Plugins?.Preferences ?? bridge?.registerPlugin?.("Preferences");
@@ -1254,6 +1255,7 @@ var TamkeenStudentIntro = (() => {
           try { await preferences.set({ key: INTRO_KEY, value: "done" }); } catch {}
         });
       }
+      })();
     </script>
   </body>
 </html>

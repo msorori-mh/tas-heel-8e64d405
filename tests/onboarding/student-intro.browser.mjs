@@ -100,9 +100,7 @@ try {
   });
   await entry.addScriptTag({ content: inlineTour });
   const bootstrap = offlineHtml.slice(
-    offlineHtml.indexOf(
-      "      const { INTRO_KEY, mountStudentIntro } = window.TamkeenStudentIntro;",
-    ),
+    offlineHtml.indexOf("      (async () => {"),
     offlineHtml.lastIndexOf("</script>"),
   );
   await entry.addScriptTag({ content: bootstrap });
