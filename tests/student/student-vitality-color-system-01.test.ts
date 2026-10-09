@@ -51,7 +51,7 @@ describe("STUDENT_VITALITY_COLOR_SYSTEM_01", () => {
     expect(performance).toContain("data.weaknesses.lessons.length > 0");
   });
 
-  it("adds a goal ring, real streak and one data-led daily suggestion", () => {
+  it("adds a horizontal daily target, real streak and one data-led daily suggestion", () => {
     const home = read("src/routes/_authenticated/app.tsx");
     const goal = read("src/components/home/DailyGoalCard.tsx");
     const suggestion = read("src/components/home/AiAssistantCard.tsx");
@@ -59,7 +59,8 @@ describe("STUDENT_VITALITY_COLOR_SYSTEM_01", () => {
     expect(home).toContain("streakDays={stats?.streakDays ?? 0}");
     expect(home).toContain("items={continueItems} stats={stats}");
     expect(goal).toContain('role="progressbar"');
-    expect(goal).toContain("conic-gradient");
+    expect(goal).toContain("h-2 overflow-hidden rounded-full");
+    expect(goal).not.toContain("conic-gradient");
     expect(goal).toContain("استمرارية");
     expect(suggestion).toContain("buildDailySuggestion");
     expect(suggestion).toContain("اقتراح اليوم");

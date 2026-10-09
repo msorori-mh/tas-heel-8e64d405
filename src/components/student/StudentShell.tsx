@@ -77,7 +77,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="student-theme student-app-bg min-h-screen w-full max-w-full overflow-x-clip text-foreground"
+      className={`student-theme student-app-bg min-h-screen w-full max-w-full overflow-x-clip text-foreground ${pathname === "/app" || pathname === "/exams" || pathname === "/exams/" ? "student-home-exams-v2" : ""}`}
       style={
         lessonReader
           ? ({
@@ -165,13 +165,6 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
               <span className="truncate text-sm">تمكين الطالب</span>
             </Link>
             <div className="flex shrink-0 items-center gap-1">
-              <a
-                href="/academy"
-                aria-label="أكاديمية المعلمين"
-                className="rounded-lg p-2 text-muted-foreground hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <GraduationCap className="h-4 w-4" aria-hidden />
-              </a>
               {isContentStaff && (
                 <Link
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -182,14 +175,6 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
                   <Shield className="h-4 w-4" aria-hidden />
                 </Link>
               )}
-              <button
-                type="button"
-                aria-label="تسجيل الخروج"
-                onClick={handleSignOut}
-                className="rounded-lg p-2 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-              </button>
             </div>
           </div>
         </header>

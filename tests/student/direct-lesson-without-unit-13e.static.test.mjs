@@ -27,7 +27,7 @@ test("both shapes are branched on a real units count, no synthesized units", () 
 test("unit numbering is only rendered for real units", () => {
   assert.match(
     src,
-    /\{index \? <span className="text-muted-foreground">الوحدة \{index\}: <\/span> : null\}/,
+    /\{index && !\/\^الوحدة\\s\/.test\(title.trim\(\)\)\s*\?\s*\(\s*<span className="text-muted-foreground">الوحدة \{index\}: <\/span>\s*\)\s*:\s*null\}/,
   );
 });
 

@@ -11,8 +11,8 @@ import { DailyGoalCard } from "@/components/home/DailyGoalCard";
 import { NeedsAttentionSection } from "@/components/home/NeedsAttentionSection";
 import { CompactProgress } from "@/components/home/CompactProgress";
 import { AchievementsSection } from "@/components/home/AchievementsSection";
-import { AiAssistantCard } from "@/components/home/AiAssistantCard";
-import { SemesterPicker } from "@/components/home/SemesterPicker";
+import { AiAssistantCard, buildDailySuggestion } from "@/components/home/AiAssistantCard";
+import { ExamCountdown } from "@/components/home/ExamCountdown";
 import { LearningToolsSection } from "@/components/home/LearningToolsSection";
 
 const searchSchema = z.object({
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_authenticated/app")({
   component: StudentHome,
 });
 
-function StudentHome() {
+export function StudentHome() {
   const { loading } = useAuth();
   const { stats, continueItems, continueLoading, badges } = useHomeDashboard();
 
@@ -44,22 +44,20 @@ function StudentHome() {
   // 21B4F — achievements are a real feature but never a "قريباً" placeholder on Home.
   const earnedBadges = badges.filter((b) => b.earnedAt);
 
+  const suggestion = buildDailySuggestion(continueItems, stats);
+  const showSuggestion = suggestion.kind !== "lesson" && suggestion.to !== "/semesters";
+
   return (
     // 19D — route-level Design System V2 opt-in (presentation only).
     <div className="ds-v2 space-y-4 pb-4 lg:space-y-5" dir="rtl">
-      {/* 1. Greeting */}
-      <HomeGreeting hint="خطوة واحدة اليوم تصنع الفرق." />
-
-      {/* 2. Subjects first: Semester 1 & Semester 2 cards */}
-      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)] xl:[&>:only-child]:col-span-2">
-        <SemesterPicker />
-        <CompactProgress stats={stats} />
-      </div>
-
-      {/* 3–4. Focused momentum row: next action first, daily target second. */}
+      <HomeGreeting hint="خطوة واحدة اليوم تصنع الفرق." streakDays={stats?.streakDays ?? 0} />
+      <ExamCountdown />
       <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)]">
         <ContinueLearningCard items={continueItems} loading={continueLoading} />
-        <DailyGoalCard items={continueItems} streakDays={stats?.streakDays ?? 0} />
+        <div className="space-y-3">
+          <CompactProgress stats={stats} />
+          <DailyGoalCard items={continueItems} streakDays={stats?.streakDays ?? 0} />
+        </div>
       </div>
 
       {/* 5. Needs attention — hidden when there is no real signal */}
@@ -73,9 +71,11 @@ function StudentHome() {
       )}
 
       {/* Secondary — always after Continue Learning */}
-      <div id="study-suggestions" className="scroll-mt-20">
-        <AiAssistantCard items={continueItems} stats={stats} />
-      </div>
+      {showSuggestion && (
+        <div id="study-suggestions" className="scroll-mt-20">
+          <AiAssistantCard items={continueItems} stats={stats} />
+        </div>
+      )}
     </div>
   );
 }

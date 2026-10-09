@@ -625,3 +625,14 @@ html[dir="rtl"] body {
     display: none;
   }
 }
+
+/* Home/exams share one canvas, including the margins around ds-v2. */
+.student-theme.student-home-exams-v2 {
+  background: #fbfaf7;
+}
+.student-home-exams-v2 .ds-v2 {
+  background: transparent;
+}
+.native-status-inset-consumed {
+  --app-safe-top: 0px;
+}

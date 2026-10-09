@@ -446,6 +446,13 @@ function SettingsPage() {
           </SectionItem>
         )}
 
+        <a
+          href="/academy"
+          className="flex min-h-11 items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold"
+        >
+          أكاديمية المعلمين<span aria-hidden>‹</span>
+        </a>
+
         {/* الدعم والمساعدة */}
         <SectionItem value="help" icon={<LifeBuoy className="h-4 w-4" />} title="الدعم والمساعدة">
           <button

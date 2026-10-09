@@ -21,6 +21,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
 import { NativeAuthDeepLinkHandler } from "@/components/mobile/NativeAuthDeepLinkHandler";
+import { NativeStatusBar } from "@/components/mobile/NativeStatusBar";
 import { NativeNotificationHandler } from "@/components/mobile/NativeNotificationHandler";
 
 function NotFoundComponent() {
@@ -235,6 +236,7 @@ function RootComponent() {
         <AndroidBackHandler />
         <NativeAuthDeepLinkHandler />
         <NativeNotificationHandler />
+        <NativeStatusBar />
         {!academyRouteActive ? <PwaUpdateNotice /> : null}
         <Toaster position="top-center" richColors />
       </AuthProvider>

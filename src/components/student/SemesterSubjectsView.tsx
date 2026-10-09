@@ -34,12 +34,11 @@ type Subject = {
   group_name: string | null;
 };
 
-export function SemesterSubjectsView({ semester }: { semester: Semester }) {
+export function useSemesterSubjects(semester: Semester, staleTime = 0) {
   const { profile, user, isContentStaff } = useAuth();
-  const online = useConnectivity();
   const gradeKey = profile?.grade_uuid ?? (profile?.grade_id ? String(profile.grade_id) : null);
 
-  const { data, isLoading, error, refetch } = useStudentView({
+  const query = useStudentView({
     enabled: !!gradeKey,
     queryKey: [
       "semester-subjects",
@@ -50,7 +49,7 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
       isContentStaff === true,
     ],
     // Refresh on return from a lesson while preserving existing offline snapshots.
-    staleTime: 0,
+    staleTime,
     offline: async () => {
       const subjects = await readSavedSubjects(user!.id, semester);
       return {
@@ -175,6 +174,13 @@ export function SemesterSubjectsView({ semester }: { semester: Semester }) {
     },
   });
 
+  return query;
+}
+
+export function SemesterSubjectsView({ semester }: { semester: Semester }) {
+  const { user } = useAuth();
+  const online = useConnectivity();
+  const { data, isLoading, error, refetch } = useSemesterSubjects(semester);
   const subjects = data?.subjects;
   const downloads = useSubjectDownloads(user?.id, semester);
   const subjectMeta = data?.meta ?? {};
