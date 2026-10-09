@@ -236,7 +236,7 @@ test("bundled first launch registers Preferences before deciding whether to show
   const html = await readFile("mobile/www/index.html", "utf8");
   const start = html.indexOf("      (async () => {");
   const code = html.slice(start, html.indexOf("</script>", start));
-  const run = new Function("window", "INTRO_KEY", "mountStudentIntro", `return ${code.trim()}`);
+  const run = new Function("window", `return ${code.trim()}`);
   for (const returning of [false, true]) {
     let mounted = 0,
       saved = 0,
@@ -250,22 +250,22 @@ test("bundled first launch registers Preferences before deciding whether to show
       },
     };
     let finish: (() => Promise<void>) | undefined;
-    await run(
-      {
-        Capacitor: {
-          Plugins: {},
-          registerPlugin: (name: string) => {
-            registered = name;
-            return preferences;
-          },
+    await run({
+      TamkeenStudentIntro: {
+        INTRO_KEY: "tamkeen.student-intro.v1",
+        mountStudentIntro: (onComplete: () => Promise<void>) => {
+          mounted++;
+          finish = onComplete;
         },
       },
-      "tamkeen.student-intro.v1",
-      (onComplete: () => Promise<void>) => {
-        mounted++;
-        finish = onComplete;
+      Capacitor: {
+        Plugins: {},
+        registerPlugin: (name: string) => {
+          registered = name;
+          return preferences;
+        },
       },
-    );
+    });
     assert.equal(registered, "Preferences");
     assert.equal(mounted, returning ? 0 : 1);
     if (finish) {
