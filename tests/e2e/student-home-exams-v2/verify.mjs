@@ -91,7 +91,9 @@ try {
         true,
       );
       if (name.startsWith("home-")) {
-        await description.scrollIntoViewIfNeeded();
+        await description.evaluate((element) =>
+          element.scrollIntoView({ block: "end", behavior: "instant" }),
+        );
         await page.screenshot({ path: `${output}/${name}-review-after.png`, fullPage: false });
       }
     }
