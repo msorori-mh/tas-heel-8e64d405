@@ -179,12 +179,20 @@ test("native edge-to-edge fallback does not add padding to older non-overlay she
     });
     let dispose = mountStudentIntro(async () => {});
     assert.ok(
-      document.querySelector<HTMLElement>(".tamkeen-intro")!.style.paddingTop.includes("32px"),
+      document
+        .querySelector<HTMLElement>(".tamkeen-intro")!
+        .style.getPropertyValue("--intro-top-padding")
+        .includes("32px"),
     );
     dispose();
     document.documentElement.classList.add("native-status-inset-consumed");
     dispose = mountStudentIntro(async () => {});
-    assert.equal(document.querySelector<HTMLElement>(".tamkeen-intro")!.style.paddingTop, "");
+    assert.equal(
+      document
+        .querySelector<HTMLElement>(".tamkeen-intro")!
+        .style.getPropertyValue("--intro-top-padding"),
+      "",
+    );
     dispose();
     document.documentElement.classList.remove("native-status-inset-consumed");
     Object.defineProperty(dom.window.navigator, "userAgent", {
@@ -192,7 +200,12 @@ test("native edge-to-edge fallback does not add padding to older non-overlay she
       value: "Android 14",
     });
     dispose = mountStudentIntro(async () => {});
-    assert.equal(document.querySelector<HTMLElement>(".tamkeen-intro")!.style.paddingTop, "");
+    assert.equal(
+      document
+        .querySelector<HTMLElement>(".tamkeen-intro")!
+        .style.getPropertyValue("--intro-top-padding"),
+      "",
+    );
     dispose();
   } finally {
     if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);

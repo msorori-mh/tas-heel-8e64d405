@@ -36,9 +36,9 @@ var art = {
     '<path d="M88 135 56 72m32 63-32 63m32-63 64-63" stroke="#06b6d4"/><rect x="16" y="50" width="80" height="36" rx="12" fill="white"/><rect x="16" y="184" width="80" height="36" rx="12" fill="white"/><rect x="112" y="36" width="80" height="36" rx="12" fill="white"/><path d="M34 68h44M34 202h44M130 54h44"/><rect x="40" y="113" width="96" height="44" rx="15" fill="#1E2A63"/><rect x="196" y="225" width="148" height="14" rx="7" fill="#1E2A63"/><path d="M244 99h27v38l43 57c6 10 0 17-12 17h-88c-12 0-18-7-12-17l42-57Z" fill="white"/><path d="m223 166-20 30c-3 6 0 10 8 10h92c8 0 11-4 8-10l-22-30Z" fill="#06b6d4" stroke="none"/><circle cx="247" cy="183" r="5" fill="white" stroke="none"/><circle cx="271" cy="193" r="7" fill="white" stroke="none"/><path d="M300 52h16m-8-8v16M330 92h12m-6-6v12" stroke="#06b6d4"/>',
 };
 var css = `
-.tamkeen-intro{position:fixed;inset:0;z-index:1000;overflow:auto;background:#FBFAF7;color:#172041;font:16px/1.7 system-ui,sans-serif;direction:rtl;padding: max(24px,var(--safe-area-inset-top,env(safe-area-inset-top,0px))) 20px max(24px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box}
+.tamkeen-intro{position:fixed;inset:0;z-index:1000;overflow:auto;background:#FBFAF7;color:#172041;font:16px/1.7 system-ui,sans-serif;direction:rtl;padding: var(--intro-top-padding,max(24px,var(--safe-area-inset-top,env(safe-area-inset-top,0px)))) 20px max(24px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box}
 .tamkeen-intro *{box-sizing:border-box}.tamkeen-intro [hidden]{display:none!important}
-.tamkeen-intro .intro-wrap{max-width:480px;margin:auto;min-height:calc(100dvh - max(24px,var(--safe-area-inset-top,env(safe-area-inset-top,0px))) - max(24px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))));display:flex;flex-direction:column}
+.tamkeen-intro .intro-wrap{max-width:480px;margin:auto;min-height:calc(100dvh - var(--intro-top-padding,max(24px,var(--safe-area-inset-top,env(safe-area-inset-top,0px)))) - max(24px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))));display:flex;flex-direction:column}
 .tamkeen-intro button{font:inherit;cursor:pointer;min-height:44px;border:0;border-radius:16px}
 .tamkeen-intro .intro-top{display:flex;justify-content:flex-end;min-height:44px}
 .tamkeen-intro .intro-skip{height:44px;border-radius:24px;background:#EEF0F7;color:#1E2A63;padding:8px 20px;font-size:15px;font-weight:600}
@@ -74,7 +74,10 @@ function mountStudentIntro(onComplete, replay = false) {
     Number(android[1]) >= 15 &&
     !document.documentElement.classList.contains("native-status-inset-consumed")
   ) {
-    host.style.paddingTop = "max(32px, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))";
+    host.style.setProperty(
+      "--intro-top-padding",
+      "max(32px, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",
+    );
   }
   host.setAttribute("role", "dialog");
   host.setAttribute("aria-modal", "true");
