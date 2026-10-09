@@ -37,7 +37,10 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   });
 
   it("persists Supabase refresh sessions outside the disposable Android WebView", () => {
-    expect(supabaseClient).toContain("persistentAuthStorage() ?? brokeredPreviewStorage()");
+    expect(supabaseClient).toMatch(
+      /persistentAuthStorage\(\)\s*\?\?\s*\(typeof window !== "undefined" \? window\.localStorage : undefined\)/,
+    );
+    expect(supabaseClient).not.toContain("brokeredPreviewStorage");
     expect(nativeAuthStorage).toContain("Capacitor.isNativePlatform()");
     expect(nativeAuthStorage).toContain("Preferences");
     expect(nativeAuthStorage).toContain("legacyValue");

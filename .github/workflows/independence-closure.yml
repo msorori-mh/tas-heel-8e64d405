@@ -1,0 +1,47 @@
+name: Independence runtime and inventory
+on:
+  pull_request:
+    paths:
+      - "src/lib/*ocr*"
+      - "src/integrations/**"
+      - "scripts/independent/**"
+      - "vite*.config.ts"
+      - "package*.json"
+      - "bun.lock"
+      - "tests/independent*/**"
+      - ".github/workflows/independence-closure.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: TEST_ONLY
+          POSTGRES_DB: independent_fixture
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d independent_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      TAMKEEN_STAGING_ORIGIN: https://tamkeen-independent-test.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run test:independent
+      - name: Verify inventory against disposable PostgreSQL
+        env:
+          INVENTORY_TEST_DATABASE_URL: postgres://postgres:TEST_ONLY@localhost:5432/independent_fixture
+        run: node --test tests/independent-pg/inventory.test.mjs
+      - run: npm run build:independent
+      - run: node scripts/independent/verify-build.mjs
+      - run: node scripts/independent/smoke-build.mjs

@@ -25,6 +25,12 @@ export function validateStagingOrigin(value) {
 }
 export function assertAllowedSupabaseUrl(input) {
   const url = new URL(input instanceof Request ? input.url : String(input));
+  if (
+    /(^|\.)(lovable\.dev|lovable\.app|lovableproject\.com|lovableproject-dev\.com|gptengineer\.run|gpt-eng\.com)$/.test(
+      url.hostname,
+    )
+  )
+    throw new Error("INDEPENDENT_PLATFORM_DEPENDENCY_BLOCKED");
   if (/(^|\.)supabase\.(co|in)$/.test(url.hostname) && url.origin !== TARGET_URL)
     throw new Error("INDEPENDENT_TARGET_MISMATCH");
 }

@@ -4,6 +4,11 @@ on:
     branches: [fix/independent-offline-cold-start-20261009]
   pull_request:
     paths:
+      - "src/integrations/supabase/**"
+      - "src/routes/__root.tsx"
+      - "vite.independent.config.ts"
+      - "package.json"
+      - "package-lock.json"
       - "scripts/independent/package-native-shell.mjs"
       - "android/app/src/main/java/**/PackagedShellWebViewClient.java"
       - "tests/mobile/native-shell-cold-start.mjs"
