@@ -36,7 +36,11 @@ export type OfflinePackDownloadProgress = {
   artifactCount: number;
   loadedBytes: number;
   totalBytes: number;
-  status: "cached" | "downloading" | "verified";
+  status: "cached" | "downloading" | "verifying" | "saving" | "verified";
+  activeDownloads?: number;
+  verifiedBytes?: number;
+  verifiedFiles?: number;
+  bytesPerSecond?: number;
 };
 
 export interface OfflinePackDownloadIo {
@@ -141,6 +145,7 @@ function createDeviceIo(expectedOwnerId: string): OfflinePackDownloadIo {
       return bytes;
     },
     async save(ownerId, artifact, bytes) {
+      await checkedIdentity({ expectedOwnerId: ownerId });
       if (artifact.kind === "textbook-pdf" || artifact.kind === "lesson-pdf") {
         await saveFile({
           resourceId: artifact.resourceId,
@@ -152,9 +157,11 @@ function createDeviceIo(expectedOwnerId: string): OfflinePackDownloadIo {
           contentSha256: artifact.sha256,
           pinnedOffline: true,
         });
+        await checkedIdentity({ expectedOwnerId: ownerId });
         return;
       }
       await saveOfflineArtifactBytes(ownerId, artifact, bytes);
+      await checkedIdentity({ expectedOwnerId: ownerId });
     },
   };
 }
@@ -239,6 +246,54 @@ export async function fetchOfflineSubjectPackManifest(
   return result.manifest;
 }
 
+/** Bound inactivity, not file size: slow downloads stay alive while bytes arrive. */
+export async function fetchOfflineArtifactWithDeadline(
+  io: OfflinePackDownloadIo,
+  artifact: OfflinePackArtifact,
+  signal?: AbortSignal,
+  onProgress?: (loaded: number) => void,
+  idleTimeoutMs = 45_000,
+): Promise<Uint8Array> {
+  checkDownloadSignal(signal);
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout>;
+  let lastLoaded = 0;
+  let rejectDeadline: (error: Error) => void = () => {};
+  const deadline = new Promise<never>((_, reject) => {
+    rejectDeadline = reject;
+  });
+  const abort = () => {
+    rejectDeadline(new Error("OFFLINE_DOWNLOAD_ABORTED"));
+    controller.abort();
+  };
+  const arm = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      rejectDeadline(new Error("OFFLINE_ARTIFACT_TIMEOUT"));
+      controller.abort();
+    }, idleTimeoutMs);
+  };
+  signal?.addEventListener("abort", abort, { once: true });
+  arm();
+  try {
+    return await Promise.race([
+      io.fetch(artifact, controller.signal, (loaded) => {
+        if (controller.signal.aborted) return;
+        if (loaded > lastLoaded) {
+          lastLoaded = loaded;
+          arm();
+        }
+        onProgress?.(loaded);
+      }),
+      deadline,
+    ]);
+  } finally {
+    clearTimeout(timer!);
+    signal?.removeEventListener("abort", abort);
+    controller.abort();
+  }
+}
+
 export async function downloadOfflinePackManifest(params: {
   ownerId: string;
   manifest: OfflinePackManifest;
@@ -260,78 +315,51 @@ export async function downloadOfflinePackManifest(params: {
 
   const totalBytes = manifest.artifacts.reduce((sum, artifact) => sum + artifact.byteSize, 0);
   let completedBytes = 0;
-  try {
-    for (let index = 0; index < manifest.artifacts.length; index += 1) {
-      if (params.signal?.aborted) throw new Error("OFFLINE_DOWNLOAD_ABORTED");
-      const artifact = manifest.artifacts[index];
-      let local: Uint8Array | null = null;
+  let completedFiles = 0;
+  let activeDownloads = 0;
+  let networkBytes = 0;
+  let lastProgressAt = 0;
+  const startedAt = performance.now();
+  const inFlight = new Map<number, number>();
+  const recoverableFailures = new Set<unknown>();
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  params.signal?.addEventListener("abort", abort, { once: true });
+  if (params.signal?.aborted) abort();
+  const emit = (progress: OfflinePackDownloadProgress) => {
+    if (controller.signal.aborted) return;
+    const now = performance.now();
+    if (progress.status === "downloading" && now - lastProgressAt < 100) return;
+    lastProgressAt = now;
+    params.onProgress?.({
+      ...progress,
+      loadedBytes: Math.min(
+        totalBytes,
+        completedBytes + [...inFlight.values()].reduce((a, b) => a + b, 0),
+      ),
+      activeDownloads,
+      verifiedBytes: completedBytes,
+      verifiedFiles: completedFiles,
+      bytesPerSecond: networkBytes / Math.max(1, (now - startedAt) / 1000),
+    });
+  };
+  const processArtifact = async (index: number) => {
+    const artifact = manifest.artifacts[index];
+    let local: Uint8Array | null = null;
+    try {
+      local = await params.io.read(params.ownerId, artifact);
+    } catch {
+      local = null;
+    }
+    if (local) {
       try {
-        local = await params.io.read(params.ownerId, artifact);
+        await verifyOfflineArtifact(local, artifact);
       } catch {
         local = null;
       }
-      if (local) {
-        try {
-          await verifyOfflineArtifact(local, artifact);
-        } catch {
-          local = null;
-        }
-      }
-      checkDownloadSignal(params.signal);
-      if (local) {
-        completedBytes += artifact.byteSize;
-        await recordVerifiedOfflineArtifact(repository, {
-          ownerId: params.ownerId,
-          packId: manifest.packId,
-          manifestSha256: registered.manifestSha256,
-          artifactId: artifact.artifactId,
-          observedSha256: artifact.sha256,
-          observedBytes: artifact.byteSize,
-        });
-        params.onProgress?.({
-          artifactId: artifact.artifactId,
-          artifactIndex: index,
-          artifactCount: manifest.artifacts.length,
-          loadedBytes: completedBytes,
-          totalBytes,
-          status: "cached",
-        });
-        continue;
-      }
-
-      await invalidateOfflineArtifact(repository, {
-        ownerId: params.ownerId,
-        packId: manifest.packId,
-        manifestSha256: registered.manifestSha256,
-        artifactId: artifact.artifactId,
-      });
-
-      params.onProgress?.({
-        artifactId: artifact.artifactId,
-        artifactIndex: index,
-        artifactCount: manifest.artifacts.length,
-        loadedBytes: completedBytes,
-        totalBytes,
-        status: "downloading",
-      });
-      const bytes = await params.io.fetch(artifact, params.signal, (loaded) => {
-        params.onProgress?.({
-          artifactId: artifact.artifactId,
-          artifactIndex: index,
-          artifactCount: manifest.artifacts.length,
-          loadedBytes: completedBytes + Math.min(loaded, artifact.byteSize),
-          totalBytes,
-          status: "downloading",
-        });
-      });
-      checkDownloadSignal(params.signal);
-      await verifyOfflineArtifact(bytes, artifact);
-      checkDownloadSignal(params.signal);
-      await params.io.save(params.ownerId, artifact, bytes);
-      const persisted = await params.io.read(params.ownerId, artifact);
-      if (!persisted) throw new Error("OFFLINE_ARTIFACT_PERSISTENCE_FAILED");
-      await verifyOfflineArtifact(persisted, artifact);
-      completedBytes += artifact.byteSize;
+    }
+    checkDownloadSignal(controller.signal);
+    if (local) {
       await recordVerifiedOfflineArtifact(repository, {
         ownerId: params.ownerId,
         packId: manifest.packId,
@@ -340,19 +368,143 @@ export async function downloadOfflinePackManifest(params: {
         observedSha256: artifact.sha256,
         observedBytes: artifact.byteSize,
       });
-      params.onProgress?.({
+      completedBytes += artifact.byteSize;
+      completedFiles += 1;
+      emit({
         artifactId: artifact.artifactId,
         artifactIndex: index,
         artifactCount: manifest.artifacts.length,
         loadedBytes: completedBytes,
         totalBytes,
-        status: "verified",
+        status: "cached",
       });
+      return;
     }
+
+    await invalidateOfflineArtifact(repository, {
+      ownerId: params.ownerId,
+      packId: manifest.packId,
+      manifestSha256: registered.manifestSha256,
+      artifactId: artifact.artifactId,
+    });
+
+    emit({
+      artifactId: artifact.artifactId,
+      artifactIndex: index,
+      artifactCount: manifest.artifacts.length,
+      loadedBytes: completedBytes,
+      totalBytes,
+      status: "downloading",
+    });
+    activeDownloads += 1;
+    let bytes: Uint8Array;
+    try {
+      bytes = await fetchOfflineArtifactWithDeadline(
+        params.io,
+        artifact,
+        controller.signal,
+        (loaded) => {
+          const bounded = Math.max(0, Math.min(loaded, artifact.byteSize));
+          const previous = inFlight.get(index) ?? 0;
+          networkBytes += Math.max(0, bounded - previous);
+          inFlight.set(index, Math.max(previous, bounded));
+          emit({
+            artifactId: artifact.artifactId,
+            artifactIndex: index,
+            artifactCount: manifest.artifacts.length,
+            loadedBytes: completedBytes + Math.min(loaded, artifact.byteSize),
+            totalBytes,
+            status: "downloading",
+          });
+        },
+      );
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (
+        error instanceof TypeError ||
+        /^(OFFLINE_ARTIFACT_TIMEOUT|OFFLINE_ARTIFACT_DOWNLOAD_(429|502|503|504))$/.test(code)
+      )
+        recoverableFailures.add(error);
+      throw error;
+    } finally {
+      activeDownloads -= 1;
+    }
+    checkDownloadSignal(controller.signal);
+    emit({
+      artifactId: artifact.artifactId,
+      artifactIndex: index,
+      artifactCount: manifest.artifacts.length,
+      loadedBytes: 0,
+      totalBytes,
+      status: "verifying",
+    });
+    await verifyOfflineArtifact(bytes, artifact);
+    checkDownloadSignal(controller.signal);
+    emit({
+      artifactId: artifact.artifactId,
+      artifactIndex: index,
+      artifactCount: manifest.artifacts.length,
+      loadedBytes: 0,
+      totalBytes,
+      status: "saving",
+    });
+    await params.io.save(params.ownerId, artifact, bytes);
+    const persisted = await params.io.read(params.ownerId, artifact);
+    if (!persisted) throw new Error("OFFLINE_ARTIFACT_PERSISTENCE_FAILED");
+    await verifyOfflineArtifact(persisted, artifact);
+    checkDownloadSignal(controller.signal);
+    await recordVerifiedOfflineArtifact(repository, {
+      ownerId: params.ownerId,
+      packId: manifest.packId,
+      manifestSha256: registered.manifestSha256,
+      artifactId: artifact.artifactId,
+      observedSha256: artifact.sha256,
+      observedBytes: artifact.byteSize,
+    });
+    inFlight.delete(index);
+    completedBytes += artifact.byteSize;
+    completedFiles += 1;
+    emit({
+      artifactId: artifact.artifactId,
+      artifactIndex: index,
+      artifactCount: manifest.artifacts.length,
+      loadedBytes: completedBytes,
+      totalBytes,
+      status: "verified",
+    });
+  };
+  let nextIndex = 0;
+  let failure: unknown;
+  let failed = false;
+  const worker = async () => {
+    while (!controller.signal.aborted && nextIndex < manifest.artifacts.length) {
+      const index = nextIndex++;
+      try {
+        await processArtifact(index);
+      } catch (error) {
+        inFlight.delete(index);
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+        // Defer only transport failures from fetch, not storage/verification errors.
+        if (!recoverableFailures.delete(error)) {
+          if (!controller.signal.aborted) failure = error;
+          controller.abort();
+        }
+      }
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(3, manifest.artifacts.length) }, worker));
+    if (failed) throw failure;
+    checkDownloadSignal(params.signal);
   } catch (error) {
     const code = error instanceof Error ? error.message : "OFFLINE_DOWNLOAD_FAILED";
     await markOfflinePackFailed(repository, params.ownerId, manifest.packId, code);
     throw error;
+  } finally {
+    params.signal?.removeEventListener("abort", abort);
   }
 
   const snapshot = await repository.read();
@@ -382,7 +534,7 @@ export async function downloadOfflineSubjectPack(params: {
   ) {
     throw new Error("OFFLINE_MANIFEST_SCOPE_MISMATCH");
   }
-  return downloadOfflinePackManifest({
+  const record = await downloadOfflinePackManifest({
     ownerId,
     manifest,
     repository: params.repository,
@@ -390,6 +542,8 @@ export async function downloadOfflineSubjectPack(params: {
     signal: params.signal,
     onProgress: params.onProgress,
   });
+  await checkedIdentity({ expectedOwnerId: ownerId, signal: params.signal });
+  return record;
 }
 
 export type OfflineSubjectPackLocalStatus = {
