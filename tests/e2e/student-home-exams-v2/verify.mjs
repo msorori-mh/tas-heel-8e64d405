@@ -44,6 +44,9 @@ try {
       })
       .waitFor();
     await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(() =>
+      Array.from(document.images).every((image) => image.complete && image.naturalWidth > 0),
+    );
     if (!baseline && path.startsWith("/exams")) {
       assert.equal(await page.locator('a[href^="/exams/history/session-"]').count(), 3);
       assert.equal(await page.locator('a[href^="/subjects/"]').count(), 3);

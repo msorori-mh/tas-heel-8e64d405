@@ -20,6 +20,7 @@ const baselineFiles = [
 const stub = fromRoot("tests/e2e/student-home-exams-v2/dependencies.tsx");
 export default defineConfig({
   root: fromRoot("tests/e2e/student-home-exams-v2"),
+  publicDir: fromRoot("public"),
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: [
