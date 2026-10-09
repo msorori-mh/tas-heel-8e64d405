@@ -61,3 +61,14 @@ test("preference write failure still allows entry", async () => {
   expect(document.querySelector(".tamkeen-intro")).toBeNull();
   expect(document.querySelector("#application")).not.toBeNull();
 });
+
+test("four-page completion saves the same device preference", async () => {
+  await open(null);
+  expect(document.querySelectorAll(".intro-dots button")).toHaveLength(4);
+  for (let i = 0; i < 3; i++)
+    await act(async () => document.querySelector<HTMLButtonElement>(".intro-next")!.click());
+  expect(document.querySelector<HTMLButtonElement>(".intro-skip")!.hidden).toBe(true);
+  await act(async () => document.querySelector<HTMLButtonElement>(".intro-next")!.click());
+  expect(state.set).toHaveBeenCalledWith({ key: INTRO_KEY, value: "done" });
+  expect(document.querySelector("#application")).not.toBeNull();
+});

@@ -2,81 +2,62 @@
 var INTRO_KEY = "tamkeen.student-intro.v1";
 var INTRO_SLIDES = [
   {
+    kind: "brand",
     title: "\u0645\u0646\u0647\u062C\u0643 \u0628\u064A\u0646 \u064A\u062F\u064A\u0643",
-    text: "\u062A\u0639\u0644\u0651\u0645 \u062F\u0631\u0648\u0633\u0643\u060C \u0648\u062A\u062F\u0631\u0651\u0628 \u0639\u0644\u0649 \u0623\u0633\u0626\u0644\u062A\u0647\u0627\u060C \u0648\u0627\u0633\u062A\u0639\u062F \u0644\u0644\u0627\u062E\u062A\u0628\u0627\u0631\u0627\u062A \u0627\u0644\u0648\u0632\u0627\u0631\u064A\u0629.",
-    tags: [
-      "\u062A\u0639\u0644\u0651\u0645",
-      "\u062A\u062F\u0631\u0651\u0628",
-      "\u0631\u0627\u062C\u0639",
-    ],
-    kind: "home",
+    text: "\u0634\u0631\u062D \u0648\u0627\u0636\u062D \u0644\u0643\u0644 \u062F\u0631\u0633\u060C \u0648\u062D\u0644 \u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u0643\u062A\u0627\u0628 \u062E\u0637\u0648\u0629 \u0628\u062E\u0637\u0648\u0629\u060C \u0648\u062A\u062F\u0631\u064A\u0628 \u064A\u062B\u0628\u0651\u062A \u0645\u0627 \u062A\u0639\u0644\u0651\u0645\u062A\u0647.",
   },
   {
-    title:
-      "\u0634\u0631\u062D \u0648\u062A\u0637\u0628\u064A\u0642 \u0644\u0643\u0644 \u062F\u0631\u0633",
-    text: "\u0627\u0641\u0647\u0645 \u062F\u0631\u0633\u0643 \u0628\u0634\u0631\u062D \u0648\u0627\u0636\u062D\u060C \u0648\u062A\u0639\u0644\u0651\u0645 \u062E\u0637\u0648\u0627\u062A \u062D\u0644 \u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u0643\u062A\u0627\u0628\u060C \u062B\u0645 \u0627\u062E\u062A\u0628\u0631 \u0641\u0647\u0645\u0643 \u0628\u0623\u0633\u0626\u0644\u0629 \u0625\u0636\u0627\u0641\u064A\u0629 \u062A\u062B\u0628\u0651\u062A \u0645\u0627 \u062A\u0639\u0644\u0651\u0645\u062A\u0647.",
-    tags: [
-      "\u0634\u0631\u062D \u0627\u0644\u062F\u0631\u0633",
-      "\u062D\u0644 \u0623\u0633\u0626\u0644\u0629 \u0627\u0644\u0643\u062A\u0627\u0628",
-      "\u062A\u062D\u0642\u0651\u0642 \u0645\u0646 \u0641\u0647\u0645\u0643",
-    ],
-    kind: "lesson",
-  },
-  {
-    title:
-      "\u0634\u0627\u0647\u062F \u0627\u0644\u062F\u0631\u0633 \u0641\u064A \u062E\u0631\u064A\u0637\u0629 \u0630\u0647\u0646\u064A\u0629",
-    text: "\u0627\u0631\u0628\u0637 \u0627\u0644\u0623\u0641\u0643\u0627\u0631 \u0628\u0628\u0639\u0636\u0647\u0627\u060C \u0648\u0627\u0641\u0647\u0645 \u0627\u0644\u0639\u0644\u0627\u0642\u0627\u062A \u0628\u064A\u0646\u0647\u0627\u060C \u0648\u0631\u0627\u062C\u0639 \u0623\u0647\u0645 \u0646\u0642\u0627\u0637 \u0627\u0644\u062F\u0631\u0633 \u0628\u0646\u0638\u0631\u0629 \u0648\u0627\u062D\u062F\u0629.",
-    tags: [
-      "\u0623\u0641\u0643\u0627\u0631 \u0645\u062A\u0631\u0627\u0628\u0637\u0629",
-      "\u0645\u0631\u0627\u062C\u0639\u0629 \u0623\u0633\u0647\u0644",
-    ],
-    kind: "map",
-  },
-  {
-    title:
-      "\u0627\u062F\u062E\u0644 \u0627\u0644\u0645\u0639\u0645\u0644\u2026 \u0648\u062C\u0631\u0651\u0628 \u0628\u0646\u0641\u0633\u0643",
-    text: "\u0645\u0639\u0645\u0644 \u0627\u0641\u062A\u0631\u0627\u0636\u064A \u0628\u064A\u0646 \u064A\u062F\u064A\u0643: \u062A\u0641\u0627\u0639\u0644 \u0645\u0639 \u0627\u0644\u062A\u062C\u0631\u0628\u0629\u060C \u0648\u0627\u0633\u062A\u0643\u0634\u0641 \u062E\u0637\u0648\u0627\u062A\u0647\u0627\u060C \u0648\u0631\u0627\u0642\u0628 \u0646\u062A\u0627\u0626\u062C\u0647\u0627.",
-    tags: [
-      "\u0627\u0633\u062A\u0643\u0634\u0641",
-      "\u062C\u0631\u0651\u0628",
-      "\u0644\u0627\u062D\u0638",
-    ],
-    kind: "lab",
-  },
-  {
-    title:
-      "\u062A\u062F\u0631\u0651\u0628 \u0639\u0644\u0649 \u0627\u0644\u0627\u062E\u062A\u0628\u0627\u0631\u0627\u062A \u0627\u0644\u0648\u0632\u0627\u0631\u064A\u0629",
-    text: "\u0639\u0650\u0634 \u062A\u062C\u0631\u0628\u0629 \u0627\u0644\u0627\u062E\u062A\u0628\u0627\u0631\u060C \u062B\u0645 \u0631\u0627\u062C\u0639 \u0625\u062C\u0627\u0628\u0627\u062A\u0643 \u0648\u0627\u0643\u062A\u0634\u0641 \u0645\u0627 \u062A\u062D\u062A\u0627\u062C \u0625\u0644\u0649 \u0645\u0631\u0627\u062C\u0639\u062A\u0647.",
-    tags: [
-      "\u0646\u0645\u0627\u0630\u062C \u0648\u0632\u0627\u0631\u064A\u0629",
-      "\u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0625\u062C\u0627\u0628\u0627\u062A",
-    ],
-    kind: "exam",
-  },
-  {
+    kind: "offline",
     title:
       "\u062A\u0639\u0644\u0651\u0645 \u062D\u062A\u0649 \u062F\u0648\u0646 \u0625\u0646\u062A\u0631\u0646\u062A",
-    text: "\u0646\u0632\u0651\u0644 \u062F\u0631\u0648\u0633\u0643 \u0648\u0627\u0644\u0645\u062D\u062A\u0648\u0649 \u0627\u0644\u0645\u062A\u0627\u062D \u0644\u0644\u062A\u0646\u0632\u064A\u0644 \u0648\u0623\u0646\u062A \u0645\u062A\u0635\u0644\u060C \u0648\u0648\u0627\u0635\u0644 \u0627\u0644\u062A\u0639\u0644\u0651\u0645 \u0639\u0646\u062F\u0645\u0627 \u064A\u0646\u0642\u0637\u0639 \u0627\u0644\u0625\u0646\u062A\u0631\u0646\u062A.",
-    tags: [
-      "\u0646\u0632\u0651\u0644 \u0645\u0633\u0628\u0642\u064B\u0627",
-      "\u0627\u0641\u062A\u062D \u0627\u0644\u0645\u062D\u062A\u0648\u0649 \u0627\u0644\u0645\u062D\u0641\u0648\u0638",
-    ],
-    kind: "offline",
+    text: "\u0646\u0632\u0651\u0644 \u062F\u0631\u0648\u0633\u0643 \u0648\u0623\u0646\u062A \u0645\u062A\u0635\u0644\u060C \u0648\u0648\u0627\u0635\u0644 \u0627\u0644\u062A\u0639\u0644\u0651\u0645 \u0639\u0646\u062F\u0645\u0627 \u064A\u0646\u0642\u0637\u0639 \u0627\u0644\u0625\u0646\u062A\u0631\u0646\u062A.",
+  },
+  {
+    kind: "practice",
+    title:
+      "\u062A\u062F\u0631\u0651\u0628 \u0648\u0627\u0639\u0631\u0641 \u0623\u062E\u0637\u0627\u0621\u0643",
+    text: "\u0627\u062E\u062A\u0628\u0631 \u0641\u0647\u0645\u0643 \u0628\u0639\u062F \u0643\u0644 \u062F\u0631\u0633\u060C \u0648\u0631\u0627\u062C\u0639 \u0623\u062E\u0637\u0627\u0621\u0643 \u0641\u064A \u062F\u0641\u062A\u0631 \u064A\u062C\u0645\u0639\u0647\u0627 \u0644\u0643\u060C \u0648\u062A\u062F\u0631\u0651\u0628 \u0639\u0644\u0649 \u0627\u0644\u0646\u0645\u0627\u0630\u062C \u0627\u0644\u0648\u0632\u0627\u0631\u064A\u0629.",
+  },
+  {
+    kind: "deeper",
+    title:
+      "\u0627\u0641\u0647\u0645 \u0623\u0639\u0645\u0642\u2026 \u0648\u062C\u0631\u0651\u0628 \u0628\u0646\u0641\u0633\u0643",
+    text: "\u062E\u0631\u0627\u0626\u0637 \u0630\u0647\u0646\u064A\u0629 \u062A\u0631\u0628\u0637 \u0623\u0641\u0643\u0627\u0631 \u0627\u0644\u062F\u0631\u0633\u060C \u0648\u0645\u0639\u0645\u0644 \u0627\u0641\u062A\u0631\u0627\u0636\u064A \u062A\u062A\u0641\u0627\u0639\u0644 \u0641\u064A\u0647 \u0645\u0639 \u0627\u0644\u062A\u062C\u0631\u0628\u0629 \u0648\u062A\u0631\u0649 \u0646\u062A\u0627\u0626\u062C\u0647\u0627.",
   },
 ];
 var art = {
-  home: '<rect x="76" y="30" width="208" height="214" rx="24" fill="white"/><rect x="96" y="52" width="168" height="32" rx="10" fill="#1e2a78"/><path d="M118 114h124M118 135h86"/><rect x="98" y="158" width="70" height="62" rx="12" fill="#cff5ef"/><rect x="192" y="158" width="70" height="62" rx="12" fill="#e5e8ff"/><path d="m119 191 10 10 22-25M211 180h31m-31 14h22"/>',
-  lesson:
-    '<path d="M180 65c-36-24-84-20-122-6v151c40-14 84-15 122 8 38-23 82-22 122-8V59c-38-14-86-18-122 6Z" fill="white"/><path d="M180 65v153M82 91h69m-69 24h69m-69 24h45m78-48h69m-69 24h69"/><circle cx="245" cy="173" r="30" fill="#cff5ef"/><path d="m230 173 10 11 23-26"/>',
-  map: '<path d="M180 133 91 64m89 69 89-69m-89 69-89 69m89-69 89 69" stroke="#06b6d4"/><rect x="125" y="106" width="110" height="54" rx="18" fill="#1e2a78"/><rect x="36" y="37" width="100" height="54" rx="16" fill="white"/><rect x="224" y="37" width="100" height="54" rx="16" fill="white"/><rect x="36" y="175" width="100" height="54" rx="16" fill="white"/><rect x="224" y="175" width="100" height="54" rx="16" fill="white"/><path d="M59 64h53m135 0h53M59 202h53m135 0h53"/>',
-  lab: '<rect x="36" y="211" width="288" height="18" rx="8" fill="#1e2a78"/><path d="M73 42v169m0-139h154m-31 0v28"/><path d="M184 99h27v38l43 57c6 10 0 17-12 17h-88c-12 0-18-7-12-17l42-57Z" fill="white"/><path d="m163 166-20 30c-3 6 0 10 8 10h92c8 0 11-4 8-10l-22-30Z" fill="#06b6d4" stroke="none"/><circle cx="187" cy="183" r="5" fill="white" stroke="none"/><circle cx="211" cy="193" r="7" fill="white" stroke="none"/><path d="M274 110h28v86c0 20-28 20-28 0Z" fill="white"/><path d="M276 155h24v39c0 15-24 15-24 0Z" fill="#a5b4fc" stroke="none"/><path d="M158 32h16m-8-8v16M292 54h16m-8-8v16" stroke="#06b6d4"/>',
-  exam: '<rect x="83" y="33" width="194" height="211" rx="20" fill="white"/><rect x="131" y="24" width="98" height="27" rx="10" fill="#1e2a78"/><path d="M118 79h124M153 112h89m-89 43h89m-89 43h89"/><circle cx="126" cy="111" r="12" fill="#cff5ef"/><circle cx="126" cy="155" r="12" fill="#cff5ef"/><circle cx="126" cy="198" r="12" fill="#e5e8ff"/><path d="m119 110 5 5 10-11m-15 50 5 5 10-11"/>',
+  brand:
+    '<rect x="103.2" y="29" width="153.6" height="153.6" rx="38.4" fill="#1E2A63" stroke="none"/><g transform="translate(103.2 29) scale(.3)"><path d="M140.516 269.938 L220.160 357.547 L371.484 190.293" fill="none" stroke="#FFFFFF" stroke-width="55.751"/><circle cx="160.427" cy="158.436" r="31.858" fill="#2FD0C5" stroke="none"/><circle cx="248.036" cy="158.436" r="31.858" fill="#FF7A6B" stroke="none"/></g><text x="180" y="234" text-anchor="middle" fill="#1E2A63" stroke="none" font-size="31.2" font-weight="700" font-family="system-ui,sans-serif">\u062A\u0645\u0643\u064A\u0646</text>',
   offline:
-    '<rect x="106" y="26" width="148" height="225" rx="24" fill="white"/><path d="M159 44h42"/><circle cx="180" cy="130" r="54" fill="#cff5ef" stroke="none"/><path d="M180 96v63m-23-23 23 23 23-23M151 182h58"/><circle cx="246" cy="196" r="27" fill="#1e2a78"/><path d="m234 196 8 8 17-20" stroke="white"/>',
+    '<rect x="106" y="26" width="148" height="225" rx="24" fill="white"/><path d="M159 44h42"/><circle cx="180" cy="130" r="54" fill="#cff5ef" stroke="none"/><path d="M180 96v63m-23-23 23 23 23-23M151 182h58"/><circle cx="246" cy="196" r="27" fill="#1E2A63"/><path d="m234 196 8 8 17-20" stroke="white"/>',
+  practice:
+    '<rect x="63" y="33" width="194" height="211" rx="20" fill="white"/><rect x="111" y="24" width="98" height="27" rx="10" fill="#1E2A63"/><path d="M98 79h124M133 112h89m-89 43h89m-89 43h89"/><circle cx="106" cy="111" r="12" fill="#cff5ef"/><circle cx="106" cy="155" r="12" fill="#ffe1dc"/><circle cx="106" cy="198" r="12" fill="#cff5ef"/><path d="m99 110 5 5 10-11m-15 93 5 5 10-11"/><path d="m100 149 12 12m0-12-12 12" stroke="#c2412f"/><rect x="236" y="120" width="88" height="112" rx="14" fill="#fff1ee"/><path d="M252 146h56M252 170h56M252 194h36" stroke="#c2412f"/><circle cx="312" cy="128" r="18" fill="#fb6050" stroke="none"/><path d="M312 119v11m0 7h.01" stroke="white" stroke-width="4.5"/>',
+  deeper:
+    '<path d="M88 135 56 72m32 63-32 63m32-63 64-63" stroke="#06b6d4"/><rect x="16" y="50" width="80" height="36" rx="12" fill="white"/><rect x="16" y="184" width="80" height="36" rx="12" fill="white"/><rect x="112" y="36" width="80" height="36" rx="12" fill="white"/><path d="M34 68h44M34 202h44M130 54h44"/><rect x="40" y="113" width="96" height="44" rx="15" fill="#1E2A63"/><rect x="196" y="225" width="148" height="14" rx="7" fill="#1E2A63"/><path d="M244 99h27v38l43 57c6 10 0 17-12 17h-88c-12 0-18-7-12-17l42-57Z" fill="white"/><path d="m223 166-20 30c-3 6 0 10 8 10h92c8 0 11-4 8-10l-22-30Z" fill="#06b6d4" stroke="none"/><circle cx="247" cy="183" r="5" fill="white" stroke="none"/><circle cx="271" cy="193" r="7" fill="white" stroke="none"/><path d="M300 52h16m-8-8v16M330 92h12m-6-6v12" stroke="#06b6d4"/>',
 };
 var css = `
-.tamkeen-intro{position:fixed;inset:0;z-index:1000;overflow:auto;background:#fbfaf7;color:#172041;font:16px/1.7 system-ui,sans-serif;direction:rtl;padding: max(16px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom));box-sizing:border-box}
-.tamkeen-intro *{box-sizing:border-box}.tamkeen-intro .intro-wrap{max-width:480px;margin:auto;min-height:calc(100dvh - 48px);display:flex;flex-direction:column}.tamkeen-intro button{font:inherit;cursor:pointer;min-height:44px;border:0;border-radius:14px}.tamkeen-intro .intro-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.tamkeen-intro .intro-skip{background:transparent;color:#626b86;padding:8px 14px}.tamkeen-intro .intro-stage{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;touch-action:pan-y pinch-zoom}.tamkeen-intro .intro-art{width:100%;max-height:34dvh;min-height:150px;border-radius:30px;background:radial-gradient(ellipse,#e6f6f8,#f0f1ff 70%,transparent);margin:18px auto}.tamkeen-intro h1{font-size:clamp(23px,6vw,30px);line-height:1.5;margin:0 0 12px;font-weight:800}.tamkeen-intro p{font-size:17px;color:#58617d;margin:0;line-height:1.9}.tamkeen-intro .intro-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:20px 0}.tamkeen-intro .intro-tags span{padding:7px 12px;border:1px solid #dce5ec;background:white;border-radius:12px;font-size:13px;color:#1e2a78}.tamkeen-intro .intro-dots{display:flex;justify-content:center;gap:2px;margin:8px 0}.tamkeen-intro .intro-dots button{width:36px;background:transparent;padding:12px}.tamkeen-intro .intro-dots i{display:block;height:8px;width:8px;background:#d5d9e6;border-radius:10px}.tamkeen-intro .intro-dots [aria-current=true] i{background:#1e2a78;width:16px}.tamkeen-intro .intro-actions{display:flex;gap:10px}.tamkeen-intro .intro-next{background:#1e2a78;color:white;flex:1;padding:12px 20px;font-weight:700}.tamkeen-intro .intro-prev{background:#eaeef7;color:#1e2a78;padding:12px 20px}.tamkeen-intro .intro-hint{font-size:12px;text-align:center;margin:8px 0}.tamkeen-intro .intro-warning{font-size:13px;color:#936900;margin:8px 0}.tamkeen-intro button:focus-visible{outline:3px solid #06b6d4;outline-offset:3px}
+.tamkeen-intro{position:fixed;inset:0;z-index:1000;overflow:auto;background:#FBFAF7;color:#172041;font:16px/1.7 system-ui,sans-serif;direction:rtl;padding: var(--intro-top-padding,max(24px,var(--safe-area-inset-top,env(safe-area-inset-top,0px)))) 20px max(24px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box}
+.tamkeen-intro *{box-sizing:border-box}.tamkeen-intro [hidden]{display:none!important}
+.tamkeen-intro .intro-wrap{max-width:480px;margin:auto;min-height:calc(100dvh - var(--intro-top-padding,max(24px,var(--safe-area-inset-top,env(safe-area-inset-top,0px)))) - max(24px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))));display:flex;flex-direction:column}
+.tamkeen-intro button{font:inherit;cursor:pointer;min-height:44px;border:0;border-radius:16px}
+.tamkeen-intro .intro-top{display:flex;justify-content:flex-end;min-height:44px;position:static;top:auto;z-index:auto;margin:0;padding:0;background:transparent;border:0;backdrop-filter:none}
+.tamkeen-intro .intro-skip{height:44px;border-radius:24px;background:#EEF0F7;color:#1E2A63;padding:8px 20px;font-size:15px;font-weight:600}
+.tamkeen-intro .intro-stage{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;touch-action:pan-y pinch-zoom;padding:24px 0}
+.tamkeen-intro .intro-art{display:block;width:300px;height:240px;max-width:100%;flex-shrink:0;border-radius:28px;background:#EEF0F8;margin:0 auto 28px}
+.tamkeen-intro h1{font-size:28px;line-height:1.5;margin:0 0 16px;font-weight:700}
+.tamkeen-intro p{font-size:17px;color:#4F5873;margin:0;line-height:1.9}
+.tamkeen-intro .intro-dots{display:flex;justify-content:center;gap:0;margin:8px 0 12px}
+.tamkeen-intro .intro-dots button{width:44px;height:44px;background:transparent;padding:0;display:flex;align-items:center;justify-content:center}
+.tamkeen-intro .intro-dots i{display:block;height:8px;width:8px;background:#C9CEDD;border-radius:10px}
+.tamkeen-intro .intro-dots [aria-current=true] i{background:#1E2A63;width:22px}
+.tamkeen-intro .intro-actions{display:flex;gap:10px}
+.tamkeen-intro .intro-actions button{min-height:54px}
+.tamkeen-intro .intro-next{background:#1E2A63;color:white;flex:1;padding:12px 20px;font-weight:700}
+.tamkeen-intro .intro-prev{background:#EEF0F7;color:#1E2A63;padding:12px 20px}
+.tamkeen-intro .intro-warning{font-size:13px;color:#765600;margin:8px 0}
+.tamkeen-intro .intro-warning:empty{display:none}
+.tamkeen-intro button:focus-visible{outline:3px solid #06b6d4;outline-offset:3px}
+@media(min-width:600px){.tamkeen-intro .intro-wrap{max-width:560px}.tamkeen-intro .intro-art{width:400px;height:320px}.tamkeen-intro h1{font-size:34px}.tamkeen-intro p{font-size:20px}.tamkeen-intro .intro-actions button{min-height:60px}}
 `;
 function mountStudentIntro(onComplete, replay = false) {
   const previousFocus = document.activeElement;
@@ -84,13 +65,27 @@ function mountStudentIntro(onComplete, replay = false) {
   const host = document.createElement("section");
   host.className = "tamkeen-intro";
   host.dir = "rtl";
+  const nativeBridge = window.Capacitor;
+  const android = navigator.userAgent.match(/Android\s+(\d+)/);
+  if (
+    nativeBridge?.isNativePlatform?.() &&
+    nativeBridge.getPlatform?.() === "android" &&
+    android &&
+    Number(android[1]) >= 15 &&
+    !document.documentElement.classList.contains("native-status-inset-consumed")
+  ) {
+    host.style.setProperty(
+      "--intro-top-padding",
+      "max(32px, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))",
+    );
+  }
   host.setAttribute("role", "dialog");
   host.setAttribute("aria-modal", "true");
   host.setAttribute(
     "aria-label",
     "\u062C\u0648\u0644\u0629 \u062A\u0639\u0631\u064A\u0641\u064A\u0629 \u0628\u062A\u0637\u0628\u064A\u0642 \u062A\u0645\u0643\u064A\u0646",
   );
-  host.innerHTML = `<style>${css}</style><div class="intro-wrap"><header class="intro-top"><strong>\u062A\u0645\u0643\u064A\u0646 \u0627\u0644\u0637\u0627\u0644\u0628</strong><button class="intro-skip">${replay ? "\u0625\u063A\u0644\u0627\u0642" : "\u062A\u062E\u0637\u064A"}</button></header><div class="intro-stage"></div><nav class="intro-dots" aria-label="\u0635\u0641\u062D\u0627\u062A \u0627\u0644\u062C\u0648\u0644\u0629"></nav><p class="intro-warning" role="status"></p><footer><div class="intro-actions"><button class="intro-prev">\u0627\u0644\u0633\u0627\u0628\u0642</button><button class="intro-next">\u0627\u0644\u062A\u0627\u0644\u064A</button></div><p class="intro-hint">\u0627\u0633\u062D\u0628 \u064A\u0645\u064A\u0646\u064B\u0627 \u0644\u0644\u0645\u062A\u0627\u0628\u0639\u0629 \u0623\u0648 \u0627\u0633\u062A\u062E\u062F\u0645 \u0632\u0631 \u0627\u0644\u062A\u0627\u0644\u064A</p></footer></div>`;
+  host.innerHTML = `<style>${css}</style><div class="intro-wrap"><header class="intro-top"><button class="intro-skip">${replay ? "\u0625\u063A\u0644\u0627\u0642" : "\u062A\u062E\u0637\u0651\u064A"}</button></header><div class="intro-stage"></div><nav class="intro-dots" aria-label="\u0635\u0641\u062D\u0627\u062A \u0627\u0644\u062C\u0648\u0644\u0629"></nav><p class="intro-warning" role="status"></p><footer><div class="intro-actions"><button class="intro-prev">\u0627\u0644\u0633\u0627\u0628\u0642</button><button class="intro-next">\u0627\u0644\u062A\u0627\u0644\u064A</button></div></footer></div>`;
   document.body.append(host);
   document.body.style.overflow = "hidden";
   const stage = host.querySelector(".intro-stage");
@@ -127,8 +122,10 @@ function mountStudentIntro(onComplete, replay = false) {
   }
   function render() {
     const slide = INTRO_SLIDES[index];
-    stage.innerHTML = `<svg class="intro-art" viewBox="0 0 360 270" aria-hidden="true" fill="none" stroke="#1e2a78" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">${art[slide.kind]}</svg><div aria-live="polite" aria-atomic="true"><h1>${slide.title}</h1><p>${slide.text}</p></div><div class="intro-tags">${slide.tags.map((tag) => `<span>${tag}</span>`).join("")}</div>`;
+    stage.innerHTML = `<svg class="intro-art" viewBox="0 0 360 270" aria-hidden="true" fill="none" stroke="#1E2A63" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">${art[slide.kind]}</svg><div aria-live="polite" aria-atomic="true"><h1>${slide.title}</h1><p>${slide.text}</p></div>`;
     prev.hidden = index === 0;
+    skip.hidden = !replay && index === INTRO_SLIDES.length - 1;
+    if (skip.hidden && document.activeElement === skip) next.focus();
     next.textContent =
       index === INTRO_SLIDES.length - 1
         ? replay

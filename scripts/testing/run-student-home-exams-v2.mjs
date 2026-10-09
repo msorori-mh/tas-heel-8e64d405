@@ -11,9 +11,13 @@ function walk(directory) {
         : [];
   });
 }
-const files = ["tests/student", "tests/student-audit", "tests/security", "tests/mobile"].flatMap(
-  walk,
-);
+const files = [
+  "tests/student",
+  "tests/student-audit",
+  "tests/security",
+  "tests/mobile",
+  "tests/onboarding",
+].flatMap(walk);
 const vitest = files.filter((path) => /from\s+["']vitest["']/.test(readFileSync(path, "utf8")));
 const node = files.filter((path) => !vitest.includes(path));
 console.log(

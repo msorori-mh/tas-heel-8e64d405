@@ -1,10 +1,15 @@
 name: Student home and exams v2 verification
 on:
   push:
-    branches: [ui/student-home-exams-v2]
+    branches: [ui/student-home-exams-v2, ui/student-home-exams-intro-v2]
   pull_request:
     branches: [main]
     paths:
+      - "src/lib/onboarding/**"
+      - "tests/onboarding/**"
+      - "mobile/www/student-intro.js"
+      - "mobile/www/index.html"
+      - "scripts/mobile/build-student-intro.mjs"
       - "src/components/home/**"
       - "src/routes/_authenticated/exams*"
       - "src/routes/_authenticated/admin.exam-schedule.tsx"
@@ -31,11 +36,13 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: node scripts/testing/run-student-home-exams-v2.mjs
+      - run: npm run build:student-intro -- --check
       - run: npm run test:mobile-release
       - run: npx vitest run tests/student/exam-countdown.test.ts tests/student/student-home-exams-v2.static.test.mjs tests/security/exam-schedule-rls.static.test.mjs tests/security/exam-schedule-rls.runtime.test.ts
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npx vite build --config tests/e2e/student-home-exams-v2/vite.config.ts
+      - run: node tests/onboarding/student-intro.browser.mjs
       - run: node tests/e2e/student-home-exams-v2/verify.mjs
       - run: node tests/e2e/student-home-exams-v2/prepare-baseline.mjs
       - run: UI_BASELINE=1 npx vite build --config tests/e2e/student-home-exams-v2/vite.config.ts
@@ -89,14 +96,24 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb install android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell cmd connectivity airplane-mode enable
+            adb shell svc wifi disable
+            adb shell svc data disable
             adb shell am start -n app.studentamkeen.tamkeen/.MainActivity
             sleep 20
             mkdir -p docs/ui/student-home-exams-v2
+            adb shell uiautomator dump /sdcard/tamkeen-intro.xml
+            adb pull /sdcard/tamkeen-intro.xml docs/ui/student-home-exams-v2/android-16-intro.xml
+            adb logcat -d -s Capacitor/Console chromium > docs/ui/student-home-exams-v2/android-16-intro-log.txt
             adb shell screencap -p /sdcard/tamkeen-status-bar.png
             adb pull /sdcard/tamkeen-status-bar.png docs/ui/student-home-exams-v2/android-16-status-bar.png
+            python -c "from pathlib import Path; xml=Path('docs/ui/student-home-exams-v2/android-16-intro.xml').read_text(); assert 'منهجك بين يديك' in xml, 'Bundled first-launch intro is missing'; assert 'تخطّي' in xml, 'Intro skip is missing'"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: tamkeen-home-exams-v2-native-status-bar
-          path: docs/ui/student-home-exams-v2/android-16-status-bar.png
+          path: |
+            docs/ui/student-home-exams-v2/android-16-status-bar.png
+            docs/ui/student-home-exams-v2/android-16-intro.xml
+            docs/ui/student-home-exams-v2/android-16-intro-log.txt
           if-no-files-found: warn

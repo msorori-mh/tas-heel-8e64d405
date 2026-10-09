@@ -13,7 +13,7 @@ function setup() {
   dom.window.document.querySelector<HTMLButtonElement>("#before")!.focus();
   return dom;
 }
-test("six pages advance, go back, finish once and restore focus", async () => {
+test("four pages advance, go back, finish once and restore focus", async () => {
   const dom = setup();
   let finished = 0;
   mountStudentIntro(async () => {
@@ -21,12 +21,12 @@ test("six pages advance, go back, finish once and restore focus", async () => {
   });
   assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[0].title);
   const next = document.querySelector<HTMLButtonElement>(".intro-next")!;
-  for (let i = 1; i < 6; i++) {
+  for (let i = 1; i < 4; i++) {
     next.click();
     assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[i].title);
   }
   document.querySelector<HTMLButtonElement>(".intro-prev")!.click();
-  assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[4].title);
+  assert.equal(document.querySelector("h1")!.textContent, INTRO_SLIDES[2].title);
   next.click();
   next.click();
   next.click();
@@ -127,4 +127,150 @@ test("bundled offline tour exactly matches shared source", async () => {
     filepath: outfile,
   });
   assert.equal(await readFile(outfile, "utf8"), formatted);
+  const embedded = await build({
+    entryPoints: ["src/lib/onboarding/student-intro.ts"],
+    bundle: true,
+    format: "iife",
+    globalName: "TamkeenStudentIntro",
+    target: "es2020",
+    write: false,
+  });
+  const inline = await format(embedded.outputFiles[0].text, {
+    ...(await resolveConfig(outfile)),
+    filepath: outfile,
+  });
+  const html = await readFile("mobile/www/index.html", "utf8");
+  assert.equal(
+    html.match(/<script id="tamkeen-student-intro-bundle">\n([\s\S]*?)<\/script>/)?.[1],
+    inline,
+  );
+  assert.ok(!html.includes("import { INTRO_KEY, mountStudentIntro }"));
+});
+
+test("four neutral pages put offline second and hide skip only on the last page", () => {
+  const dom = setup();
+  assert.deepEqual(
+    INTRO_SLIDES.map((slide) => slide.kind),
+    ["brand", "offline", "practice", "deeper"],
+  );
+  const dispose = mountStudentIntro(async () => {});
+  assert.equal(document.querySelector(".intro-tags, .intro-hint, .intro-top strong"), null);
+  const skip = document.querySelector<HTMLButtonElement>(".intro-skip")!;
+  assert.equal(skip.textContent, "تخطّي");
+  assert.equal(skip.hidden, false);
+  for (let i = 0; i < 3; i++) document.querySelector<HTMLButtonElement>(".intro-next")!.click();
+  assert.equal(skip.hidden, true);
+  assert.notEqual(document.activeElement, skip);
+  document.querySelector<HTMLButtonElement>(".intro-prev")!.click();
+  assert.equal(skip.hidden, false);
+  dispose();
+  const replay = mountStudentIntro(async () => {}, true);
+  for (let i = 0; i < 3; i++) document.querySelector<HTMLButtonElement>(".intro-next")!.click();
+  assert.equal(document.querySelector<HTMLButtonElement>(".intro-skip")!.hidden, false);
+  assert.equal(document.querySelector(".intro-next")!.textContent, "إنهاء الجولة");
+  replay();
+  dom.window.close();
+});
+
+test("tour source preserves the completion key and uses embedded assets without region names", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile("src/lib/onboarding/student-intro.ts", "utf8");
+  assert.ok(source.includes('"tamkeen.student-intro.v1"'));
+  assert.doesNotMatch(source, /صنعاء|عدن|intro-tags|intro-hint|تمكين الطالب/);
+  assert.doesNotMatch(source, /<img|https?:\/\//);
+});
+
+test("native edge-to-edge fallback does not add padding to older non-overlay shells", () => {
+  const dom = setup();
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: dom.window.navigator,
+  });
+  Object.assign(dom.window, {
+    Capacitor: { isNativePlatform: () => true, getPlatform: () => "android" },
+  });
+  try {
+    Object.defineProperty(dom.window.navigator, "userAgent", {
+      configurable: true,
+      value: "Android 16",
+    });
+    let dispose = mountStudentIntro(async () => {});
+    assert.ok(
+      document
+        .querySelector<HTMLElement>(".tamkeen-intro")!
+        .style.getPropertyValue("--intro-top-padding")
+        .includes("32px"),
+    );
+    dispose();
+    document.documentElement.classList.add("native-status-inset-consumed");
+    dispose = mountStudentIntro(async () => {});
+    assert.equal(
+      document
+        .querySelector<HTMLElement>(".tamkeen-intro")!
+        .style.getPropertyValue("--intro-top-padding"),
+      "",
+    );
+    dispose();
+    document.documentElement.classList.remove("native-status-inset-consumed");
+    Object.defineProperty(dom.window.navigator, "userAgent", {
+      configurable: true,
+      value: "Android 14",
+    });
+    dispose = mountStudentIntro(async () => {});
+    assert.equal(
+      document
+        .querySelector<HTMLElement>(".tamkeen-intro")!
+        .style.getPropertyValue("--intro-top-padding"),
+      "",
+    );
+    dispose();
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    dom.window.close();
+  }
+});
+
+test("bundled first launch registers Preferences before deciding whether to show the tour", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const html = await readFile("mobile/www/index.html", "utf8");
+  const start = html.indexOf("      (async () => {");
+  const code = html.slice(start, html.indexOf("</script>", start));
+  const run = new Function("window", `return ${code.trim()}`);
+  for (const returning of [false, true]) {
+    let mounted = 0,
+      saved = 0,
+      registered = "";
+    const preferences = {
+      get: async () => ({ value: returning ? "done" : null }),
+      set: async ({ key, value }: { key: string; value: string }) => {
+        assert.equal(key, "tamkeen.student-intro.v1");
+        assert.equal(value, "done");
+        saved++;
+      },
+    };
+    let finish: (() => Promise<void>) | undefined;
+    await run({
+      TamkeenStudentIntro: {
+        INTRO_KEY: "tamkeen.student-intro.v1",
+        mountStudentIntro: (onComplete: () => Promise<void>) => {
+          mounted++;
+          finish = onComplete;
+        },
+      },
+      Capacitor: {
+        Plugins: {},
+        registerPlugin: (name: string) => {
+          registered = name;
+          return preferences;
+        },
+      },
+    });
+    assert.equal(registered, "Preferences");
+    assert.equal(mounted, returning ? 0 : 1);
+    if (finish) {
+      await finish();
+      assert.equal(saved, 1);
+    }
+  }
 });
