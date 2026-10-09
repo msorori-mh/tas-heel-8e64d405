@@ -112,7 +112,7 @@ export function LessonCapabilityTabs({
     requestAnimationFrame(() => {
       document
         .getElementById(`lesson-tab-${type}`)
-        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
       window.scrollTo({
         top:
           positions.current[type] ??
