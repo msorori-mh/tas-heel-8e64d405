@@ -127,6 +127,24 @@ test("bundled offline tour exactly matches shared source", async () => {
     filepath: outfile,
   });
   assert.equal(await readFile(outfile, "utf8"), formatted);
+  const embedded = await build({
+    entryPoints: ["src/lib/onboarding/student-intro.ts"],
+    bundle: true,
+    format: "iife",
+    globalName: "TamkeenStudentIntro",
+    target: "es2020",
+    write: false,
+  });
+  const inline = await format(embedded.outputFiles[0].text, {
+    ...(await resolveConfig(outfile)),
+    filepath: outfile,
+  });
+  const html = await readFile("mobile/www/index.html", "utf8");
+  assert.equal(
+    html.match(/<script id="tamkeen-student-intro-bundle">\n([\s\S]*?)<\/script>/)?.[1],
+    inline,
+  );
+  assert.ok(!html.includes("import { INTRO_KEY, mountStudentIntro }"));
 });
 
 test("four neutral pages put offline second and hide skip only on the last page", () => {

@@ -34,8 +34,8 @@ cannot be verified here; emulator evidence is tracked separately.
 - `npm run build`: passed before main refresh; CI repeats on final head.
 - `npm run lint`: zero errors, 44 existing warnings before main refresh.
 - Intro unit/gate checks: 16 passing.
-- Mobile release checks: 136 passing before main refresh.
-- Student/security/mobile/onboarding inventory: mixed Vitest and node:test
+- Mobile release checks: 136 passing.
+- Student/security/mobile/onboarding inventory: 386 Vitest checks + 64 node:test checks;
   files are all run by `scripts/testing/run-student-home-exams-v2.mjs`.
 - The browser check blocks all network requests, verifies four pages, skip
   state, touch target sizes and completion at 320×568, 390×844, 800×1280,
@@ -46,6 +46,11 @@ cannot be verified here; emulator evidence is tracked separately.
   plugin has not already been exposed. Previously it could skip the tour
   when the plugin proxy was absent despite native Preferences being installed.
   A unit check covers both new and returning device preferences.
+- The legacy errorPath serves the HTML locally but proxies sibling script URLs
+  to the remote origin. The tour is therefore generated inline in that entry;
+  build --check and the parity unit test verify both ESM and embedded output.
+  The browser check also exercises that exact embedded entry with all requests
+  blocked, rather than merely testing an independently bundled source.
 - The native check asserts the intro title and Skip in the accessibility dump,
   installs the APK and opens its bundled intro in airplane
   mode, avoiding the previously deployed remote tour.

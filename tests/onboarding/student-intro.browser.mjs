@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { build } from "esbuild";
 
@@ -12,6 +12,12 @@ const bundle = await build({
   globalName: "StudentIntro",
   write: false,
 });
+const offlineHtml = await readFile("mobile/www/index.html", "utf8");
+const inlineTour = offlineHtml.match(
+  /<script id="tamkeen-student-intro-bundle">([\s\S]*?)<\/script>/,
+)?.[1];
+assert.ok(inlineTour, "offline entry contains its own tour code");
+assert.ok(!offlineHtml.includes("import { INTRO_KEY, mountStudentIntro }"));
 const browser = await chromium.launch({
   ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
     ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
@@ -77,6 +83,32 @@ try {
     assert.deepEqual(requests, []);
     await page.close();
   }
+  // Exercise the actual embedded entry, including a native bridge without
+  // an already registered Preferences proxy. No script request is possible.
+  const entry = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const requests = [];
+  entry.on("request", (request) => requests.push(request.url()));
+  await entry.route("**/*", (route) => route.abort());
+  await entry.setContent('<html lang="ar" dir="rtl"><body></body></html>');
+  await entry.evaluate(() => {
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => "android",
+      Plugins: {},
+      registerPlugin: () => ({ get: async () => ({ value: null }), set: async () => {} }),
+    };
+  });
+  await entry.addScriptTag({ content: inlineTour });
+  const bootstrap = offlineHtml.slice(
+    offlineHtml.indexOf(
+      "      const { INTRO_KEY, mountStudentIntro } = window.TamkeenStudentIntro;",
+    ),
+    offlineHtml.lastIndexOf("</script>"),
+  );
+  await entry.addScriptTag({ content: bootstrap });
+  await entry.getByRole("heading", { name: "منهجك بين يديك", exact: true }).waitFor();
+  assert.deepEqual(requests, []);
+  await entry.close();
   console.log(
     "PASS: four Arabic pages, offline network isolation, touch targets, skip state, mobile/tablet/landscape layouts and completion.",
   );
