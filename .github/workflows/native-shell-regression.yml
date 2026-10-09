@@ -4,6 +4,11 @@ on:
     branches: [fix/independent-offline-cold-start-20261009]
   pull_request:
     paths:
+      - "src/lib/auth/**"
+      - "src/hooks/use-workspace-home.ts"
+      - "src/routes/auth*.tsx"
+      - "src/components/mobile/NativeAuthDeepLinkHandler.tsx"
+      - "tests/mobile/*auth*"
       - "src/integrations/supabase/**"
       - "src/routes/__root.tsx"
       - "vite.independent.config.ts"
@@ -41,6 +46,8 @@ jobs:
           packages: platform-tools
       - run: npm ci
       - run: npm run test:independent
+      - name: Student and teacher OAuth routing regression
+        run: npx vitest run tests/mobile/native-auth-callback.runtime.test.tsx tests/mobile/student-auth-callback-routing.test.tsx tests/mobile/shared-auth-pkce-runtime.test.ts
       - run: npx tsc --noEmit
       - run: npm run build:independent
       - run: node scripts/independent/package-native-shell.mjs

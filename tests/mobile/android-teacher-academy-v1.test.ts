@@ -62,7 +62,8 @@ describe("Android teacher academy V1", () => {
     expect(academy).toContain('setNativeAuthDestination("teacher")');
     expect(academy).toContain("NATIVE_OAUTH_REDIRECT_URL");
     expect(academy).toContain("openNativeAuthBrowser(data.url)");
-    expect(handler).toContain('window.location.replace("/academy")');
+    expect(handler).toContain('navigate({ to: "/academy", replace: true })');
+    expect(handler).not.toContain("window.location.replace");
     expect(root.match(/<NativeAuthDeepLinkHandler \/>/g)?.length).toBe(1);
   });
 
