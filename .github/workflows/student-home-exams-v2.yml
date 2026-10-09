@@ -100,6 +100,9 @@ jobs:
             adb shell am start -n app.studentamkeen.tamkeen/.MainActivity
             sleep 20
             mkdir -p docs/ui/student-home-exams-v2
+            adb shell uiautomator dump /sdcard/tamkeen-intro.xml
+            adb pull /sdcard/tamkeen-intro.xml docs/ui/student-home-exams-v2/android-16-intro.xml
+            python -c "from pathlib import Path; xml=Path('docs/ui/student-home-exams-v2/android-16-intro.xml').read_text(); assert 'منهجك بين يديك' in xml, 'Bundled first-launch intro is missing'; assert 'تخطّي' in xml, 'Intro skip is missing'"
             adb shell screencap -p /sdcard/tamkeen-status-bar.png
             adb pull /sdcard/tamkeen-status-bar.png docs/ui/student-home-exams-v2/android-16-status-bar.png
       - uses: actions/upload-artifact@v4

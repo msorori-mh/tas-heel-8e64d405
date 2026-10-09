@@ -212,3 +212,52 @@ test("native edge-to-edge fallback does not add padding to older non-overlay she
     dom.window.close();
   }
 });
+
+test("bundled first launch registers Preferences before deciding whether to show the tour", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const html = await readFile("mobile/www/index.html", "utf8");
+  const start = html.indexOf("      const bridge = window.Capacitor;");
+  const code = html.slice(start, html.indexOf("</script>", start));
+  const run = new Function(
+    "window",
+    "INTRO_KEY",
+    "mountStudentIntro",
+    `return (async () => {${code}})()`,
+  );
+  for (const returning of [false, true]) {
+    let mounted = 0,
+      saved = 0,
+      registered = "";
+    const preferences = {
+      get: async () => ({ value: returning ? "done" : null }),
+      set: async ({ key, value }: { key: string; value: string }) => {
+        assert.equal(key, "tamkeen.student-intro.v1");
+        assert.equal(value, "done");
+        saved++;
+      },
+    };
+    let finish: (() => Promise<void>) | undefined;
+    await run(
+      {
+        Capacitor: {
+          Plugins: {},
+          registerPlugin: (name: string) => {
+            registered = name;
+            return preferences;
+          },
+        },
+      },
+      "tamkeen.student-intro.v1",
+      (onComplete: () => Promise<void>) => {
+        mounted++;
+        finish = onComplete;
+      },
+    );
+    assert.equal(registered, "Preferences");
+    assert.equal(mounted, returning ? 0 : 1);
+    if (finish) {
+      await finish();
+      assert.equal(saved, 1);
+    }
+  }
+});

@@ -983,7 +983,8 @@
     </script>
     <script type="module">
       import { INTRO_KEY, mountStudentIntro } from "./student-intro.js";
-      const preferences = window.Capacitor?.Plugins?.Preferences;
+      const bridge = window.Capacitor;
+      const preferences = bridge?.Plugins?.Preferences ?? bridge?.registerPlugin?.("Preferences");
       if (preferences) {
         let done = false;
         try { done = (await preferences.get({ key: INTRO_KEY })).value === "done"; } catch {}

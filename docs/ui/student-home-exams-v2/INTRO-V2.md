@@ -33,7 +33,7 @@ cannot be verified here; emulator evidence is tracked separately.
 - `npx tsc --noEmit`: passed before main refresh; CI repeats on final head.
 - `npm run build`: passed before main refresh; CI repeats on final head.
 - `npm run lint`: zero errors, 44 existing warnings before main refresh.
-- Intro unit/gate checks: 15 passing.
+- Intro unit/gate checks: 16 passing.
 - Mobile release checks: 136 passing before main refresh.
 - Student/security/mobile/onboarding inventory: mixed Vitest and node:test
   files are all run by `scripts/testing/run-student-home-exams-v2.mjs`.
@@ -42,7 +42,12 @@ cannot be verified here; emulator evidence is tracked separately.
   and 844×390. Images are `intro-<width>-page-<n>.png` in this directory.
 - Local Chromium crashes before page creation; browser verification runs
   in GitHub Actions. Local Java cannot load libjli; APK builds run in CI.
-- The native check installs the APK and opens its bundled intro in airplane
+- The bundled first-launch entry registers the Preferences bridge if the
+  plugin has not already been exposed. Previously it could skip the tour
+  when the plugin proxy was absent despite native Preferences being installed.
+  A unit check covers both new and returning device preferences.
+- The native check asserts the intro title and Skip in the accessibility dump,
+  installs the APK and opens its bundled intro in airplane
   mode, avoiding the previously deployed remote tour.
 
 The existing exam-schedule migration needs the project owner's approval
