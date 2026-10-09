@@ -1,10 +1,12 @@
+import { getIndependentConnectivity } from "@/lib/network/independent-connectivity";
+import { HTTPS_CALLBACK_ORIGIN } from "@/lib/auth/native-oauth";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { brokeredPreviewStorage } from "./previewAuthStorage";
 import { persistentAuthStorage } from "./nativeAuthStorage";
 import { PUBLIC_SUPABASE_PUBLISHABLE_KEY, PUBLIC_SUPABASE_URL } from "./public-config";
 
-const ANDROID_BROWSER_CALLBACK_ORIGIN = "https://studentamkeen.com";
+const ANDROID_BROWSER_CALLBACK_ORIGIN = HTTPS_CALLBACK_ORIGIN;
 const ANDROID_BROWSER_CALLBACK_PATH = "/auth/mobile-callback";
 
 /**
@@ -37,12 +39,13 @@ function createSupabaseClient() {
       ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
       ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Connect Supabase in Lovable Cloud.`;
+    const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Configure the Supabase environment for this deployment.`;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    global: { fetch: getIndependentConnectivity()?.fetch },
     auth: {
       // Native Android uses application-owned Preferences so a killed and
       // recreated WebView can still restore and refresh the previous session.

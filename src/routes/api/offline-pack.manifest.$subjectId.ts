@@ -396,7 +396,7 @@ export const Route = createFileRoute("/api/offline-pack/manifest/$subjectId")({
     handlers: {
       GET: ({ request, params }) =>
         withOfflineManifestCapacity(
-          (signal) => handle(new Request(request, { signal }), params.subjectId),
+          (signal) => handle(new Request(request.clone(), { signal }), params.subjectId),
           request.signal,
         ),
     },

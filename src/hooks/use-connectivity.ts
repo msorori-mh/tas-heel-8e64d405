@@ -1,3 +1,7 @@
+import {
+  getIndependentConnectivity,
+  updateIndependentNativeNetwork,
+} from "@/lib/network/independent-connectivity";
 import { useEffect, useSyncExternalStore } from "react";
 import { onlineManager } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
@@ -7,6 +11,36 @@ let installed = false;
 export function initializeConnectivity() {
   if (installed || typeof window === "undefined") return;
   installed = true;
+  const reachability = getIndependentConnectivity();
+  if (reachability) {
+    onlineManager.setOnline(reachability.isOnline());
+    onlineManager.setEventListener((setOnline) => {
+      const unsubscribe = reachability.subscribe(setOnline);
+      let disposed = false;
+      let removeNative: (() => Promise<void>) | undefined;
+      if (Capacitor.isNativePlatform())
+        void import("@capacitor/network")
+          .then(async ({ Network }) => {
+            const listener = await Network.addListener("networkStatusChange", (status) => {
+              if (!disposed) updateIndependentNativeNetwork(status.connected);
+            });
+            if (disposed) {
+              await listener.remove();
+              return;
+            }
+            removeNative = () => listener.remove();
+            const status = await Network.getStatus();
+            if (!disposed) updateIndependentNativeNetwork(status.connected);
+          })
+          .catch(() => undefined);
+      return () => {
+        disposed = true;
+        unsubscribe();
+        void removeNative?.();
+      };
+    });
+    return;
+  }
   onlineManager.setOnline(navigator.onLine);
   onlineManager.setEventListener((setOnline) => {
     let disposed = false;
