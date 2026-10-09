@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.webkit.WebView;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import java.io.File;
@@ -70,14 +72,49 @@ public class NativeShellOfflineTest {
             result = value.get();
             if (focused.get() && result.contains("\\\"home\\\":true") && result.contains("\\\"logo\\\":true")
                     && result.contains("\\\"legacy\\\":false")) {
+                // JS completion can precede the compositor's first visible frame.
+                // A passing DOM must never produce a blank screenshot as evidence.
+                CountDownLatch painted = new CountDownLatch(1);
+                instrumentation.runOnMainSync(() -> activity.getBridge().getWebView()
+                        .postVisualStateCallback(0, new WebView.VisualStateCallback() {
+                            @Override public void onComplete(long id) { painted.countDown(); }
+                        }));
+                assertTrue("WebView did not submit its visual state", painted.await(5, TimeUnit.SECONDS));
+                instrumentation.waitForIdleSync();
+                Thread.sleep(150);
+                Bitmap screenshot = instrumentation.getUiAutomation().takeScreenshot();
+                if (!hasPaintedContent(screenshot)) {
+                    screenshot.recycle();
+                    Thread.sleep(250);
+                    continue;
+                }
                 File image = new File(context.getExternalFilesDir(null), "offline-" + phase + ".png");
                 try (FileOutputStream out = new FileOutputStream(image)) {
-                    instrumentation.getUiAutomation().takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, out);
+                    screenshot.compress(Bitmap.CompressFormat.PNG, 100, out);
                 }
+                screenshot.recycle();
                 return;
             }
             Thread.sleep(250);
         }
         fail("Offline React home did not load: " + result);
+    }
+
+    private boolean hasPaintedContent(Bitmap image) {
+        if (image == null) return false;
+        int bandsWithText = 0;
+        // Exclude system bars. Require dark content in several separated bands,
+        // so neither an empty surface nor a centered launch logo passes.
+        for (int band = 2; band < 8; band++) {
+            int darkPixels = 0;
+            for (int y = image.getHeight() * band / 10; y < image.getHeight() * (band + 1) / 10; y += 8) {
+                for (int x = image.getWidth() / 12; x < image.getWidth() * 11 / 12; x += 8) {
+                    int pixel = image.getPixel(x, y);
+                    if (Color.red(pixel) < 150 && Color.green(pixel) < 150 && Color.blue(pixel) < 180) darkPixels++;
+                }
+            }
+            if (darkPixels > 15) bandsWithText++;
+        }
+        return bandsWithText >= 3;
     }
 }
