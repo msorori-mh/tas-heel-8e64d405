@@ -3,6 +3,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
+  CalendarClock,
   Users,
   BookOpen,
   CreditCard,
@@ -45,6 +46,7 @@ type LinkItem = {
     | "/admin/questions"
     | "/admin/exam-templates"
     | "/admin/ministerial-exams"
+    | "/admin/exam-schedule"
     | "/admin/import"
     | "/admin/learning-insights/mistakes"
     | "/admin/learning-insights/performance"
@@ -72,6 +74,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/academic", label: "اكتمال المحتوى", icon: BookOpen },
   { href: "/admin/import", label: "استيراد المحتوى", icon: FileSpreadsheet },
   { href: "/admin/ministerial-exams", label: "النماذج الوزارية", icon: ClipboardList },
+  { href: "/admin/exam-schedule", label: "مواعيد الاختبارات", icon: CalendarClock },
   { href: "/admin/learning-insights/mistakes", label: "تحليلات الأخطاء", icon: TrendingDown },
   { href: "/admin/learning-insights/performance", label: "تحليل الأداء الموحد", icon: BarChart3 },
   {

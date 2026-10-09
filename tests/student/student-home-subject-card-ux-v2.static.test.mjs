@@ -41,7 +41,9 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
   });
 
   it("fills the learning-tools row without leaving an empty fourth column", () => {
-    expect(tools).toContain("repeat(auto-fit,minmax(220px,1fr))");
+    expect(tools).toContain("divide-y divide-border");
+    expect(tools).toContain("min-h-16");
+    expect(tools).toContain("h-10 w-10");
     expect(navTile).toContain("min-h-20");
     expect(navTile).toContain("text-[15px]");
   });

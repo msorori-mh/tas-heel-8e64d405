@@ -52,9 +52,18 @@ try {
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("link", { name: "مغادرة الاختبار" }).click();
   assert.equal(new URL(page.url()).pathname, "/ministerial-exams/sessions/demo");
+  // Mobile account actions moved to settings; retain the sign-out navigation
+  // guard coverage through the unchanged, visible desktop sidebar action.
+  assert.equal(
+    await page.locator('.student-shell-header button[aria-label="تسجيل الخروج"]').count(),
+    0,
+  );
+  assert.equal(await page.locator('.student-shell-header a[href="/academy"]').count(), 0);
+  await page.setViewportSize({ width: 1280, height: 820 });
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).last().click();
   assert.equal(new URL(page.url()).pathname, "/ministerial-exams/sessions/demo");
+  await page.setViewportSize({ width: 390, height: 820 });
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("link", { name: "مغادرة الاختبار" }).click();
   await page.waitForURL("**/app");

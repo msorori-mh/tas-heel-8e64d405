@@ -1,0 +1,102 @@
+name: Student home and exams v2 verification
+on:
+  push:
+    branches: [ui/student-home-exams-v2]
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/components/home/**"
+      - "src/routes/_authenticated/exams*"
+      - "src/routes/_authenticated/admin.exam-schedule.tsx"
+      - "tests/e2e/student-home-exams-v2/**"
+      - ".github/workflows/student-home-exams-v2.yml"
+permissions:
+  contents: read
+concurrency:
+  group: student-home-exams-v2-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: node scripts/testing/run-student-home-exams-v2.mjs
+      - run: npm run test:mobile-release
+      - run: npx vitest run tests/student/exam-countdown.test.ts tests/student/student-home-exams-v2.static.test.mjs tests/security/exam-schedule-rls.static.test.mjs tests/security/exam-schedule-rls.runtime.test.ts
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx vite build --config tests/e2e/student-home-exams-v2/vite.config.ts
+      - run: node tests/e2e/student-home-exams-v2/verify.mjs
+      - run: node tests/e2e/student-home-exams-v2/prepare-baseline.mjs
+      - run: UI_BASELINE=1 npx vite build --config tests/e2e/student-home-exams-v2/vite.config.ts
+      - run: UI_BASELINE=1 node tests/e2e/student-home-exams-v2/verify.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: student-home-exams-v2-${{ github.sha }}
+          path: docs/ui/student-home-exams-v2/
+          if-no-files-found: error
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm ci
+      - run: npx cap sync android
+      - run: ./gradlew assembleDebug
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tamkeen-home-exams-v2-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Enable KVM for the native verification emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and inspect native status bar on Android 16
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 300
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n app.studentamkeen.tamkeen/.MainActivity
+            sleep 20
+            mkdir -p docs/ui/student-home-exams-v2
+            adb shell screencap -p /sdcard/tamkeen-status-bar.png
+            adb pull /sdcard/tamkeen-status-bar.png docs/ui/student-home-exams-v2/android-16-status-bar.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tamkeen-home-exams-v2-native-status-bar
+          path: docs/ui/student-home-exams-v2/android-16-status-bar.png
+          if-no-files-found: warn

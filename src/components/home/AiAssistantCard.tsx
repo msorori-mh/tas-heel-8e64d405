@@ -12,7 +12,7 @@ type DailySuggestion =
       to: "/semesters" | "/exams" | "/my-mistakes" | "/quick-review";
     };
 
-function buildDailySuggestion(items: ContinueItem[], stats?: HomeStats): DailySuggestion {
+export function buildDailySuggestion(items: ContinueItem[], stats?: HomeStats): DailySuggestion {
   const weak = items.find((item) => item.quizScore != null && item.quizScore < 60);
   if (weak) {
     return {
@@ -69,7 +69,7 @@ export function AiAssistantCard({ items, stats }: { items: ContinueItem[]; stats
 
   return (
     <section aria-label="اقتراح اليوم" className="flex h-full flex-col">
-      <div className="flex h-full flex-col rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-4 shadow-sm sm:p-5">
+      <div className="flex h-full flex-col rounded-2xl border border-primary/15 bg-card p-4 shadow-sm sm:p-5">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Lightbulb className="h-5 w-5" />

@@ -1,0 +1,44 @@
+[
+  {
+    "name": "home-new",
+    "width": 390,
+    "height": 844,
+    "errors": [],
+    "overflow": false
+  },
+  {
+    "name": "home-returning",
+    "width": 390,
+    "height": 844,
+    "errors": [],
+    "overflow": false
+  },
+  {
+    "name": "exams",
+    "width": 390,
+    "height": 844,
+    "errors": [],
+    "overflow": false
+  },
+  {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900,
+    "errors": [],
+    "overflow": false
+  },
+  {
+    "name": "narrow",
+    "width": 360,
+    "height": 844,
+    "errors": [],
+    "overflow": false
+  },
+  {
+    "name": "wide-phone",
+    "width": 412,
+    "height": 844,
+    "errors": [],
+    "overflow": false
+  }
+]
