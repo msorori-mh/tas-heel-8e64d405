@@ -32,6 +32,7 @@
     "build:student-intro": "node scripts/mobile/build-student-intro.mjs",
     "test:student-intro": "vitest run tests/onboarding",
     "build:independent": "vite build --config vite.independent.config.ts",
+    "test:native-shell": "node tests/mobile/native-shell-cold-start.mjs",
     "start:independent": "node scripts/independent/start.mjs",
     "test:independent": "node --import tsx --test tests/independent/*.test.* && vitest run tests/mobile/independent-staging-auth.runtime.test.ts"
   },
@@ -112,6 +113,7 @@
     "@capacitor/cli": "^8.5.0",
     "@electric-sql/pglite": "0.5.8",
     "@eslint/js": "^9.32.0",
+    "@fontsource/cairo": "5.3.0",
     "@lovable.dev/vite-tanstack-config": "2.23.1",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^22.16.5",

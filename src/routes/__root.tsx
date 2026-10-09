@@ -157,12 +157,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap",
-      },
+      ...(import.meta.env.VITE_NATIVE_SHELL === "true"
+        ? [{ rel: "stylesheet", href: "/native-shell/fonts/cairo.css" }]
+        : [
+            { rel: "preconnect", href: "https://fonts.googleapis.com" },
+            {
+              rel: "preconnect",
+              href: "https://fonts.gstatic.com",
+              crossOrigin: "anonymous" as const,
+            },
+            {
+              rel: "stylesheet",
+              href: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap",
+            },
+          ]),
     ],
     scripts: [
       {
@@ -201,6 +209,14 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" dir="rtl">
       <head>
+        {import.meta.env.VITE_NATIVE_SHELL === "true" && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                'if(location.pathname==="/index.html"||location.pathname==="/"){history.replaceState(null,"","/app")}',
+            }}
+          />
+        )}
         <HeadContent />
       </head>
       <body>
