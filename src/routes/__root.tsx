@@ -208,6 +208,14 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" dir="rtl">
       <head>
+        {import.meta.env.VITE_NATIVE_SHELL === "true" && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                'if(location.pathname==="/index.html"||location.pathname==="/"){history.replaceState(null,"","/app")}',
+            }}
+          />
+        )}
         <HeadContent />
       </head>
       <body>

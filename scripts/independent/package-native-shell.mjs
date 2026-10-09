@@ -54,12 +54,9 @@ for (const weight of [400, 600, 700, 800]) {
 writeFileSync(resolve(output, "native-shell/fonts/cairo.css"), fontCss);
 assets["/native-shell/fonts/cairo.css"] = createHash("sha256").update(fontCss).digest("hex");
 cpSync(resolve(fontPackage, "LICENSE"), resolve(output, "native-shell/fonts/LICENSE.txt"));
-// The error document is an entry point into the SAME React routes as the online
-// app. Replace its synthetic /index.html URL before TanStack hydrates the shell.
-const html = shell.replace(
-  "<head>",
-  '<head><script>if(location.pathname==="/index.html"||location.pathname==="/"){history.replaceState(null,"","/app")}</script>',
-);
+// RootShell owns the entry bootstrap so the HTML and React hydration tree match.
+// Never inject unowned markup into the generated document.
+const html = shell;
 writeFileSync(resolve(output, "index.html"), html);
 assets["/index.html"] = createHash("sha256").update(html).digest("hex");
 writeFileSync(
