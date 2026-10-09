@@ -7,7 +7,7 @@ import { createServiceReachability } from "./service-reachability";
 let service: ReturnType<typeof createServiceReachability> | undefined;
 let nativeConnected: boolean | undefined;
 export function getIndependentConnectivity() {
-  if (import.meta.env.VITE_INDEPENDENT_STAGING !== "true" || typeof window === "undefined")
+  if (import.meta.env?.VITE_INDEPENDENT_STAGING !== "true" || typeof window === "undefined")
     return undefined;
   if (!service) {
     service = createServiceReachability({

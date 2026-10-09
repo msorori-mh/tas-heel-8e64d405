@@ -1,6 +1,6 @@
 /** No account data or server secret is exposed by this deployment proof. */
 export function independentResponse(response: Response) {
-  if (import.meta.env.VITE_INDEPENDENT_STAGING !== "true") return response;
+  if (import.meta.env?.VITE_INDEPENDENT_STAGING !== "true") return response;
   const headers = new Headers(response.headers);
   headers.set("X-Tamkeen-Environment", "independent-staging");
   headers.set("X-Robots-Tag", "noindex, nofollow");
