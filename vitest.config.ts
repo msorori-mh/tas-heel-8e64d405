@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath, URL } from "node:url";
 
-// Keep unit tests independent from the production Lovable/TanStack Vite
+// Keep unit tests independent from the production TanStack Vite
 // configuration. Loading that build configuration starts build-only plugins
 // which leave open handles after otherwise successful test files.
 export default defineConfig({

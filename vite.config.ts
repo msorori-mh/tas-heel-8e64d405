@@ -1,42 +1,44 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, nitro (build-only using cloudflare as a default target),
-//     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
-//     error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { defineConfig, loadEnv } from "vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import tsconfigPaths from "vite-tsconfig-paths";
+import { nitro } from "nitro/vite";
 import { buildRelease } from "./scripts/release/build-release";
 
 const { sourceManifest, ...release } = buildRelease(process.cwd());
 
-export default defineConfig({
-  vite: {
-    plugins: [
-      {
-        name: "tamkeen-release-proof",
-        apply: "build",
-        generateBundle() {
-          this.emitFile({
-            type: "asset",
-            fileName: `release-source-${release.sourceSha256}.json`,
-            source: JSON.stringify(sourceManifest),
-          });
-        },
+// The original deployment target and public database configuration remain intact.
+// The independent Node deployment uses vite.independent.config.ts explicitly.
+export default defineConfig(({ mode, command }) => ({
+  plugins: [
+    tsconfigPaths(),
+    tailwindcss(),
+    tanstackStart({ server: { entry: "server" } }),
+    react(),
+    ...(command === "build" ? [nitro({ defaultPreset: "cloudflare-module" })] : []),
+    {
+      name: "tamkeen-release-proof",
+      apply: "build",
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: `release-source-${release.sourceSha256}.json`,
+          source: JSON.stringify(sourceManifest),
+        });
       },
-    ],
-    // Lovable publishes the student app from the repository root. The academy
-    // database passed production post-verify before this route was enabled, so
-    // the root build deliberately exposes the isolated academy UI below /academy.
-    // The standalone academy build remains fail-closed through its own env flag.
-    define: {
-      "import.meta.env.VITE_ACADEMY_ENABLED": JSON.stringify("true"),
-      "import.meta.env.VITE_ACADEMY_BASE_PATH": JSON.stringify("/academy"),
-      __TAMKEEN_RELEASE__: JSON.stringify(release),
     },
+  ],
+  resolve: { dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-start"] },
+  define: {
+    ...Object.fromEntries(
+      Object.entries(loadEnv(mode, process.cwd(), "VITE_")).map(([key, value]) => [
+        `import.meta.env.${key}`,
+        JSON.stringify(value),
+      ]),
+    ),
+    "import.meta.env.VITE_ACADEMY_ENABLED": JSON.stringify("true"),
+    "import.meta.env.VITE_ACADEMY_BASE_PATH": JSON.stringify("/academy"),
+    __TAMKEEN_RELEASE__: JSON.stringify(release),
   },
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
-  },
-});
+}));

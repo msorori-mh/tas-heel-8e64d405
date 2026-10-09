@@ -19,6 +19,8 @@ function visit(dir) {
       const source = readFileSync(path, "utf8");
       if (source.includes("zbdhxyuulyovihjgeqbn.supabase.co"))
         throw new Error(`Old database target in client asset: ${item.name}`);
+      if (/ai\.gateway\.lovable\.dev|__lovableEvents|lovable-preview-auth/.test(source))
+        throw new Error(`Old platform integration in client asset: ${item.name}`);
       if (/sb_secret_[A-Za-z0-9_-]{20,}/.test(source))
         throw new Error(`Possible secret or privileged key in client asset: ${item.name}`);
       targetFound ||= source.includes(TARGET_URL);
