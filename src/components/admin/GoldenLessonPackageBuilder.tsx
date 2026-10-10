@@ -58,6 +58,8 @@ import { convertHtml5ActivityZip } from "@/lib/content-factory/golden-lesson-htm
 import { getContentCodeRegistry } from "@/lib/content-codes/content-codes.functions";
 import type { ContentCodeRegistry } from "@/lib/content-codes/content-codes.types";
 import { contentImportTemplateDownloadUrl } from "@/lib/content-import/content-import-templates";
+import { GoldenLessonQuestionPreview } from "@/components/admin/GoldenLessonQuestionPreview";
+import type { QuestionPreviewCapability } from "@/lib/content-factory/golden-lesson-question-preview";
 
 const CAPABILITY_LABEL: Record<GoldenCapability, string> = {
   officialBookContent: "محتوى الكتاب",
@@ -367,6 +369,12 @@ async function writeLocalLessonDraft(draft: LocalLessonDraft): Promise<void> {
 }
 
 export function GoldenLessonPackageBuilder() {
+  const [questionPreview, setQuestionPreview] = useState<{
+    capability: QuestionPreviewCapability;
+    upload: UploadedArtifact;
+    answers: Array<Record<string, unknown>>;
+    lessonTitle: string;
+  } | null>(null);
   const [registry, setRegistry] = useState<ContentCodeRegistry | null>(null);
   const [registryLoading, setRegistryLoading] = useState(true);
   const [registryError, setRegistryError] = useState<string | null>(null);
@@ -917,7 +925,16 @@ export function GoldenLessonPackageBuilder() {
     );
   };
 
-  const previewArtifact = (upload: UploadedArtifact) => {
+  const previewArtifact = (capability: GoldenCapability, upload: UploadedArtifact) => {
+    if (capability === "officialBookQuestions" || capability === "selfTest") {
+      setQuestionPreview({
+        capability,
+        upload,
+        answers: answerSets[capability] ?? [],
+        lessonTitle: `${selectedSubject?.name ?? ""} ← ${selectedLesson?.title ?? ""}`,
+      });
+      return;
+    }
     const url = URL.createObjectURL(upload.file);
     window.open(url, "_blank", "noopener,noreferrer");
     window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
@@ -1664,13 +1681,15 @@ export function GoldenLessonPackageBuilder() {
                                   />
                                 </div>
                               )}
-                              {item.fileName.endsWith(".html") && (
+                              {(item.fileName.endsWith(".html") ||
+                                capability === "officialBookQuestions" ||
+                                capability === "selfTest") && (
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="mt-2 h-8 gap-1"
-                                  onClick={() => previewArtifact(item)}
+                                  className="mt-2 min-h-11 gap-1"
+                                  onClick={() => previewArtifact(capability, item)}
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                   معاينة
@@ -1854,6 +1873,16 @@ export function GoldenLessonPackageBuilder() {
               );
             })()}
         </div>
+      )}
+      {questionPreview && (
+        <GoldenLessonQuestionPreview
+          capability={questionPreview.capability}
+          file={questionPreview.upload.file}
+          fileName={questionPreview.upload.displayName}
+          lessonTitle={questionPreview.lessonTitle}
+          answers={questionPreview.answers}
+          onClose={() => setQuestionPreview(null)}
+        />
       )}
     </section>
   );
