@@ -346,6 +346,17 @@ jobs:
       - name: Verify authored mindmap interaction in the student sandbox
         run: node --import tsx tests/lessons/mindmap-authored-html-runtime.mjs
 
+      - name: Verify admin question previews on mobile and desktop
+        run: node tests/e2e/question-preview/browser.mjs
+
+      - name: Upload question preview browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: question-preview-browser-evidence
+          path: artifacts/question-preview
+          if-no-files-found: error
+
       - name: Upload mindmap browser evidence
         if: always()
         uses: actions/upload-artifact@v4
