@@ -78,7 +78,7 @@ export function GoldenLessonQuestionPreview({
         }}
       >
         <DialogHeader className="ps-6 text-right sm:text-right">
-          <DialogTitle ref={titleRef} tabIndex={-1}>
+          <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
             معاينة {capability === "selfTest" ? "اختبر فهمك" : "أسئلة الكتاب"}
           </DialogTitle>
           <DialogDescription>

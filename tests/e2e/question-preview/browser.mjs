@@ -25,6 +25,10 @@ try {
       await page.getByText("عدد الأسئلة: 2", { exact: true }).waitFor();
       await page.evaluate(() => document.fonts.ready);
       const dialog = page.getByRole("dialog");
+      // Measure the final touch target, after the opening zoom animation finishes.
+      await dialog.evaluate(async (node) => {
+        await Promise.all(node.getAnimations().map((animation) => animation.finished));
+      });
       const metrics = await dialog.evaluate((node) => ({
         width: node.clientWidth,
         scrollWidth: node.scrollWidth,
