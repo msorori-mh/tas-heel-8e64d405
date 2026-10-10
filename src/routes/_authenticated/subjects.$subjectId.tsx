@@ -14,22 +14,12 @@ import { Breadcrumbs } from "@/components/student/Breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  SubjectLessonBrowser,
+  type Unit,
+  type Lesson,
+} from "@/components/subjects/SubjectLessonBrowser";
 import { ExamTemplatesSection } from "@/components/exams/ExamTemplatesSection";
-import {
-  ClipboardList,
-  ChevronLeft,
-  BookOpen,
-  CheckCircle2,
-  Layers,
-  FileText,
-  Home,
-  PlayCircle,
-} from "lucide-react";
+import { Layers, FileText, Home, PlayCircle } from "lucide-react";
 import { semesterLabel, type Semester } from "@/lib/subject-semester";
 import { getSubjectIcon } from "@/lib/subjects/subject-icon";
 import { STUDENT_FREE_ACCESS } from "@/lib/student-free-access";
@@ -51,24 +41,6 @@ type Subject = {
   grade_id: string;
   curriculum_track_id: string | null;
   icon: string | null;
-};
-
-type Unit = {
-  id: string;
-  title: string;
-  description: string | null;
-  sort_order: number;
-  is_free: boolean;
-  semester: number | null;
-};
-
-type Lesson = {
-  id: string;
-  title: string;
-  duration: string | null;
-  unit_id: string | null;
-  sort_order: number;
-  semester: number | null;
 };
 
 function SubjectIndexPage() {
@@ -234,15 +206,7 @@ function SubjectIndexPage() {
   const units = data?.units ?? [];
   const lessons = data?.lessons ?? [];
 
-  const lessonsByUnit = new Map<string | null, Lesson[]>();
-  for (const ls of lessons) {
-    const k = ls.unit_id ?? null;
-    if (!lessonsByUnit.has(k)) lessonsByUnit.set(k, []);
-    lessonsByUnit.get(k)!.push(ls);
-  }
-  const orphans = lessonsByUnit.get(null) ?? [];
-  // Two officially supported shapes: Subject → Unit → Lesson, and Subject → Lesson
-  // directly (all lessons have unit_id NULL). Never synthesize fake units.
+  // Both unit-based and direct lessons are supported by the browser below.
   const hasUnits = units.length > 0;
   const hasAny = hasUnits || lessons.length > 0;
 
@@ -252,11 +216,6 @@ function SubjectIndexPage() {
   const nextLesson = lessons.find((l) => !done.has(l.id));
 
   const SubjectIcon = getSubjectIcon(subject.name, subject.icon);
-
-  // Open the unit that contains the next unfinished lesson.
-  const defaultOpen =
-    units.find((u) => (lessonsByUnit.get(u.id) ?? []).some((l) => !done.has(l.id)))?.id ??
-    units[0]?.id;
 
   return (
     <div className="min-w-0 w-full max-w-full overflow-x-hidden space-y-5" dir="rtl">
@@ -319,39 +278,14 @@ function SubjectIndexPage() {
         <OfflineSubjectPackCard subjectId={subjectId} subjectName={subject.name} />
       )}
 
-      {hasAny &&
-        (hasUnits ? (
-          <Accordion type="single" collapsible defaultValue={defaultOpen} className="space-y-2.5">
-            {units.map((u, idx) => (
-              <UnitBlock
-                key={u.id}
-                unitId={u.id}
-                index={idx + 1}
-                title={u.title}
-                description={u.description}
-                isFree={u.is_free}
-                lessons={lessonsByUnit.get(u.id) ?? []}
-                completed={done}
-              />
-            ))}
-
-            {orphans.length > 0 && (
-              <UnitBlock
-                value="__orphans"
-                title="دروس أخرى"
-                description={null}
-                isFree={null}
-                lessons={orphans}
-                completed={done}
-              />
-            )}
-          </Accordion>
-        ) : (
-          <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-            <h2 className="mb-3 text-sm font-bold text-foreground">الدروس</h2>
-            <LessonList lessons={lessons} completed={done} />
-          </section>
-        ))}
+      {hasAny && (
+        <SubjectLessonBrowser
+          key={`${subjectId}:${semester ?? "all"}`}
+          units={units}
+          lessons={lessons}
+          completed={done}
+        />
+      )}
 
       {online ? (
         <ExamTemplatesSection
@@ -373,130 +307,5 @@ function SubjectIndexPage() {
         </Button>
       </div>
     </div>
-  );
-}
-
-function UnitBlock({
-  unitId,
-  value,
-  index,
-  title,
-  description,
-  isFree,
-  lessons,
-  completed,
-}: {
-  unitId?: string;
-  value?: string;
-  index?: number;
-  title: string;
-  description: string | null;
-  isFree: boolean | null;
-  lessons: Lesson[];
-  completed: Set<string>;
-}) {
-  const doneCount = lessons.filter((l) => completed.has(l.id)).length;
-
-  return (
-    <AccordionItem
-      value={unitId ?? value ?? title}
-      className="rounded-2xl border border-border bg-card px-4 shadow-card"
-    >
-      <AccordionTrigger className="gap-3 text-right hover:no-underline">
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <h2 className="min-w-0 break-words text-sm font-bold text-foreground">
-              {index && !/^الوحدة\s/.test(title.trim()) ? (
-                <span className="text-muted-foreground">الوحدة {index}: </span>
-              ) : null}
-              {title}
-            </h2>
-            {isFree !== null && !STUDENT_FREE_ACCESS && (
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  isFree
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                    : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                }`}
-              >
-                {isFree ? "مجانية" : "ضمن الاشتراك"}
-              </span>
-            )}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {lessons.length} درس · مكتمل {doneCount}
-          </p>
-        </div>
-      </AccordionTrigger>
-
-      <AccordionContent className="pb-4">
-        {description && (
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{description}</p>
-        )}
-
-        {lessons.length === 0 ? (
-          unitId ? (
-            <p className="text-xs text-muted-foreground">لا توجد دروس في هذه الوحدة بعد.</p>
-          ) : null
-        ) : (
-          <LessonList lessons={lessons} completed={completed} />
-        )}
-
-        {unitId && (
-          <div className="mt-3">
-            <Link
-              to="/units/$unitId/practice"
-              params={{ unitId }}
-              className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary/40"
-              aria-label="اختبار الوحدة"
-            >
-              <ClipboardList className="h-4 w-4 shrink-0" />
-              <div className="min-w-0 text-right">
-                <div className="font-medium">اختبار الوحدة</div>
-                <div className="text-xs">اختبر فهمك بعد إكمال دروس الوحدة.</div>
-              </div>
-            </Link>
-          </div>
-        )}
-      </AccordionContent>
-    </AccordionItem>
-  );
-}
-
-function LessonList({ lessons, completed }: { lessons: Lesson[]; completed: Set<string> }) {
-  return (
-    <ul className="space-y-2">
-      {lessons.map((l) => {
-        const isDone = completed.has(l.id);
-        return (
-          <li key={l.id}>
-            <Link
-              to="/lessons/$lessonId"
-              params={{ lessonId: l.id }}
-              className="flex items-center justify-between rounded-lg border border-border bg-background p-3 transition-colors hover:bg-secondary/40"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
-                    isDone ? "bg-emerald-500/15 text-emerald-600" : "bg-primary/10 text-primary"
-                  }`}
-                >
-                  {isDone ? <CheckCircle2 className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-foreground">{l.title}</div>
-                  {l.duration && (
-                    <div className="text-xs text-muted-foreground">
-                      {l.duration} {/^\d+$/.test(l.duration) ? "دقيقة" : ""}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
