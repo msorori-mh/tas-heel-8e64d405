@@ -162,9 +162,9 @@ export function SubjectLessonBrowser({
       ) : hasUnits ? (
         searching ? (
           <Accordion
-            key="search"
+            key={`search:${query}`}
             type="multiple"
-            value={[
+            defaultValue={[
               ...visibleUnits.map(({ unit }) => unit.id),
               ...(orphans.length ? ["__orphans"] : []),
             ]}

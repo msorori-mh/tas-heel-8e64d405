@@ -128,3 +128,15 @@ it("matches alef maqsura, Latin capitalization and partial titles", async () => 
   await search("عظمي maximum");
   expect(lessonLinks()).toEqual(["/lessons/intro"]);
 });
+
+it("allows collapsing a search result unit and reopens matches when the query changes", async () => {
+  await render();
+  await search("احصاء");
+  const unit = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) =>
+    button.textContent?.includes("الوحدة 2:"),
+  )!;
+  await act(async () => unit.click());
+  expect(lessonLinks()).toEqual(["/lessons/advanced"]);
+  await search("إحصاء");
+  expect(lessonLinks()).toEqual(["/lessons/stats", "/lessons/advanced"]);
+});
