@@ -5,8 +5,8 @@ import {
   PUBLIC_SUPABASE_URL,
 } from "../../../../src/integrations/supabase/public-config";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || PUBLIC_SUPABASE_URL;
-const supabaseKey =
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || PUBLIC_SUPABASE_URL;
+export const supabaseKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const featureFlag = import.meta.env.VITE_ACADEMY_ENABLED?.trim().toLowerCase();
 
