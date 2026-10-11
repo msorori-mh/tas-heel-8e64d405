@@ -13,7 +13,7 @@ const brand = read("src/components/brand/StudentTamkeenBrand.tsx");
 
 describe("STUDENT_BRAND_THEME_01", () => {
   it("activates the brand only on the student shell", () => {
-    expect(shell).toContain('className="student-theme student-app-bg');
+    expect(shell).toMatch(/className=\{`student-theme student-app-bg/);
     expect(authenticated).toContain("Admin pages render their own AdminLayout");
     expect(authenticated).toContain('className="admin-app-bg');
     expect(authenticated).not.toContain('className="student-theme admin-app-bg');

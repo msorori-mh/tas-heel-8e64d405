@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { resolveWorkspaceHome } from "@/lib/auth/workspace";
+import type { Workspace } from "@/lib/auth/workspace";
 
-export function useWorkspaceHome(userId: string | undefined, complete: boolean, enabled: boolean) {
+export function useWorkspaceHome(
+  userId: string | undefined,
+  complete: boolean,
+  enabled: boolean,
+  explicitWorkspace?: Workspace,
+) {
   const [destination, setDestination] = useState<"/app" | "/academy" | "/complete-profile" | null>(
     null,
   );
@@ -11,7 +17,7 @@ export function useWorkspaceHome(userId: string | undefined, complete: boolean, 
     setError(false);
     if (!enabled || !userId) return;
     let active = true;
-    resolveWorkspaceHome(userId, complete)
+    resolveWorkspaceHome(userId, complete, explicitWorkspace)
       .then((next) => {
         if (active) setDestination(next);
       })
@@ -21,6 +27,6 @@ export function useWorkspaceHome(userId: string | undefined, complete: boolean, 
     return () => {
       active = false;
     };
-  }, [userId, complete, enabled]);
+  }, [userId, complete, enabled, explicitWorkspace]);
   return { destination, error };
 }

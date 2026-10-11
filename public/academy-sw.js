@@ -1,4 +1,4 @@
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `tamkeen-academy-shell-${VERSION}`;
 const STATIC_CACHE = `tamkeen-academy-static-${VERSION}`;
 const ACTIVE_CACHES = [SHELL_CACHE, STATIC_CACHE];

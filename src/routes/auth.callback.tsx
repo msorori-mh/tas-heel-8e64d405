@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { translateAuthError } from "@/lib/auth-helpers";
 import { captureDiagnosticSync } from "@/lib/diagnostics/telemetry";
+import { rememberWorkspace } from "@/lib/auth/workspace";
 
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
@@ -39,6 +40,7 @@ function AuthCallback() {
         } = await supabase.auth.getUser();
         if (userError) throw userError;
         if (!user) throw new Error("لم يتم العثور على جلسة");
+        await rememberWorkspace(user.id, "student");
 
         const { data: profile, error: profileError } = await supabase
           .from("profiles")

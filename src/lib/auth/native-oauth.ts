@@ -16,9 +16,15 @@
  * ever logged.
  */
 
-export const HTTPS_CALLBACK_ORIGIN = "https://studentamkeen.com";
+export const HTTPS_CALLBACK_ORIGIN =
+  import.meta.env?.VITE_INDEPENDENT_STAGING === "true"
+    ? import.meta.env.VITE_STAGING_ORIGIN
+    : "https://studentamkeen.com";
 export const HTTPS_CALLBACK_PATH = "/auth/mobile-callback";
-export const NATIVE_APP_SCHEME = "app.studentamkeen.tamkeen";
+export const NATIVE_APP_SCHEME =
+  import.meta.env?.VITE_INDEPENDENT_STAGING === "true"
+    ? "app.studentamkeen.tamkeen.staging"
+    : "app.studentamkeen.tamkeen";
 export const NATIVE_BRIDGE_HOST = "auth";
 export const NATIVE_BRIDGE_PATH = "/callback";
 export const NATIVE_BRIDGE_URL = `${NATIVE_APP_SCHEME}://${NATIVE_BRIDGE_HOST}${NATIVE_BRIDGE_PATH}`;

@@ -28,7 +28,15 @@
     "format": "prettier --write .",
     "generate:import-templates": "bun run scripts/generate-import-templates.ts",
     "generate:content-templates": "bun scripts/generate-content-templates.mjs",
-    "content:preflight": "node scripts/content-import/validate-content-package.mjs"
+    "content:preflight": "node scripts/content-import/validate-content-package.mjs",
+    "build:student-intro": "node scripts/mobile/build-student-intro.mjs",
+    "test:student-intro": "vitest run tests/onboarding",
+    "build:independent": "vite build --config vite.independent.config.ts",
+    "test:native-shell": "node tests/mobile/native-shell-cold-start.mjs",
+    "start:independent": "node scripts/independent/start.mjs",
+    "test:independent": "node --import tsx --test tests/independent/*.test.* && vitest run tests/mobile/independent-staging-auth.runtime.test.ts",
+    "mobile:build": "tsc -p mobile/tsconfig.json --noEmit && node scripts/mobile/build-local-pages.mjs && npm run build:native && node scripts/mobile/package-native-shell.mjs",
+    "build:native": "vite build --config vite.native.config.ts"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
@@ -41,7 +49,6 @@
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.3",
     "@hookform/resolvers": "^5.2.2",
-    "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
@@ -107,7 +114,7 @@
     "@capacitor/cli": "^8.5.0",
     "@electric-sql/pglite": "0.5.8",
     "@eslint/js": "^9.32.0",
-    "@lovable.dev/vite-tanstack-config": "2.23.1",
+    "@fontsource/cairo": "5.3.0",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
@@ -134,7 +141,8 @@
     "vitest": "^4.0.18"
   },
   "overrides": {
-    "seroval": "1.5.6",
-    "seroval-plugins": "1.5.6"
+    "seroval": "1.6.8",
+    "seroval-plugins": "1.5.6",
+    "source-map-js": "1.2.2"
   }
 }

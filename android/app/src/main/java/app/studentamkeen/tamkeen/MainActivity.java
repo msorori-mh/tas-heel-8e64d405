@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         // OFFLINE-04 — hash-verified lesson content for the bundled cold-start entry.
         registerPlugin(TamkeenOfflineContentPlugin.class);
         registerPlugin(TamkeenSecureStoragePlugin.class);
+        registerPlugin(TamkeenLocalPagesPlugin.class);
         super.onCreate(savedInstanceState);
 
         // MOBILE-READABILITY — allow real two-finger pinch zoom in the installed app.

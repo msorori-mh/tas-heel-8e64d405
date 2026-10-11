@@ -13,6 +13,7 @@ import {
   saveOfflineOfficialQuestionNote,
 } from "@/lib/offline/offline-learning-journal";
 import { syncOfflineOutboxForCurrentSession } from "@/lib/offline/offline-sync";
+import { getNetworkState } from "@/lib/offline/network";
 
 export type LessonQuestionNoteMap = Record<string, string>;
 
@@ -32,6 +33,7 @@ export function useLessonQuestionNotes(lessonId: string, studentId: string | nul
     queryKey: lessonQuestionNotesKey(lessonId, studentId ?? null),
     queryFn: async (): Promise<LessonQuestionNoteMap> => {
       const local = await readOfflineOfficialQuestionNotes(studentId!, lessonId);
+      if (!(await getNetworkState()).online) return local;
       try {
         const { data: rows, error } = await supabase
           .from("lesson_question_notes")

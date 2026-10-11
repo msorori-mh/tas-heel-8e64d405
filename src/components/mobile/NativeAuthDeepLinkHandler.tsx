@@ -1,6 +1,12 @@
+import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
 import { rememberWorkspace } from "@/lib/auth/workspace";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import {
+  isCompletedNativeCallback,
+  rememberCompletedNativeCallback,
+} from "@/lib/auth/native-callback-ledger";
 import {
   closeNativeAuthBrowser,
   consumeNativeAuthDestination,
@@ -14,7 +20,7 @@ import {
  * 21B4-C — receives the Android OAuth deep link and finishes the session in
  * the same WebView that started it (so the PKCE verifier is available).
  *
- * Web builds render nothing and load no Capacitor plugin.
+ * Web builds render nothing and invoke no native plugin methods.
  */
 export function NativeAuthDeepLinkHandler() {
   const navigate = useNavigate();
@@ -26,14 +32,15 @@ export function NativeAuthDeepLinkHandler() {
     let cancelled = false;
 
     (async () => {
-      const { Capacitor } = await import("@capacitor/core");
       if (!Capacitor.isNativePlatform()) return;
-      const { App } = await import("@capacitor/app");
+      if (cancelled) return;
 
       const handleUrl = async (rawUrl: string) => {
+        if (cancelled) return;
         const parsed = parseNativeAuthCallback(rawUrl);
         if (parsed.kind === "ignored") return; // fail closed, silently
         await closeNativeAuthBrowser();
+        if (cancelled) return;
 
         if (parsed.kind === "error") {
           setStatus("error");
@@ -45,30 +52,35 @@ export function NativeAuthDeepLinkHandler() {
 
         setStatus("completing");
         setMessage(null);
+        let exchanged = false;
         try {
+          if (await isCompletedNativeCallback(parsed.code)) {
+            if (!cancelled) setStatus("idle");
+            return;
+          }
           const { supabase } = await import("@/integrations/supabase/client");
-          const { error } = await supabase.auth.exchangeCodeForSession(parsed.code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(parsed.code);
           if (error) throw error;
-          const { data } = await supabase.auth.getUser();
+          exchanged = true;
+          await rememberCompletedNativeCallback(parsed.code);
           if (!data.user) throw new Error("لم يتم العثور على جلسة");
           if (cancelled) return;
           const destination = consumeNativeAuthDestination();
           await rememberWorkspace(data.user.id, destination);
           if (destination === "teacher") {
-            // Reload the academy route so its isolated Supabase client restores
-            // the just-persisted native session from the shared secure adapter.
-            window.location.replace("/academy");
-            return;
+            // Both portals now share one auth client. A reload would redeliver
+            // Android's launch intent and try to exchange its spent code again.
+            await navigate({ to: "/academy", replace: true });
           } else {
             // /auth/callback resolves student profile completeness.
-            navigate({ to: "/auth/callback", replace: true });
+            await navigate({ to: "/auth/callback", replace: true });
           }
           setStatus("idle");
         } catch {
           // The early claim prevents duplicate appUrlOpen deliveries from
           // exchanging the same one-time code concurrently. A failed exchange
           // is released so an explicit retry can succeed.
-          unmarkCallbackConsumed(parsed.code);
+          if (!exchanged) unmarkCallbackConsumed(parsed.code);
           if (cancelled) return;
           setStatus("error");
           setMessage("تعذّر إكمال تسجيل الدخول. حاول مرة أخرى.");
@@ -109,6 +121,7 @@ export function NativeAuthDeepLinkHandler() {
             onClick={() => {
               setStatus("idle");
               setMessage(null);
+              void navigate({ to: "/auth", replace: true });
             }}
           >
             العودة لتسجيل الدخول

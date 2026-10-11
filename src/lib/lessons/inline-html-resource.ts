@@ -82,6 +82,10 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
     MOBILE_ZOOM_VIEWPORT,
     MOBILE_ZOOM_STYLE,
   ].join("");
+  const readingStyle =
+    mode === "STATIC_NO_SCRIPT"
+      ? `<style data-tamkeen-reading>html,body{overflow-wrap:normal!important;word-break:normal!important}body{margin:0!important;padding:8px!important;font-size:16px;line-height:1.8}table{display:block;overflow-x:auto;max-width:100%}th,td{min-width:120px;overflow-wrap:normal!important;word-break:normal!important}@media(max-width:600px){body>main,body>div,body>section{padding:8px!important;margin:0!important;max-width:100%!important}h1{font-size:1.4rem!important;line-height:1.6!important}table:not(:has(tr>:nth-child(3))) :is(thead,tbody,tfoot){display:block}table:not(:has(tr>:nth-child(3))) tr{display:block;margin-bottom:12px;border:1px solid #ddd;border-radius:8px;overflow:hidden}table:not(:has(tr>:nth-child(3))) :is(th,td){display:block;width:auto!important;min-width:0;padding:10px!important}table:not(:has(tr>:nth-child(3))) tr>:first-child{font-weight:700}}</style>`
+      : "";
   const resizeBridge =
     mode !== "STATIC_NO_SCRIPT"
       ? `<script>(function(){var scale=1,startDistance=0,startScale=1;var clamp=function(v){return Math.max(1,Math.min(3,v))};var apply=function(v){scale=clamp(v);document.documentElement.style.zoom=String(scale);send()};var send=function(){var d=document.documentElement,b=document.body,h=Math.max(d?d.scrollHeight:0,b?b.scrollHeight:0,320);parent.postMessage({type:'tamkeen:inline-height',height:h,zoom:scale},'*')};addEventListener('message',function(e){var x=e&&e.data;if(!x||x.type!=='tamkeen:inline-zoom')return;var n=Number(x.scale);if(Number.isFinite(n))apply(n)});addEventListener('touchstart',function(e){if(e.touches.length!==2)return;var a=e.touches[0],b=e.touches[1];startDistance=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);startScale=scale},{passive:true});addEventListener('touchmove',function(e){if(e.touches.length!==2||!startDistance)return;var a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);apply(startScale*(dist/startDistance));e.preventDefault()},{passive:false});addEventListener('touchend',function(e){if(e.touches.length<2)startDistance=0},{passive:true});addEventListener('load',send);addEventListener('resize',send);new MutationObserver(send).observe(document.documentElement,{subtree:true,childList:true,attributes:true});setTimeout(send,0);setTimeout(send,250)})();</script>`
@@ -104,7 +108,9 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
         ? document.replace(/<\/body>/i, `${resizeBridge}</body>`)
         : `${document}${resizeBridge}`;
     }
-    return document;
+    return /<\/head>/i.test(document)
+      ? document.replace(/<\/head>/i, `${readingStyle}</head>`)
+      : document;
   }
 
   return [
@@ -113,6 +119,7 @@ export function buildInlineHtmlDocument(body: string, mode: InlineHtmlRenderMode
     securityHead,
     "<style>html,body{margin:0;padding:12px;font-family:system-ui,'Cairo',sans-serif;",
     "background:#fff;color:#111;line-height:1.7}img{max-width:100%;height:auto}</style>",
+    readingStyle,
     "</head><body>",
     value,
     resizeBridge,

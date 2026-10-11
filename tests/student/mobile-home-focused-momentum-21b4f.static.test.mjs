@@ -19,14 +19,20 @@ const progress = read("src/components/home/CompactProgress.tsx");
 const at = (needle) => home.indexOf(needle);
 
 describe("21B4F home order", () => {
-  it("1. Subjects appear first, then focused momentum", () => {
-    expect(at("<HomeGreeting")).toBeGreaterThan(-1);
-    expect(at("<SemesterPicker")).toBeGreaterThan(at("<HomeGreeting"));
-    expect(at("<CompactProgress")).toBeGreaterThan(at("<SemesterPicker"));
-    expect(at("<ContinueLearningCard")).toBeGreaterThan(at("<CompactProgress"));
-    expect(at("<DailyGoalCard")).toBeGreaterThan(at("<ContinueLearningCard"));
-    expect(at("<NeedsAttentionSection")).toBeGreaterThan(at("<DailyGoalCard"));
-    expect(at("<LearningToolsSection")).toBeGreaterThan(at("<NeedsAttentionSection"));
+  it("1. greeting and countdown precede one primary action and review tools", () => {
+    const order = [
+      "<HomeGreeting",
+      "<ExamCountdown",
+      "<ContinueLearningCard",
+      "<CompactProgress",
+      "<DailyGoalCard",
+      "<NeedsAttentionSection",
+      "<LearningToolsSection",
+    ];
+    order.forEach((item, index) =>
+      expect(at(item)).toBeGreaterThan(index ? at(order[index - 1]) : -1),
+    );
+    expect(home).not.toContain("SemesterPicker");
   });
 
   it("2. new student gets a CTA, not a zero dashboard", () => {
@@ -44,10 +50,11 @@ describe("21B4F home order", () => {
   });
 
   it("4. Quick Actions expose exactly the expected set", () => {
-    for (const route of ["/quick-review", "/my-mistakes", "/performance", "/ministerial-exams"]) {
+    for (const route of ["/quick-review", "/my-mistakes", "/ministerial-exams"]) {
       expect(tools).toContain(`to="${route}"`);
     }
-    expect(tools.match(/<NavTile/g)?.length).toBe(4);
+    expect(tools.match(/<ReviewToolRow/g)?.length).toBe(3);
+    expect(tools).not.toContain("/performance");
   });
 
   it("5. no duplicate primary CTA on Home", () => {
@@ -63,12 +70,14 @@ describe("21B4F home order", () => {
 
   it("7. AI assistant stays secondary (after Continue Learning)", () => {
     expect(at("<AiAssistantCard")).toBeGreaterThan(at("<ContinueLearningCard"));
-    expect(at("<AiAssistantCard")).toBeGreaterThan(at("<SemesterPicker"));
+    expect(home).toContain('suggestion.kind !== "lesson"');
+    expect(home).toContain('suggestion.to !== "/semesters"');
   });
 
   it("8. subjects remain accessible from Home", () => {
-    expect(subjects).toContain('to="/semesters/$semester"');
-    expect(subjects).toContain("موادي");
+    const shell = read("src/components/student/StudentShell.tsx");
+    expect(shell).toContain('label: "موادي"');
+    expect(shell).toContain('to: "/semesters"');
   });
 
   it("9. textbook entry (21B4D) remains reachable from the subject surface", () => {
@@ -98,7 +107,7 @@ describe("21B4F home order", () => {
   });
 
   it("13. touch targets are at least ~44px on primary actions", () => {
-    expect(cont).toContain("min-h-11");
+    expect(cont).toContain("h-[52px]");
     expect(attention).toContain("min-h-11");
   });
 });

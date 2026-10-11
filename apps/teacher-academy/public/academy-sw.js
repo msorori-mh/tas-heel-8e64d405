@@ -1,4 +1,4 @@
-const VERSION = "v2",
+const VERSION = "v3",
   SHELL = `tamkeen-academy-shell-${VERSION}`,
   STATIC = `tamkeen-academy-static-${VERSION}`;
 const FILES = [

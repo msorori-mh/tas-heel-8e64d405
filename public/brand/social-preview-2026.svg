@@ -17,7 +17,11 @@
     <rect x="70" y="72" width="1060" height="486" rx="46" fill="#fff"/>
   </g>
 
-  <image href="./student-tamkeen-mark.png" x="112" y="172" width="260" height="270" preserveAspectRatio="xMidYMid meet"/>
+  <g aria-label="شعار تمكين">
+    <path d="M150.17 318.08 L213.50 387.75 L333.83 254.75" fill="none" stroke="#1E2A63" stroke-width="44.33" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="166.00" cy="229.42" r="25.33" fill="#12AAA6"/>
+    <circle cx="235.67" cy="229.42" r="25.33" fill="#FB6050"/>
+  </g>
 
   <g text-anchor="end" font-family="Cairo, 'Noto Kufi Arabic', sans-serif" fill="#14213d">
     <text x="1055" y="195" font-size="30" font-weight="700" fill="#168d88">منصة تعليمية متكاملة للطالب والمعلم</text>

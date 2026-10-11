@@ -132,13 +132,16 @@ export function OfflineSubjectPackCard({
   const presentCount = local?.presentArtifactIds.size ?? 0;
   const percent = useMemo(() => {
     if (progress && progress.totalBytes > 0) {
-      return Math.round((progress.loadedBytes / progress.totalBytes) * 100);
+      return Math.min(
+        busy ? 99 : 100,
+        Math.round((progress.loadedBytes / progress.totalBytes) * 100),
+      );
     }
     if (local && local.totalBytes > 0) {
       return Math.round((local.presentBytes / local.totalBytes) * 100);
     }
     return 0;
-  }, [local, progress]);
+  }, [local, progress, busy]);
   const ready = local?.ready === true && !updateAvailable;
 
   const handleDownload = async () => {
@@ -241,7 +244,37 @@ export function OfflineSubjectPackCard({
         <div className="space-y-1.5">
           <Progress value={percent} className="h-2" />
           <p className="text-xs text-muted-foreground">
-            {percent}%{progress?.status === "downloading" ? " — جارٍ التحقق من الملف الحالي" : ""}
+            {percent}% —{" "}
+            {progress?.status === "downloading"
+              ? "جارٍ تنزيل الملفات"
+              : progress?.status === "verifying"
+                ? "جارٍ التحقق من سلامة الملف المنزّل"
+                : progress?.status === "saving"
+                  ? "جارٍ حفظ الملف على الجهاز"
+                  : "ملفات محفوظة وموثّقة"}
+            {progress && (
+              <>
+                {" "}
+                · {formatBytes(progress.loadedBytes)} من {formatBytes(progress.totalBytes)}
+              </>
+            )}
+            {!!progress?.bytesPerSecond && <> · {formatBytes(progress.bytesPerSecond)}/ث</>}
+            {!!progress?.activeDownloads && <> · {progress.activeDownloads} تنزيلات جارية</>}
+            {!!progress?.bytesPerSecond &&
+              progress.status === "downloading" &&
+              progress.loadedBytes < progress.totalBytes && (
+                <>
+                  {" "}
+                  · الوقت المتبقي تقريبًا:{" "}
+                  {Math.max(
+                    1,
+                    Math.ceil(
+                      (progress.totalBytes - progress.loadedBytes) / progress.bytesPerSecond / 60,
+                    ),
+                  )}{" "}
+                  د
+                </>
+              )}
           </p>
         </div>
       )}

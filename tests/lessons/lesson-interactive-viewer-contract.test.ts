@@ -87,8 +87,8 @@ test("student route exposes the seven-step rendering contracts", () => {
   assert.match(tabs, /role="tab"/);
   assert.match(tabs, /role="tabpanel"/);
   assert.match(tabs, /aria-selected=\{active\}/);
-  assert.match(tabs, /grid-cols-2/);
-  assert.doesNotMatch(tabs, /overflow-x-auto|min-w-\[8\.75rem\]/);
+  assert.match(tabs, /sticky top-/);
+  assert.match(tabs, /overflow-x-auto/);
   assert.match(tabs, /visitedTypes/);
   assert.match(tabs, /hasManualSelection/);
   assert.match(tabs, /capability\.type === "PRIMARY_CONTENT"/);

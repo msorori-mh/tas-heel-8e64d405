@@ -65,6 +65,7 @@ function StudentAuthPage() {
     activeUser?.id,
     profileComplete,
     !loading,
+    "student",
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

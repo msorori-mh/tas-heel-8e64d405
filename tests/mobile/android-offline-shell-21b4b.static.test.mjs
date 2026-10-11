@@ -80,13 +80,14 @@ describe("registry contract", () => {
 
 describe("offline entry surface", () => {
   it("6 — no remote asset or network dependency", () => {
-    expect(offlineHtml).not.toMatch(/<script[^>]+src=/i);
+    expect([...offlineHtml.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1])).toEqual([
+      "local-runtime.js",
+    ]);
     expect(offlineHtml).not.toMatch(/<link[^>]+href=/i);
     expect(stripComments(offlineHtml)).not.toMatch(/fetch\(/);
     expect(offlineHtml).not.toMatch(/XMLHttpRequest/);
-    expect(stripComments(offlineHtml)).not.toMatch(/supabase/i);
-    expect(stripComments(offlineHtml)).not.toMatch(/https:\/\/(?!studentamkeen\.com)/);
-    // The only remote reference allowed is the explicit retry navigation.
+    expect(offlineHtml).toContain("connect-src 'self' https://zbdhxyuulyovihjgeqbn.supabase.co;");
+    // Remote synchronization is optional; all rendering assets remain bundled.
     expect(offlineHtml).toMatch(/var ORIGIN = "https:\/\/studentamkeen\.com"/);
   });
 
@@ -94,7 +95,7 @@ describe("offline entry surface", () => {
     expect(offlineHtml).toMatch(/dir="rtl"/);
     expect(offlineHtml).toMatch(/كتبك المحفوظة/);
     expect(offlineHtml).toMatch(/لا توجد كتب محفوظة على هذا الجهاز حتى الآن/);
-    expect(offlineHtml).toMatch(/إعادة المحاولة/);
+    expect(offlineHtml).toMatch(/مزامنة الآن/);
     expect(offlineHtml).toMatch(/تعذر فتح النسخة المحفوظة/);
   });
 
@@ -120,9 +121,10 @@ describe("regression guards", () => {
 
   it("the bundled entry reads through narrow native bridges only", () => {
     expect(offlineHtml).toContain('plugin("TamkeenOfflineContent")');
-    expect(stripComments(offlineHtml)).not.toMatch(
-      /indexedDB|Filesystem|localStorage|sessionStorage/,
-    );
+    expect(stripComments(offlineHtml)).not.toMatch(/indexedDB|Filesystem|sessionStorage/);
+    expect(
+      [...offlineHtml.matchAll(/localStorage\.(?:getItem|setItem)\("([^"]+)"/g)].map((m) => m[1]),
+    ).toEqual(["tamkeen.local.reading-size", "tamkeen.local.reading-size"]);
     expect(registryTs).not.toMatch(/from "@\/integrations\/supabase/);
   });
 });

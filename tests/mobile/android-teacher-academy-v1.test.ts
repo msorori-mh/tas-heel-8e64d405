@@ -31,7 +31,7 @@ describe("Android teacher academy V1", () => {
     expect(studentShell).toContain('href="/academy"');
     expect(studentShell).toContain("أكاديمية المعلمين");
     expect(read("capacitor.config.ts")).toContain('appName: "تمكين"');
-    expect(read("android/app/build.gradle")).toContain("versionCode 7");
+    expect(read("android/app/build.gradle")).toContain("versionCode 11");
   });
 
   it("keeps public student and teacher entry Google-only while admin stays separate", () => {
@@ -62,7 +62,8 @@ describe("Android teacher academy V1", () => {
     expect(academy).toContain('setNativeAuthDestination("teacher")');
     expect(academy).toContain("NATIVE_OAUTH_REDIRECT_URL");
     expect(academy).toContain("openNativeAuthBrowser(data.url)");
-    expect(handler).toContain('window.location.replace("/academy")');
+    expect(handler).toContain('navigate({ to: "/academy", replace: true })');
+    expect(handler).not.toContain("window.location.replace");
     expect(root.match(/<NativeAuthDeepLinkHandler \/>/g)?.length).toBe(1);
   });
 

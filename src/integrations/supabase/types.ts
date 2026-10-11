@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      exam_schedule: {
+        Row: {
+          id: string
+          curriculum_track_id: string
+          grade_id: string | null
+          semester: number | null
+          exam_kind: "ministerial" | "semester_final" | "midterm"
+          title: string
+          starts_on: string
+          ends_on: string | null
+          is_published: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          curriculum_track_id: string
+          exam_kind: "ministerial" | "semester_final" | "midterm"
+          title: string
+          starts_on: string
+          id?: string
+          grade_id?: string | null
+          semester?: number | null
+          ends_on?: string | null
+          is_published?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          curriculum_track_id?: string
+          grade_id?: string | null
+          semester?: number | null
+          exam_kind?: "ministerial" | "semester_final" | "midterm"
+          title?: string
+          starts_on?: string
+          ends_on?: string | null
+          is_published?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "exam_schedule_curriculum_track_id_fkey"; columns: ["curriculum_track_id"]; isOneToOne: false; referencedRelation: "curriculum_tracks"; referencedColumns: ["id"] },
+          { foreignKeyName: "exam_schedule_grade_id_fkey"; columns: ["grade_id"]; isOneToOne: false; referencedRelation: "grades"; referencedColumns: ["id"] }
+        ]
+      }
       ai_usage_logs: {
         Row: {
           created_at: string
@@ -5584,6 +5632,19 @@ export type Database = {
       }
       admin_subject_track_detach_preview: {
         Args: { _curriculum_track_id: string; _subject_id: string }
+        Returns: Json
+      }
+      admin_teacher_detail: { Args: { p_user_id: string }; Returns: Json }
+      admin_teacher_directory: {
+        Args: {
+          p_activity?: string
+          p_governorate_id?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string
+          p_status?: string
+          p_subject_id?: string
+        }
         Returns: Json
       }
       answer_exam_question: {

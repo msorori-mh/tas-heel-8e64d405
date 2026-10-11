@@ -27,6 +27,7 @@ export const FULL_ADMIN_ONLY_ADMIN_PATHS = [
   "/admin/wallet-topups",
   "/admin/learning-insights",
   "/admin/diagnostics",
+  "/admin/exam-schedule",
 ] as const;
 
 export type AdminSection = "full" | "content";
@@ -72,6 +73,7 @@ type SidebarLink = {
     | "/admin/questions"
     | "/admin/exam-templates"
     | "/admin/ministerial-exams"
+    | "/admin/exam-schedule"
     | "/admin/import"
     | "/admin/learning-insights/mistakes"
     | "/admin/learning-insights/performance"
@@ -99,7 +101,8 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(links: T[], isAdm
       link.href !== "/admin/learning-insights/mistakes" &&
       link.href !== "/admin/learning-insights/performance" &&
       link.href !== "/admin/learning-insights/quick-review" &&
-      link.href !== "/admin/diagnostics",
+      link.href !== "/admin/diagnostics" &&
+      link.href !== "/admin/exam-schedule",
   );
 }
 

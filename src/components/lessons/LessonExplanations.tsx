@@ -81,8 +81,8 @@ export function LessonExplanations({
   return (
     <div className="space-y-3">
       {explanations.map((explanation) => (
-        <article key={explanation.id} className="rounded-xl border border-border bg-background p-3">
-          {explanation.title && (
+        <article key={explanation.id} className="min-w-0">
+          {explanation.title && !/<html[\s>]|<!doctype/i.test(explanation.content) && (
             <h3 className="mb-1 text-sm font-semibold text-foreground">{explanation.title}</h3>
           )}
           {/<html[\s>]|<!doctype/i.test(explanation.content) ? (

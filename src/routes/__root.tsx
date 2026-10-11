@@ -1,3 +1,4 @@
+import { StudentIntroGate } from "@/components/onboarding/StudentIntroGate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -11,7 +12,6 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { captureDiagnosticSync } from "@/lib/diagnostics/telemetry";
 import { DiagnosticsBridge } from "@/components/diagnostics/DiagnosticsBridge";
 import { registerServiceWorker } from "@/lib/pwa/register-sw";
@@ -20,6 +20,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { AndroidBackHandler } from "@/components/mobile/AndroidBackHandler";
 import { NativeAuthDeepLinkHandler } from "@/components/mobile/NativeAuthDeepLinkHandler";
+import { NativeStatusBar } from "@/components/mobile/NativeStatusBar";
 import { NativeNotificationHandler } from "@/components/mobile/NativeNotificationHandler";
 
 function NotFoundComponent() {
@@ -48,7 +49,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
     captureDiagnosticSync({
       eventType: "react_root_boundary",
       severity: "fatal",
@@ -155,12 +155,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap",
-      },
+      ...(import.meta.env.VITE_NATIVE_SHELL === "true"
+        ? [{ rel: "stylesheet", href: "/native-shell/fonts/cairo.css" }]
+        : [
+            { rel: "preconnect", href: "https://fonts.googleapis.com" },
+            {
+              rel: "preconnect",
+              href: "https://fonts.gstatic.com",
+              crossOrigin: "anonymous" as const,
+            },
+            {
+              rel: "stylesheet",
+              href: "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap",
+            },
+          ]),
     ],
     scripts: [
       {
@@ -199,6 +207,14 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" dir="rtl">
       <head>
+        {import.meta.env.VITE_NATIVE_SHELL === "true" && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                'if(location.pathname==="/index.html"||location.pathname==="/"){history.replaceState(null,"","/app")}',
+            }}
+          />
+        )}
         <HeadContent />
       </head>
       <body>
@@ -227,11 +243,14 @@ function RootComponent() {
           queryClient.clear();
         }}
       >
-        <Outlet />
+        <StudentIntroGate>
+          <Outlet />
+        </StudentIntroGate>
         {!academyRouteActive ? <DiagnosticsBridge /> : null}
         <AndroidBackHandler />
         <NativeAuthDeepLinkHandler />
         <NativeNotificationHandler />
+        <NativeStatusBar />
         {!academyRouteActive ? <PwaUpdateNotice /> : null}
         <Toaster position="top-center" richColors />
       </AuthProvider>
