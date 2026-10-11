@@ -1,33 +1,13 @@
 import { historyStats, historyScoreLabel, historyAnswerLabel } from "@/lib/exams/history-score";
 import { RouteIndexContent } from "@/components/student/RouteIndexContent";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useExamHistory, type ExamMode } from "@/hooks/use-exam-history";
 import { useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
 import { StateMessage } from "@/components/student/StudentNav";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, History, Trophy, Target, Activity } from "lucide-react";
 
-type ExamMode = "training" | "strict" | "ministry";
-type ExamStatus = "submitted" | "expired";
 type Filter = "all" | ExamMode;
-
-type HistoryRow = {
-  id: string;
-  template_id: string;
-  mode: ExamMode;
-  status: ExamStatus | "in_progress";
-  started_at: string;
-  submitted_at: string | null;
-  total_questions: number;
-  correct_answers: number | null;
-  ministerial_model_id: string | null;
-  result_json: unknown;
-  score: number | null;
-  total_points: number | null;
-  exam_templates: { title: string | null } | null;
-};
 
 const MODE_LABEL: Record<ExamMode, string> = {
   training: "تدريب",
@@ -64,27 +44,9 @@ export const Route = createFileRoute("/_authenticated/exams/history")({
 });
 
 function ExamHistoryPage() {
-  const { user } = useAuth();
   const [filter, setFilter] = useState<Filter>("all");
 
-  const query = useQuery({
-    enabled: !!user?.id,
-    queryKey: ["exam-history", user?.id],
-    queryFn: async (): Promise<HistoryRow[]> => {
-      const { data, error } = await supabase
-        .from("exam_sessions")
-        .select(
-          "id, template_id, mode, status, started_at, submitted_at, total_questions, correct_answers, score, total_points, ministerial_model_id, result_json, exam_templates(title)",
-        )
-        .eq("user_id", user!.id)
-        .in("status", ["submitted", "expired"])
-        .order("submitted_at", { ascending: false, nullsFirst: false })
-        .order("started_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data ?? []) as unknown as HistoryRow[];
-    },
-  });
+  const query = useExamHistory();
 
   const rows = query.data ?? [];
 

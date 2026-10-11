@@ -13,13 +13,18 @@ const SUBJECT_PAGE = new URL(
   "../../src/routes/_authenticated/subjects.$subjectId.tsx",
   import.meta.url,
 );
-const src = readFileSync(SUBJECT_PAGE, "utf8");
+const src =
+  readFileSync(SUBJECT_PAGE, "utf8") +
+  readFileSync(
+    new URL("../../src/components/subjects/SubjectLessonBrowser.tsx", import.meta.url),
+    "utf8",
+  );
 
 test("both shapes are branched on a real units count, no synthesized units", () => {
   assert.match(src, /const hasUnits = units\.length > 0;/);
   assert.match(src, /hasUnits \? \(/);
   // Direct-lesson branch renders a flat lesson list.
-  assert.match(src, /<LessonList lessons=\{lessons\} completed=\{done\} \/>/);
+  assert.match(src, /<LessonList lessons=\{visibleLessons\} completed=\{done\} \/>/);
   // No fabricated unit rows anywhere in the page.
   assert.ok(!/units\.push\(|defaultUnit|fakeUnit|الوحدة الافتراضية/.test(src));
 });
@@ -27,7 +32,7 @@ test("both shapes are branched on a real units count, no synthesized units", () 
 test("unit numbering is only rendered for real units", () => {
   assert.match(
     src,
-    /\{index \? <span className="text-muted-foreground">الوحدة \{index\}: <\/span> : null\}/,
+    /\{index && !\/\^الوحدة\\s\/.test\(title.trim\(\)\)\s*\?\s*\(\s*<span className="text-muted-foreground">الوحدة \{index\}: <\/span>\s*\)\s*:\s*null\}/,
   );
 });
 

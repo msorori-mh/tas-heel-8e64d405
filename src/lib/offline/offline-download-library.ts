@@ -338,7 +338,7 @@ export async function downloadStudentSubjects(params: {
       let verifiedBytes = 0;
       const report = (progress?: OfflinePackDownloadProgress) => {
         if (progress && (progress.status === "cached" || progress.status === "verified")) {
-          verifiedBytes = progress.loadedBytes;
+          verifiedBytes = progress.verifiedBytes ?? progress.loadedBytes;
         }
         params.onProgress({
           subjectName: subject.name,
@@ -349,8 +349,9 @@ export async function downloadStudentSubjects(params: {
           ...(progress
             ? {
                 verifiedFiles:
+                  progress.verifiedFiles ??
                   progress.artifactIndex +
-                  (progress.status === "verified" || progress.status === "cached" ? 1 : 0),
+                    (progress.status === "verified" || progress.status === "cached" ? 1 : 0),
                 totalFiles: progress.artifactCount,
               }
             : {}),

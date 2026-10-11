@@ -1,3 +1,4 @@
+import { replayStudentIntro } from "@/lib/onboarding/student-intro";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { getReleaseInfo } from "@/lib/release-info";
@@ -445,8 +446,22 @@ function SettingsPage() {
           </SectionItem>
         )}
 
+        <a
+          href="/academy"
+          className="flex min-h-11 items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold"
+        >
+          أكاديمية المعلمين<span aria-hidden>‹</span>
+        </a>
+
         {/* الدعم والمساعدة */}
         <SectionItem value="help" icon={<LifeBuoy className="h-4 w-4" />} title="الدعم والمساعدة">
+          <button
+            type="button"
+            onClick={() => replayStudentIntro()}
+            className="mb-3 min-h-11 w-full rounded-xl border border-border px-4 py-3 text-right font-semibold"
+          >
+            جولة تعريفية بتطبيق تمكين
+          </button>
           <div className="grid grid-cols-2 gap-2">
             <SupportLink to="/contact" icon={<Mail className="h-4 w-4" />} label="تواصل معنا" />
             <SupportLink

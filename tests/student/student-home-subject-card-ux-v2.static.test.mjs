@@ -41,7 +41,9 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
   });
 
   it("fills the learning-tools row without leaving an empty fourth column", () => {
-    expect(tools).toContain("repeat(auto-fit,minmax(220px,1fr))");
+    expect(tools).toContain("divide-y divide-border");
+    expect(tools).toContain("min-h-16");
+    expect(tools).toContain("h-10 w-10");
     expect(navTile).toContain("min-h-20");
     expect(navTile).toContain("text-[15px]");
   });
@@ -107,7 +109,11 @@ describe("STUDENT_HOME_SUBJECT_CARD_UX_V2", () => {
     const subject = read("src/routes/_authenticated/subjects.$subjectId.tsx");
     const lesson = read("src/routes/_authenticated/lessons.$lessonId.tsx");
     const semester = read("src/routes/_authenticated/semesters.$semester.tsx");
-    for (const source of [subject, lesson, semester]) {
+    // Clip contains the lesson without creating a scrolling ancestor that
+    // prevents its component chooser from sticking to the viewport.
+    expect(lesson).toMatch(/<article[^>]*className="[^"]*overflow-x-clip/);
+    expect(lesson).toContain("max-w-full");
+    for (const source of [subject, semester]) {
       expect(source).toContain("overflow-x-hidden");
       expect(source).toContain("max-w-full");
     }

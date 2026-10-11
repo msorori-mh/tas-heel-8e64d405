@@ -22,6 +22,7 @@ public class TamkeenLocalPagesPlugin extends Plugin {
     private static final String ORIGIN = "https://studentamkeen.com";
     private Intent pendingAuthIntent;
     private boolean routingAuth;
+    private boolean packagedShell;
 
     private boolean isAuthReturn(Intent intent) {
         Uri uri = intent == null ? null : intent.getData();
@@ -35,6 +36,9 @@ public class TamkeenLocalPagesPlugin extends Plugin {
     @Override
     public void load() {
         // Plugin.load runs before Bridge.loadWebView: the first request is local too.
+        packagedShell = PackagedShellWebViewClient.installIfPackaged(getBridge());
+        if (packagedShell) return; // React's existing native handler owns OAuth callbacks.
+        if (!"app.studentamkeen.tamkeen".equals(getContext().getPackageName())) return;
         if (isAuthReturn(getActivity().getIntent())) pendingAuthIntent = getActivity().getIntent();
         getBridge().setWebViewClient(new LocalPagesClient(getBridge(), this));
     }
@@ -42,7 +46,7 @@ public class TamkeenLocalPagesPlugin extends Plugin {
     @Override
     protected void handleOnNewIntent(Intent intent) {
         // Keep the existing web PKCE handler as the only code-exchange owner.
-        if (!isAuthReturn(intent)) return;
+        if (packagedShell || !isAuthReturn(intent)) return;
         getActivity().runOnUiThread(() -> {
             String url = getBridge().getWebView().getUrl();
             if (url != null && "/index.html".equals(Uri.parse(url).getPath())) {

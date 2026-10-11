@@ -12,11 +12,11 @@ const ENGINE = "src/lib/lessons/lesson-capabilities.ts";
 const read = (p) => readFileSync(p, "utf8");
 
 describe("18B static guards", () => {
-  it("NO_LITERAL_FIXED_STEP_NUMBERS — step numbers come from the render index", () => {
+  it("NO_LITERAL_FIXED_STEP_NUMBERS — available components drive the chooser", () => {
     const src = read(LESSON_PAGE);
     const tabs = read("src/components/lessons/LessonCapabilityTabs.tsx");
     expect(src).toMatch(/<LessonCapabilityTabs/);
-    expect(tabs).toMatch(/\{index \+ 1\}/);
+    expect(tabs).toMatch(/actions\.map\(\(capability, index\)/);
     expect(tabs).not.toMatch(/stepNumber=\{[1-9]\}/);
     expect(src).not.toMatch(/stepNumber=\{[1-9]\}/);
   });

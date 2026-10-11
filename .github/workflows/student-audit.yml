@@ -35,6 +35,7 @@ jobs:
       - run: npm ci
       - run: npx vitest run tests/student-audit tests/mobile/session-restore
       - run: npx playwright install --with-deps chromium
+      - run: node tests/onboarding/student-intro.browser.mjs
       - run: npx vite build --config tests/e2e/student-audit/vite.config.ts
       - run: node tests/e2e/student-audit/verify.mjs
       - uses: actions/upload-artifact@v4

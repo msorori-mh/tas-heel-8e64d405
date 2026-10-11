@@ -11,7 +11,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "app.studentamkeen.tamkeen",
   appName: "تمكين",
-  webDir: "mobile/www",
+  webDir: "mobile/native-www",
   android: {
     allowMixedContent: false,
   },
@@ -28,6 +28,8 @@ const config: CapacitorConfig = {
   },
 
   plugins: {
+    StatusBar: { overlaysWebView: false, style: "LIGHT", backgroundColor: "#FFFFFF" },
+    SystemBars: { style: "LIGHT", insetsHandling: "css" },
     SplashScreen: {
       launchShowDuration: 1200,
       backgroundColor: "#FBFAF7",

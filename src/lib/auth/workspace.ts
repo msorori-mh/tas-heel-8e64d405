@@ -28,7 +28,21 @@ export async function readWorkspace(userId: string): Promise<Workspace | null> {
   }
 }
 
-export async function resolveWorkspaceHome(userId: string, studentComplete: boolean) {
+export async function resolveWorkspaceHome(
+  userId: string,
+  studentComplete: boolean,
+  explicitWorkspace?: Workspace,
+) {
+  // An explicit portal selection wins over the last visited workspace.
+  // This changes navigation only, never a database role or permission.
+  if (explicitWorkspace) {
+    await rememberWorkspace(userId, explicitWorkspace);
+    return explicitWorkspace === "teacher"
+      ? ("/academy" as const)
+      : studentComplete
+        ? ("/app" as const)
+        : ("/complete-profile" as const);
+  }
   const preferred = await readWorkspace(userId);
   if (preferred === "teacher") return "/academy" as const;
   if (studentComplete) return "/app" as const;

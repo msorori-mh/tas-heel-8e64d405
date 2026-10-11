@@ -11,6 +11,7 @@ node_modules
 dist
 dist-academy
 dist-ssr
+mobile/native-www/
 .output
 .vinxi
 .tanstack/**

@@ -24,6 +24,8 @@ export function AndroidBackHandler() {
       if (!Capacitor.isNativePlatform()) return;
       const { App } = await import("@capacitor/app");
       const handle = await App.addListener("backButton", ({ canGoBack }) => {
+        const introBack = new Event("tamkeen:intro-back", { cancelable: true });
+        if (!window.dispatchEvent(introBack)) return;
         // Let dialogs/sheets close themselves first: Radix listens on Escape,
         // so dispatch it before touching navigation.
         const openOverlay = document.querySelector("[data-state='open'][role='dialog']");

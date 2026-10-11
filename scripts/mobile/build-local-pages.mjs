@@ -2,7 +2,9 @@ import { build } from "esbuild";
 import { readFileSync } from "node:fs";
 // Bind the APK to the same public configuration as source. Never read service-role secrets.
 const publicConfig = readFileSync("src/integrations/supabase/public-config.ts", "utf8");
-const origin = publicConfig.match(/PUBLIC_SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1];
+const origin = publicConfig.match(
+  /PUBLIC_SUPABASE_URL\s*=\s*independent\s*\?\s*"[^"]+"\s*:\s*"([^"]+)"/,
+)?.[1];
 const html = readFileSync("mobile/www/index.html", "utf8");
 if (
   !origin ||

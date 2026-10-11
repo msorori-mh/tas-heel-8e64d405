@@ -28,11 +28,5 @@ for attempt in $(seq 1 90); do
 done
 if [[ "$booted" != true ]]; then cat "$RUNNER_TEMP/tamkeen-emulator.log"; exit 1; fi
 adb shell input keyevent 82
-cd android
-test_status=0
-./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest --stacktrace || test_status=$?
-mkdir -p app/build/reports/local-pages-screenshots
-for screen in home settings lesson; do
-  adb pull "/sdcard/local-pages-$screen.png" app/build/reports/local-pages-screenshots/ >/dev/null 2>&1 || true
-done
-exit "$test_status"
+./android/gradlew -p android :app:testDebugUnitTest :app:assembleDebugAndroidTest --stacktrace
+TAMKEEN_TEST_APP_ID=app.studentamkeen.tamkeen bash scripts/independent/test-native-emulator.sh

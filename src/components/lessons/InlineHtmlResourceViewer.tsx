@@ -4,7 +4,6 @@ import {
   FileText,
   FlaskConical,
   Map as MapIcon,
-  ShieldCheck,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -55,6 +54,20 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
     return () => window.removeEventListener("message", receiveHeight);
   }, [interactive]);
 
+  useEffect(() => {
+    if (!expanded) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", close);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", close);
+    };
+  }, [expanded]);
+
   const applyZoom = (next: number) => {
     const value = Math.max(1, Math.min(3, Math.round(next * 10) / 10));
     setZoom(value);
@@ -65,7 +78,13 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
   };
 
   return (
-    <div className="rounded-xl border border-border bg-background p-3">
+    <div
+      className={
+        expanded
+          ? "fixed inset-0 z-50 overflow-auto bg-background p-3 safe-area-top"
+          : "min-w-0 bg-background"
+      }
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {resourceType === "experiment" ? (
@@ -79,14 +98,9 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
           )}
           <span className="truncate text-sm font-semibold text-foreground">{title}</span>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-          <ShieldCheck className="h-3 w-3" />
-          {mode === "STATIC_NO_SCRIPT"
-            ? "عرض آمن بدون سكربت"
-            : mode === "SANDBOXED_PHET"
-              ? "تجربة PhET — تتطلب الإنترنت"
-              : "بيئة معزولة بدون إنترنت"}
-        </span>
+        {mode === "SANDBOXED_PHET" && (
+          <span className="text-xs text-muted-foreground">تتطلب الإنترنت</span>
+        )}
       </div>
 
       {!body ? (
@@ -136,8 +150,8 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
               sandbox={inlineHtmlSandbox(mode)}
               referrerPolicy="no-referrer"
               loading="lazy"
-              style={{ height: expanded ? "90vh" : `${contentHeight}px` }}
-              className="mt-2 block w-full max-w-full touch-auto rounded-lg border border-border bg-white transition-[height]"
+              style={{ height: expanded ? "75dvh" : `${contentHeight}px` }}
+              className="mt-2 block w-full max-w-full touch-auto bg-white transition-[height]"
             />
           </div>
           <button
@@ -145,7 +159,7 @@ export function InlineHtmlResourceViewer({ title, html, htmlResourceType, resour
             onClick={() => setExpanded((v) => !v)}
             className="mt-2 text-xs font-medium text-primary hover:underline"
           >
-            {expanded ? "تصغير" : "توسيع"}
+            {expanded ? "العودة إلى الدرس" : "فتح بعرض الشاشة"}
           </button>
         </>
       )}

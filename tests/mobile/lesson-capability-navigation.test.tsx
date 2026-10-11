@@ -35,6 +35,8 @@ const actions = types.map((type) => ({
 })) as LessonCapability[];
 beforeEach(() => {
   vi.clearAllMocks();
+  window.scrollTo = vi.fn();
+  localStorage.clear();
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   vi.stubGlobal(
     "IntersectionObserver",
@@ -81,23 +83,14 @@ it("reaches the final two components and preserves answers when switching", asyn
   await act(async () => tab("OFFICIAL_QUESTIONS").click());
   expect(answer.value).toBe("إجابتي المحفوظة");
 });
-it("returns from long content to the active component without changing it", async () => {
+it("offers sequential navigation without a floating return overlay", async () => {
   await mount();
-  await act(async () => tab("SELF_TEST").click());
-  await act(async () =>
-    observe([{ isIntersecting: false, boundingClientRect: { bottom: -20 } as DOMRectReadOnly }]),
-  );
-  const back = Array.from(host.querySelectorAll("button")).find((button) =>
-    button.textContent?.includes("مكونات الدرس"),
+  const next = Array.from(host.querySelectorAll("button")).find((button) =>
+    button.textContent?.startsWith("التالي:"),
   )!;
-  await act(async () => back.click());
-  expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
-  expect(document.activeElement).toBe(tab("SELF_TEST"));
-  expect(tab("SELF_TEST").getAttribute("aria-selected")).toBe("true");
-  await act(async () =>
-    observe([{ isIntersecting: true, boundingClientRect: { bottom: 100 } as DOMRectReadOnly }]),
-  );
-  expect(host.textContent).not.toContain("مكونات الدرس");
+  await act(async () => next.click());
+  expect(tab("EXPLANATION").getAttribute("aria-selected")).toBe("true");
+  expect(host.querySelector(".lesson-return-button")).toBeNull();
 });
 it("supports RTL keyboard navigation to both ends", async () => {
   await mount();
@@ -126,5 +119,35 @@ it("keeps lesson navigation usable without IntersectionObserver", async () => {
   await mount();
   await act(async () => tab("SELF_TEST").click());
   expect(tab("SELF_TEST").getAttribute("aria-selected")).toBe("true");
-  expect(host.textContent).toContain("مكونات الدرس");
+  expect(host.querySelectorAll('[role="tab"]')).toHaveLength(7);
+});
+
+it("restores the saved component for the supplied student and lesson only", async () => {
+  localStorage.setItem(
+    "reader:student-a:lesson-a",
+    JSON.stringify({ type: "SUMMARY", positions: { SUMMARY: 320 } }),
+  );
+  await act(async () =>
+    root.render(
+      <LessonCapabilityTabs
+        readingKey="reader:student-a:lesson-a"
+        actions={actions}
+        waitingForPrimary={false}
+        renderBody={(item) => <p>{item.type}</p>}
+      />,
+    ),
+  );
+  expect(tab("SUMMARY").getAttribute("aria-selected")).toBe("true");
+  await act(async () =>
+    root.render(
+      <LessonCapabilityTabs
+        key="student-b"
+        readingKey="reader:student-b:lesson-a"
+        actions={actions}
+        waitingForPrimary={false}
+        renderBody={(item) => <p>{item.type}</p>}
+      />,
+    ),
+  );
+  expect(tab("PRIMARY_CONTENT").getAttribute("aria-selected")).toBe("true");
 });

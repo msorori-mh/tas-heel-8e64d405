@@ -107,12 +107,14 @@ it("third-secondary journey resumes a cut file, retains completed files, then re
 });
 it("uses a renewed session for each file during a long third-secondary download", async () => {
   const subject = await prepared();
-  subject.manifest.artifacts.push({
-    ...subject.manifest.artifacts[0],
-    artifactId: "second",
-    resourceId: "second",
-    relativePath: "packs/second.html",
-  });
+  for (const id of ["second", "third", "fourth"]) {
+    subject.manifest.artifacts.push({
+      ...subject.manifest.artifacts[0],
+      artifactId: id,
+      resourceId: id,
+      relativePath: `packs/${id}.html`,
+    });
+  }
   const bytes = new TextEncoder().encode("abc");
   const stored = new Map<string, Uint8Array>();
   let token = "TEST_ONLY_INITIAL";
@@ -141,17 +143,21 @@ it("uses a renewed session for each file during a long third-secondary download"
   expect(result.status).toBe("ready");
   expect(vi.mocked(fetch).mock.calls.map(([, init]) => init?.headers)).toEqual([
     { Authorization: "Bearer TEST_ONLY_INITIAL" },
+    { Authorization: "Bearer TEST_ONLY_INITIAL" },
+    { Authorization: "Bearer TEST_ONLY_INITIAL" },
     { Authorization: "Bearer TEST_ONLY_RENEWED" },
   ]);
 });
 it("stops before sending the next file request when the account changes mid-download", async () => {
   const subject = await prepared();
-  subject.manifest.artifacts.push({
-    ...subject.manifest.artifacts[0],
-    artifactId: "second",
-    resourceId: "second",
-    relativePath: "packs/second.html",
-  });
+  for (const id of ["second", "third", "fourth"]) {
+    subject.manifest.artifacts.push({
+      ...subject.manifest.artifacts[0],
+      artifactId: id,
+      resourceId: id,
+      relativePath: `packs/${id}.html`,
+    });
+  }
   const stored = new Map<string, Uint8Array>();
   const bytes = new TextEncoder().encode("abc");
   api.read.mockImplementation(async (_owner, artifact) => stored.get(artifact.artifactId) ?? null);
@@ -170,7 +176,15 @@ it("stops before sending the next file request when the account changes mid-down
       repository: new OfflineStateRepository(new MemoryOfflineStateAdapter()),
     }),
   ).rejects.toThrow("OFFLINE_OWNER_CHANGED");
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(
+    vi
+      .mocked(fetch)
+      .mock.calls.every(
+        ([, init]) =>
+          (init?.headers as Record<string, string>).Authorization !== "Bearer TEST_ONLY_OTHER",
+      ),
+  ).toBe(true);
 });
 it("preserves a server setup diagnostic instead of misclassifying it as storage failure", async () => {
   vi.mocked(fetch).mockResolvedValue(

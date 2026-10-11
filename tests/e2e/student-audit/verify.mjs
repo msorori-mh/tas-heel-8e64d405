@@ -52,12 +52,64 @@ try {
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("link", { name: "مغادرة الاختبار" }).click();
   assert.equal(new URL(page.url()).pathname, "/ministerial-exams/sessions/demo");
+  // Mobile account actions moved to settings; retain the sign-out navigation
+  // guard coverage through the unchanged, visible desktop sidebar action.
+  assert.equal(
+    await page.locator('.student-shell-header button[aria-label="تسجيل الخروج"]').count(),
+    0,
+  );
+  assert.equal(await page.locator('.student-shell-header a[href="/academy"]').count(), 0);
+  await page.setViewportSize({ width: 1280, height: 820 });
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).last().click();
   assert.equal(new URL(page.url()).pathname, "/ministerial-exams/sessions/demo");
+  await page.setViewportSize({ width: 390, height: 820 });
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("link", { name: "مغادرة الاختبار" }).click();
   await page.waitForURL("**/app");
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 820 });
+    await page.goto("http://127.0.0.1:4177/subjects/search-fixture");
+    const input = page.getByRole("searchbox", { name: "البحث عن درس" });
+    await input.fill("احصاء");
+    await page.getByRole("link", { name: /مَبادِئ الإِحْصَاء/ }).waitFor();
+    await page.getByRole("link", { name: /الإحصاء المتقدم/ }).waitFor();
+    assert.equal(await page.locator('a[href="/lessons/intro"]').count(), 0);
+    const measure = await page.evaluate(() => {
+      const input = document.querySelector('input[type="search"]');
+      const clear = document.querySelector('button[aria-label="مسح البحث"]');
+      return {
+        width: innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        inputHeight: input.getBoundingClientRect().height,
+        clearWidth: clear.getBoundingClientRect().width,
+        clearHeight: clear.getBoundingClientRect().height,
+        direction: getComputedStyle(input).direction,
+      };
+    });
+    assert.equal(measure.width, measure.scrollWidth);
+    assert.equal(measure.direction, "rtl");
+    assert(measure.inputHeight >= 44 && measure.clearWidth >= 44 && measure.clearHeight >= 44);
+    measurements.push({ feature: "lesson-search", ...measure });
+    // Let accordion opening animations finish before recording the visual evidence.
+    await page.waitForFunction(() =>
+      document.getAnimations().every((animation) => animation.playState === "finished"),
+    );
+    await page.screenshot({
+      path: `artifacts/student-audit-browser/lesson-search-${width}.png`,
+      fullPage: true,
+    });
+    await input.fill("غير موجود");
+    await page.getByText("لا توجد دروس مطابقة.", { exact: false }).waitFor();
+    assert.equal(await page.locator('a[href^="/lessons/"]').count(), 0);
+    await page.getByRole("button", { name: "مسح البحث" }).click();
+    assert.equal(await input.inputValue(), "");
+    assert(await input.evaluate((element) => document.activeElement === element));
+    await page.getByRole("link", { name: /مقدمة الرياضيات/ }).waitFor();
+    await input.fill("اساسيات");
+    await page.getByRole("link", { name: /أساسيات الجبر/ }).waitFor();
+    assert.equal(await page.locator('a[href^="/units/"]').count(), 0);
+  }
   assert.deepEqual(errors, []);
   await writeFile(
     "artifacts/student-audit-browser/verification.json",
@@ -73,6 +125,11 @@ try {
           "cancel leave",
           "cancel sign-out",
           "confirm leave",
+          "lesson search opens all matching units",
+          "Arabic matching without diacritics",
+          "no matches and clear search with focus",
+          "direct lessons without synthetic units",
+          "44px search controls at 320, 390 and 1280px",
           "no runtime errors",
         ],
       },

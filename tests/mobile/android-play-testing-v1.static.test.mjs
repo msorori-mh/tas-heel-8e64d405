@@ -20,7 +20,7 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   it("freezes the Play identity and offline testing release version", () => {
     expect(capacitor).toContain('appId: "app.studentamkeen.tamkeen"');
     expect(gradle).toContain('applicationId "app.studentamkeen.tamkeen"');
-    expect(gradle).toContain("versionCode 9");
+    expect(gradle).toContain("versionCode 11");
     expect(gradle).toContain('versionName "1.2.0"');
   });
 
@@ -37,7 +37,7 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   });
 
   it("persists Supabase refresh sessions outside the disposable Android WebView", () => {
-    expect(supabaseClient).toContain("persistentAuthStorage() ?? brokeredPreviewStorage()");
+    expect(supabaseClient).toContain("persistentAuthStorage()");
     expect(nativeAuthStorage).toContain("Capacitor.isNativePlatform()");
     expect(nativeAuthStorage).toContain("Preferences");
     expect(nativeAuthStorage).toContain("legacyValue");
@@ -70,6 +70,6 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(workflow).toContain(
       "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
     );
-    expect(workflow).toContain("tamkeen-play-1.2.0-code-9-signed-aab");
+    expect(workflow).toContain("tamkeen-play-1.2.0-code-11-signed-aab");
   });
 });

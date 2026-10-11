@@ -14,6 +14,8 @@ const directories = [
 ];
 const requiredFiles = ["package.json", "package-lock.json", "vite.config.ts", "tsconfig.json"];
 const optionalFiles = [
+  "vite.independent.config.ts",
+  "scripts/independent",
   "bun.lock",
   "components.json",
   "apps/teacher-academy/vite.config.ts",

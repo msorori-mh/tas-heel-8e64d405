@@ -3,7 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const APPROVED_SOURCE = "assets/brand/student-tamkeen-mark-approved.png";
-const APPROVED_SHA256 = "538f9c83fb2d2c41f327cd3432dcb07b9ffec435471ad7257963fbef040ba864";
+const APPROVED_SHA256 = "0712c91b6c482eca63586314021e53964cbe0f5df13323f2a473402f0e45899c";
 
 const read = (path) => readFileSync(path, "utf8");
 
@@ -22,7 +22,7 @@ describe("STUDENT_BRAND_LOGO_ASSETS_02", () => {
   it("pins the exact owner-approved logo source", () => {
     const source = readFileSync(APPROVED_SOURCE);
     expect(createHash("sha256").update(source).digest("hex")).toBe(APPROVED_SHA256);
-    expect(pngDimensions(APPROVED_SOURCE)).toEqual([222, 245]);
+    expect(pngDimensions(APPROVED_SOURCE)).toEqual([512, 512]);
   });
 
   it("publishes complete PWA and Play Store assets at their required sizes", () => {
