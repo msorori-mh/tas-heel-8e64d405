@@ -6,7 +6,7 @@ import { resolve, extname } from "node:path";
 import { createHash } from "node:crypto";
 const root = resolve("mobile/native-www");
 const manifest = JSON.parse(readFileSync(resolve(root, "native-shell-manifest.json")));
-const origin = manifest.stagingOrigin;
+const origin = manifest.appOrigin ?? manifest.stagingOrigin;
 const artifactDir = resolve("artifacts/native-shell");
 mkdirSync(artifactDir, { recursive: true });
 const profileDir = mkdtempSync(resolve(artifactDir, "browser-"));

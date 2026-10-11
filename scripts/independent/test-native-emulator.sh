@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-app=app.studentamkeen.tamkeen.staging
+app=${TAMKEEN_TEST_APP_ID:-app.studentamkeen.tamkeen.staging}
+mkdir -p artifacts/native-shell
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell svc wifi disable
