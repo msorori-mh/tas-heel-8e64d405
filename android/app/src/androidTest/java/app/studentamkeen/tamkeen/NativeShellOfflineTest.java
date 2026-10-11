@@ -24,6 +24,51 @@ import static org.junit.Assert.*;
 public class NativeShellOfflineTest {
     private static final String OWNER = "native-offline-fixture";
 
+    @Test public void showBundledIntro() throws Exception {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        Context context = instrumentation.getTargetContext();
+        ConnectivityManager network = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        assertNull("The emulator must have no network", network.getActiveNetwork());
+        assertTrue(context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE).edit()
+                .remove("tamkeen.student-intro.v1").remove("tamkeen.student-shell.identity.v1").commit());
+        Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        assertNotNull(launch);
+        MainActivity activity = (MainActivity) instrumentation.startActivitySync(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        String result = "";
+        long until = System.currentTimeMillis() + 25000;
+        while (System.currentTimeMillis() < until) {
+            CountDownLatch ready = new CountDownLatch(1);
+            AtomicReference<String> value = new AtomicReference<>("");
+            instrumentation.runOnMainSync(() -> activity.getBridge().getWebView().evaluateJavascript(
+                    "JSON.stringify({title:document.body.innerText.includes('منهجك بين يديك'),"
+                    + "skip:[...document.querySelectorAll('.intro-skip')].some(b=>b.innerText==='تخطّي'),"
+                    + "visible:!!document.querySelector('.tamkeen-intro')})",
+                    response -> { value.set(response); ready.countDown(); }));
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            result = value.get();
+            if (result.contains("\\\"title\\\":true") && result.contains("\\\"skip\\\":true")
+                    && result.contains("\\\"visible\\\":true")) {
+                CountDownLatch painted = new CountDownLatch(1);
+                instrumentation.runOnMainSync(() -> activity.getBridge().getWebView()
+                        .postVisualStateCallback(0, new WebView.VisualStateCallback() {
+                            @Override public void onComplete(long id) { painted.countDown(); }
+                        }));
+                assertTrue(painted.await(5, TimeUnit.SECONDS));
+                instrumentation.waitForIdleSync();
+                Bitmap image = instrumentation.getUiAutomation().takeScreenshot();
+                assertTrue("Intro did not paint", hasPaintedContent(image));
+                File output = new File(context.getExternalFilesDir(null), "offline-showBundledIntro.png");
+                try (FileOutputStream out = new FileOutputStream(output)) {
+                    image.compress(Bitmap.CompressFormat.PNG, 100, out);
+                }
+                image.recycle();
+                return;
+            }
+            Thread.sleep(250);
+        }
+        fail("Bundled first-launch intro did not load: " + result);
+    }
+
     @Test public void seedAndOpen() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         String identity = "{\"version\":1,\"profile\":{\"id\":\"profile-test\",\"user_id\":\"" + OWNER

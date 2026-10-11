@@ -73,7 +73,7 @@ jobs:
       - run: npm ci
       - run: npm run mobile:build
       - run: npx cap sync android
-      - run: ./gradlew assembleDebug
+      - run: ./gradlew assembleDebug assembleDebugAndroidTest
         working-directory: android
       - uses: actions/upload-artifact@v4
         with:
@@ -97,6 +97,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb install android/app/build/outputs/apk/debug/app-debug.apk
+            adb install android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell cmd connectivity airplane-mode enable
             adb shell svc wifi disable
             adb shell svc data disable
@@ -108,7 +109,11 @@ jobs:
             adb logcat -d -s Capacitor/Console chromium > docs/ui/student-home-exams-v2/android-16-intro-log.txt
             adb shell screencap -p /sdcard/tamkeen-status-bar.png
             adb pull /sdcard/tamkeen-status-bar.png docs/ui/student-home-exams-v2/android-16-status-bar.png
-            python -c "from pathlib import Path; xml=Path('docs/ui/student-home-exams-v2/android-16-intro.xml').read_text(); assert 'منهجك بين يديك' in xml, 'Bundled first-launch intro is missing'; assert 'تخطّي' in xml, 'Intro skip is missing'"
+            adb shell am force-stop app.studentamkeen.tamkeen
+            adb shell am instrument -w -r -e class 'app.studentamkeen.tamkeen.NativeShellOfflineTest#showBundledIntro' app.studentamkeen.tamkeen.test/androidx.test.runner.AndroidJUnitRunner > docs/ui/student-home-exams-v2/android-16-intro-test.txt
+            cat docs/ui/student-home-exams-v2/android-16-intro-test.txt
+            grep -Fq 'OK (1 test)' docs/ui/student-home-exams-v2/android-16-intro-test.txt
+            adb pull /sdcard/Android/data/app.studentamkeen.tamkeen/files/offline-showBundledIntro.png docs/ui/student-home-exams-v2/android-16-status-bar.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -117,4 +122,5 @@ jobs:
             docs/ui/student-home-exams-v2/android-16-status-bar.png
             docs/ui/student-home-exams-v2/android-16-intro.xml
             docs/ui/student-home-exams-v2/android-16-intro-log.txt
+            docs/ui/student-home-exams-v2/android-16-intro-test.txt
           if-no-files-found: warn
