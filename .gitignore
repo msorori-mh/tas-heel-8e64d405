@@ -45,3 +45,9 @@ android/.gradle/
 
 # Content Factory generated bundles
 content-packages/*/dist/
+
+# Generated public Academy code shell (content stays in owner-scoped storage).
+dist-academy-shell/
+public/academy-shell/
+apps/teacher-academy/public/academy-shell/
+tests/e2e/academy-offline/dist/

@@ -28,7 +28,7 @@ export function AcademyPwaControls() {
       {!state.online ? (
         <div className="academy-pwa-notice offline" role="status">
           <WifiOff />
-          <span>أنت غير متصل. تتوفر واجهة الأكاديمية الأساسية فقط حتى عودة الإنترنت.</span>
+          <span>أنت غير متصل. يمكنك متابعة الدروس التي نزّلتها سابقًا من «التنزيلات».</span>
         </div>
       ) : null}
 

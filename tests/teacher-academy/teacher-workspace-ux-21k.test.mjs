@@ -6,7 +6,7 @@ const app = readFileSync("apps/teacher-academy/src/App.tsx", "utf8");
 const styles = readFileSync("apps/teacher-academy/src/styles.css", "utf8");
 
 test("teacher workspace starts from a useful dashboard with real learning summaries", () => {
-  assert.match(app, /type WorkspaceView = "home"/);
+  assert.match(app, /type WorkspaceView\s*=\s*(?:\|\s*)?"home"/);
   assert.match(app, /function TeacherDashboard/);
   assert.match(
     app,
