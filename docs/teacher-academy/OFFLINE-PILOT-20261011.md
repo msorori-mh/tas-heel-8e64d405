@@ -17,4 +17,10 @@ Local validation: root and Academy typechecks; 99 Academy Node tests; 15 dedicat
 
 `20260915021143_academy_offline_notes.sql` is included for review and disposable database rehearsal only. It has **not** been applied to production or the independent database. Real notes sync remains HOLD until the additive migration is reviewed against the effective remote schema and applied through its normal release process. Completion uses the existing server-authorized RPC; certified assessment/certificate issuance remains online-only.
 
-This is user-authorized maintenance of the existing pilot, not closure of `ACADEMY_FULL_PROGRAMMING_GATE=CLOSED`, target commercial entitlement/RBAC decisions, or permission to deploy. Android #322 is reviewed separately; reconcile the two branches before any combined release and rerun affected native tests.
+This is user-authorized maintenance of the existing pilot, not closure of `ACADEMY_FULL_PROGRAMMING_GATE=CLOSED`, target commercial entitlement/RBAC decisions, or permission to deploy. Android #322 is now merged; the integration refresh below records its reconciliation with this branch.
+
+## Integration refresh — 2026-10-12 (Asia/Riyadh)
+
+Reconciled with main `5b1d0759676b3c8c8cd81760e6de1a130f1a0cdc`, including Android 1.2.0 (11). The sole merge conflict was `.gitignore`; both the generated Academy shell rules and the native local-runtime rule are retained. Package scripts preserve production/independent Academy shell generation and the current native SPA build.
+
+Root TypeScript and 40 focused offline/teacher/student-note tests passed after reconciliation. The current native SPA builds and packages successfully. Fresh CI must prove the combined branch's browser, PostgreSQL and Android behavior; record those checks on #336. No live migration, production data change or Google Play publication is implied.

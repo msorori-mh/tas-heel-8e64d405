@@ -9,6 +9,9 @@ on:
       - "scripts/mobile/**"
       - "docs/mobile/google-play/**"
       - "capacitor.config.ts"
+      - "vite.native.config.ts"
+      - "scripts/independent/package-native-shell.mjs"
+      - "scripts/independent/test-native-emulator.sh"
       - "package.json"
       - "package-lock.json"
       - "public/manifest.webmanifest"
@@ -35,6 +38,9 @@ on:
       - "scripts/mobile/**"
       - "docs/mobile/google-play/**"
       - "capacitor.config.ts"
+      - "vite.native.config.ts"
+      - "scripts/independent/package-native-shell.mjs"
+      - "scripts/independent/test-native-emulator.sh"
       - "package.json"
       - "package-lock.json"
       - "public/manifest.webmanifest"
@@ -66,7 +72,7 @@ jobs:
   debug-bundle:
     name: Android API 36 debug bundle
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -94,11 +100,35 @@ jobs:
           npm run test:mobile-release
 
       - name: Synchronize Capacitor Android project
-        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+        run: |
+          npm run mobile:build
+          node node_modules/@capacitor/cli/bin/capacitor sync android
+
+      - name: Verify the compiled student UI with zero network
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:native-shell
 
       - name: Build debug app bundle and installable APK
         working-directory: android
         run: ./gradlew bundleDebug assembleDebug --stacktrace
+
+      - name: Test local pages in Android WebView with network disabled
+        run: bash scripts/mobile/test-local-pages-emulator.sh
+
+      - name: Upload local pages device-test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamkeen-local-pages-device-tests
+          path: |
+            android/app/build/reports/androidTests/
+            android/app/build/reports/tests/
+            android/app/build/reports/local-pages-screenshots/
+            android/app/build/reports/emulator/
+            artifacts/native-shell/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify Play bundle structure and 16 KB native-library gate
         run: bash scripts/mobile/verify-play-aab.sh android/app/build/outputs/bundle/debug/app-debug.aab
@@ -114,7 +144,7 @@ jobs:
       - name: Upload installable APK for device testing
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-android-1.1.5-code-10-test-apk
+          name: tamkeen-android-1.2.0-code-11-test-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -179,7 +209,9 @@ jobs:
             -alias "$KEY_ALIAS" >/dev/null
 
       - name: Synchronize Capacitor Android project
-        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+        run: |
+          npm run mobile:build
+          node node_modules/@capacitor/cli/bin/capacitor sync android
 
       - name: Build and verify the signed Play bundle
         working-directory: android
@@ -197,7 +229,7 @@ jobs:
       - name: Upload signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-play-1.1.5-code-10-signed-aab
+          name: tamkeen-play-1.2.0-code-11-signed-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14

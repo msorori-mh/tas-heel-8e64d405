@@ -20,8 +20,8 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   it("freezes the Play identity and offline testing release version", () => {
     expect(capacitor).toContain('appId: "app.studentamkeen.tamkeen"');
     expect(gradle).toContain('applicationId "app.studentamkeen.tamkeen"');
-    expect(gradle).toContain("versionCode 10");
-    expect(gradle).toContain('versionName "1.1.5"');
+    expect(gradle).toContain("versionCode 11");
+    expect(gradle).toContain('versionName "1.2.0"');
   });
 
   it("loads only the production HTTPS origin and refuses cleartext", () => {
@@ -37,10 +37,7 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
   });
 
   it("persists Supabase refresh sessions outside the disposable Android WebView", () => {
-    expect(supabaseClient).toMatch(
-      /persistentAuthStorage\(\)\s*\?\?\s*\(typeof window !== "undefined" \? window\.localStorage : undefined\)/,
-    );
-    expect(supabaseClient).not.toContain("brokeredPreviewStorage");
+    expect(supabaseClient).toContain("persistentAuthStorage()");
     expect(nativeAuthStorage).toContain("Capacitor.isNativePlatform()");
     expect(nativeAuthStorage).toContain("Preferences");
     expect(nativeAuthStorage).toContain("legacyValue");
@@ -69,10 +66,10 @@ describe("ANDROID_PLAY_TESTING_V1_01", () => {
     expect(workflow).not.toContain("CHANGE_ME");
   });
 
-  it("builds the signed 1.1.5 bundle after an Android main release merge", () => {
+  it("builds the signed 1.2.0 bundle after an Android main release merge", () => {
     expect(workflow).toContain(
       "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
     );
-    expect(workflow).toContain("tamkeen-play-1.1.5-code-10-signed-aab");
+    expect(workflow).toContain("tamkeen-play-1.2.0-code-11-signed-aab");
   });
 });

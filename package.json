@@ -34,7 +34,9 @@
     "build:independent": "node scripts/academy/build-offline-shell.mjs --independent && vite build --config vite.independent.config.ts",
     "test:native-shell": "node tests/mobile/native-shell-cold-start.mjs",
     "start:independent": "node scripts/independent/start.mjs",
-    "test:independent": "node --import tsx --test tests/independent/*.test.* && vitest run tests/mobile/independent-staging-auth.runtime.test.ts"
+    "test:independent": "node --import tsx --test tests/independent/*.test.* && vitest run tests/mobile/independent-staging-auth.runtime.test.ts",
+    "mobile:build": "tsc -p mobile/tsconfig.json --noEmit && node scripts/mobile/build-local-pages.mjs && npm run build:native && node scripts/mobile/package-native-shell.mjs",
+    "build:native": "vite build --config vite.native.config.ts"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
