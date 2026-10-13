@@ -3,10 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useConnectivity } from "@/hooks/use-connectivity";
 import { supabase } from "@/integrations/supabase/client";
-
-// exam_schedule is not yet in the generated database types.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const examScheduleDb = supabase as any;
 import { adenToday, pickUpcomingExam } from "@/lib/exams/exam-countdown";
 export function useExamCountdown() {
   const { profile } = useAuth();
@@ -31,7 +27,7 @@ export function useExamCountdown() {
     queryFn: async () => {
       const from = new Date(`${adenToday()}T00:00:00Z`);
       from.setUTCDate(from.getUTCDate() - 60);
-      const { data, error } = await examScheduleDb
+      const { data, error } = await supabase
         .from("exam_schedule")
         .select(
           "id,curriculum_track_id,grade_id,semester,exam_kind,title,starts_on,ends_on,is_published",

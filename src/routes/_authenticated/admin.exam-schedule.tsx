@@ -5,10 +5,6 @@ import { toast } from "sonner";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { supabase } from "@/integrations/supabase/client";
-
-// exam_schedule is not yet in the generated database types.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const examScheduleDb = supabase as any;
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -62,7 +58,7 @@ function ExamSchedulePage() {
     queryKey: ["admin-exam-schedule"],
     enabled: access.enabled,
     queryFn: async () => {
-      const { data, error } = await examScheduleDb
+      const { data, error } = await supabase
         .from("exam_schedule")
         .select(
           "id,curriculum_track_id,grade_id,semester,exam_kind,title,starts_on,ends_on,is_published",
@@ -277,7 +273,7 @@ function ExamSchedulePage() {
                                 onClick={() =>
                                   void mutate(
                                     () =>
-                                      examScheduleDb
+                                      supabase
                                         .from("exam_schedule")
                                         .update({ is_published: !row.is_published })
                                         .eq("id", row.id),
@@ -332,8 +328,8 @@ function ExamSchedulePage() {
                   const saved = await mutate(
                     () =>
                       id
-                        ? examScheduleDb.from("exam_schedule").update(value).eq("id", id)
-                        : examScheduleDb.from("exam_schedule").insert(value),
+                        ? supabase.from("exam_schedule").update(value).eq("id", id)
+                        : supabase.from("exam_schedule").insert(value),
                     "تم حفظ الموعد",
                   );
                   if (saved) setDraft(null);
@@ -481,7 +477,7 @@ function ExamSchedulePage() {
                   if (
                     deleteTarget &&
                     (await mutate(
-                      () => examScheduleDb.from("exam_schedule").delete().eq("id", deleteTarget.id),
+                      () => supabase.from("exam_schedule").delete().eq("id", deleteTarget.id),
                       "تم حذف الموعد",
                     ))
                   )
