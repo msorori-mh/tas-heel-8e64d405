@@ -10,13 +10,14 @@ on:
       - "bun.lock"
       - "tests/independent*/**"
       - ".github/workflows/independence-closure.yml"
+      - ".github/workflows/independent-staging.yml"
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   independent:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17
@@ -43,6 +44,28 @@ jobs:
         env:
           INVENTORY_TEST_DATABASE_URL: postgres://postgres:TEST_ONLY@localhost:5432/independent_fixture
         run: node --test tests/independent-pg/inventory.test.mjs
+      - name: Verify keyed row comparison against disposable PostgreSQL
+        env:
+          PGPASSWORD: TEST_ONLY
+          PARITY_TEST_DATABASE_URL: postgres://postgres:TEST_ONLY@localhost:5432/independent_rows_fixture
+        run: |
+          createdb -h localhost -U postgres independent_rows_fixture
+          node --test tests/independent/row-parity.test.mjs
       - run: npm run build:independent
       - run: node scripts/independent/verify-build.mjs
       - run: node scripts/independent/smoke-build.mjs
+      - name: Verify independent native assets and offline cold restart
+        env:
+          TAMKEEN_NATIVE_SHELL: '1'
+        run: |
+          npm run build:independent
+          node scripts/independent/verify-build.mjs
+          node scripts/independent/package-native-shell.mjs
+          npx playwright install --with-deps chromium
+          npm run test:native-shell
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-cold-start-evidence
+          path: artifacts/native-shell/
+          retention-days: 14

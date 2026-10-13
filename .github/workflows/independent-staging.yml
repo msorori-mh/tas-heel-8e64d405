@@ -40,7 +40,7 @@ jobs:
     needs: web
     if: vars.TAMKEEN_STAGING_ORIGIN != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       TAMKEEN_STAGING_ORIGIN: ${{ vars.TAMKEEN_STAGING_ORIGIN }}
       TAMKEEN_EXPECTED_SHA: ${{ github.sha }}
@@ -67,12 +67,30 @@ jobs:
           TAMKEEN_NATIVE_SHELL: '1'
         run: |
           npm run build:independent
+          node scripts/independent/verify-build.mjs
           node scripts/independent/package-native-shell.mjs
+      - name: Verify independent compiled UI after two offline restarts
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:native-shell
       - name: Prepare side-by-side staging app and callbacks
         run: node scripts/independent/prepare-android.mjs
       - run: node node_modules/@capacitor/cli/bin/capacitor sync android
       - run: ./gradlew assembleDebug --stacktrace
         working-directory: android
+      - name: Verify independent APK in Android WebView with network disabled
+        env:
+          TAMKEEN_TEST_APP_ID: app.studentamkeen.tamkeen.staging
+        run: bash scripts/mobile/test-local-pages-emulator.sh
+      - name: Retain offline device-test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-offline-evidence-${{ github.run_number }}
+          path: |
+            artifacts/native-shell/
+            android/app/build/reports/emulator/
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: Tamkeen-Independent-Staging-APK-${{ github.run_number }}
