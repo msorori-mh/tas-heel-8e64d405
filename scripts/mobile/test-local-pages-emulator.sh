@@ -29,4 +29,4 @@ done
 if [[ "$booted" != true ]]; then cat "$RUNNER_TEMP/tamkeen-emulator.log"; exit 1; fi
 adb shell input keyevent 82
 ./android/gradlew -p android :app:testDebugUnitTest :app:assembleDebugAndroidTest --stacktrace
-TAMKEEN_TEST_APP_ID=app.studentamkeen.tamkeen bash scripts/independent/test-native-emulator.sh
+TAMKEEN_TEST_APP_ID="${TAMKEEN_TEST_APP_ID:-app.studentamkeen.tamkeen}" bash scripts/independent/test-native-emulator.sh
