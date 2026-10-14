@@ -345,7 +345,20 @@ export const finalizeHtmlUploadFn = createServerFn({ method: "POST" })
       resourceVersionId: z.string().uuid(),
     }),
   )
-  .handler(async ({ data }): Promise<FinalizeUploadResult> => {
+  .handler(async ({ data, context }): Promise<FinalizeUploadResult> => {
+    // Only the uploader (or a full admin) may finalize an upload session.
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from("lesson_resource_upload_sessions" as never)
+      .select("actor_id")
+      .eq("id", data.uploadSessionId)
+      .maybeSingle();
+    if (sessionError) throw new Error("تعذر التحقق من جلسة الرفع.");
+    const actorId = (session as { actor_id?: string } | null)?.actor_id;
+    if (!actorId) throw new Error("جلسة الرفع غير موجودة.");
+    if (actorId !== context.userId && !context.isFullAdmin) {
+      throw new Error("غير مصرح — لا يمكنك إكمال رفع بدأه مستخدم آخر.");
+    }
+
     const workflow = buildWorkflowAdapter();
     const pipelineDb = buildPipelineDbAdapter();
 
