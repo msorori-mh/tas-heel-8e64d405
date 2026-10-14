@@ -174,7 +174,7 @@ export function CurriculumPrelaunchPurgeControl() {
         variant="destructive"
         size="sm"
         onClick={() => handleOpenChange(true)}
-        disabled={statusQ.isLoading || status?.enabled === false}
+        disabled={statusQ.isLoading}
         className="gap-1.5"
       >
         {statusQ.isLoading ? (
@@ -182,7 +182,7 @@ export function CurriculumPrelaunchPurgeControl() {
         ) : (
           <Trash2 className="h-4 w-4" />
         )}
-        {status?.enabled === false ? "التنظيف التجريبي مغلق" : "تنظيف البيانات التجريبية"}
+        تنظيف البيانات التجريبية
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
