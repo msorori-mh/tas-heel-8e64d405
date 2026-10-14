@@ -278,7 +278,7 @@ function ExamSchedulePage() {
                                   void mutate(
                                     () =>
                                       examScheduleDb
-        .from("exam_schedule")
+                                        .from("exam_schedule")
                                         .update({ is_published: !row.is_published })
                                         .eq("id", row.id),
                                     "تم تحديث حالة النشر",

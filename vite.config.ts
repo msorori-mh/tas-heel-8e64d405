@@ -16,7 +16,16 @@ export default defineConfig(({ mode, command }) => ({
     tailwindcss(),
     tanstackStart({ server: { entry: "server" } }),
     react(),
-    ...(command === "build" ? [nitro({ defaultPreset: "cloudflare-module", output: { dir: "dist" } })] : []),
+    ...(command === "build"
+      ? [
+          nitro({
+            defaultPreset: "cloudflare-module",
+            // Preserve the existing host's artifact layout until the independent
+            // deployment is cut over. Nitro otherwise emits assets to dist/public.
+            output: { dir: "dist", serverDir: "dist/server", publicDir: "dist/client" },
+          }),
+        ]
+      : []),
     {
       name: "tamkeen-release-proof",
       apply: "build",
@@ -29,6 +38,8 @@ export default defineConfig(({ mode, command }) => ({
       },
     },
   ],
+  // The hosted development proxy connects to port 8080 on a network interface.
+  server: { host: "::", port: 8080, strictPort: true },
   resolve: { dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-start"] },
   define: {
     ...Object.fromEntries(
