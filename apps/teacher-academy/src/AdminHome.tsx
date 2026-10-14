@@ -148,7 +148,16 @@ function splitLines(value: string): string[] {
 
 function downloadCsv(fileName: string, rows: Array<Array<string | number>>) {
   const csv = rows
-    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+    .map((row) =>
+      row
+        .map((cell) => {
+          let text = String(cell);
+          // Neutralize spreadsheet formula prefixes (CSV injection).
+          if (typeof cell === "string" && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+          return `"${text.replaceAll('"', '""')}"`;
+        })
+        .join(","),
+    )
     .join("\n");
   const url = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
