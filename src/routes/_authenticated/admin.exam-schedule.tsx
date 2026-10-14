@@ -274,7 +274,7 @@ function ExamSchedulePage() {
                                   void mutate(
                                     () =>
                                       supabase
-                                        .from("exam_schedule")
+        .from("exam_schedule")
                                         .update({ is_published: !row.is_published })
                                         .eq("id", row.id),
                                     "تم تحديث حالة النشر",
@@ -328,8 +328,8 @@ function ExamSchedulePage() {
                   const saved = await mutate(
                     () =>
                       id
-                        ? supabase.from("exam_schedule").update(value).eq("id", id)
-                        : supabase.from("exam_schedule").insert(value),
+                        ? examScheduleDb.from("exam_schedule").update(value).eq("id", id)
+                        : examScheduleDb.from("exam_schedule").insert(value),
                     "تم حفظ الموعد",
                   );
                   if (saved) setDraft(null);
@@ -477,7 +477,7 @@ function ExamSchedulePage() {
                   if (
                     deleteTarget &&
                     (await mutate(
-                      () => supabase.from("exam_schedule").delete().eq("id", deleteTarget.id),
+                      () => examScheduleDb.from("exam_schedule").delete().eq("id", deleteTarget.id),
                       "تم حذف الموعد",
                     ))
                   )
