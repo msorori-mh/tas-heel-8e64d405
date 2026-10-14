@@ -525,7 +525,9 @@ function AdminLessonsList() {
               <BookOpen className="h-6 w-6 text-primary" />
               الدروس
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">قائمة الدروس — قراءة فقط.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              الدروس حسب المادة والوحدة، مع إمكانية إضافة درس جديد.
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <CurriculumPrelaunchPurgeControl />

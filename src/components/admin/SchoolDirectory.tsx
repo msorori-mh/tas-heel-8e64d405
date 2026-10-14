@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  arabicCount,
+  FILE_FORMS,
+  SCHOOL_FORMS,
+  STUDENT_FORMS,
+  TEACHER_FORMS,
+} from "@/lib/i18n/arabic-count";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -175,8 +182,9 @@ export function SchoolDirectory() {
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            {active.data?.count ?? 0}{" "}
-            {tab === "pending" ? "ملفًا بانتظار المراجعة" : "مدرسة معتمدة"}
+            {tab === "pending"
+              ? `${arabicCount(active.data?.count ?? 0, FILE_FORMS)} بانتظار المراجعة`
+              : `${arabicCount(active.data?.count ?? 0, SCHOOL_FORMS)} معتمدة`}
             {!!active.data?.rows.length && (
               <span>
                 {" "}
@@ -259,9 +267,11 @@ export function SchoolDirectory() {
                             )}
                           </td>
                           <td className="p-3">
-                            <span className="block">{school.student_count} طالبًا</span>
+                            <span className="block">
+                              {arabicCount(school.student_count, STUDENT_FORMS)}
+                            </span>
                             <span className="text-muted-foreground">
-                              {school.teacher_count} معلمًا
+                              {arabicCount(school.teacher_count, TEACHER_FORMS)}
                             </span>
                           </td>
                           <td className="p-2">
@@ -292,7 +302,8 @@ export function SchoolDirectory() {
                       </p>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs text-muted-foreground">
-                          {school.student_count} طالبًا · {school.teacher_count} معلمًا
+                          {arabicCount(school.student_count, STUDENT_FORMS)} ·{" "}
+                          {arabicCount(school.teacher_count, TEACHER_FORMS)}
                         </p>
                         <div className="flex flex-wrap gap-1">
                           <Button
@@ -669,7 +680,9 @@ function MergeDialog({
             setBusy(true);
             try {
               const result = await api.merge(source, details.data);
-              toast.success(`تم الدمج ونقل ${result.students} طالبًا و${result.teachers} معلمًا.`);
+              toast.success(
+                `تم الدمج ونقل ${arabicCount(result.students, STUDENT_FORMS)} و${arabicCount(result.teachers, TEACHER_FORMS)}.`,
+              );
               await onSaved();
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "تعذّر الدمج.");
@@ -685,7 +698,8 @@ function MergeDialog({
                 {source.governorate_name} — {location(source)}
               </p>
               <p>
-                {source.student_count} طالبًا · {source.teacher_count} معلمًا
+                {arabicCount(source.student_count, STUDENT_FORMS)} ·{" "}
+                {arabicCount(source.teacher_count, TEACHER_FORMS)}
               </p>
             </div>
             <SchoolTarget
@@ -706,7 +720,8 @@ function MergeDialog({
                   {details.data.governorate_name} — {location(details.data)}
                 </p>
                 <p>
-                  {details.data.student_count} طالبًا · {details.data.teacher_count} معلمًا
+                  {arabicCount(details.data.student_count, STUDENT_FORMS)} ·{" "}
+                  {arabicCount(details.data.teacher_count, TEACHER_FORMS)}
                 </p>
               </div>
             )}

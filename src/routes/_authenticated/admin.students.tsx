@@ -6,6 +6,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AddStudentDialog } from "@/components/admin/AddStudentDialog";
 import { Users, Loader2, Search, FilterX } from "lucide-react";
+import { arabicCount, STUDENT_FORMS } from "@/lib/i18n/arabic-count";
 
 export const Route = createFileRoute("/_authenticated/admin/students")({
   component: AdminStudentsPage,
@@ -201,7 +202,8 @@ function AdminStudentsPage() {
               <option value="">جميع المدارس</option>
               {!!optionsQuery.data?.pending_schools && (
                 <option value="pending">
-                  مدارس قيد المراجعة — {optionsQuery.data.pending_schools} طالبًا
+                  مدارس قيد المراجعة —{" "}
+                  {arabicCount(optionsQuery.data.pending_schools, STUDENT_FORMS)}
                 </option>
               )}
               {(optionsQuery.data?.schools ?? [])
@@ -209,7 +211,7 @@ function AdminStudentsPage() {
                 .map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.name} — {option.governorate_name} / {option.district} /{" "}
-                    {option.locality} — {option.count} طالبًا
+                    {option.locality} — {arabicCount(option.count, STUDENT_FORMS)}
                   </option>
                 ))}
             </select>

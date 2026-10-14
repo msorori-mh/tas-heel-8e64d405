@@ -79,6 +79,19 @@ import type {
   LiveSession,
 } from "./types";
 
+/** Arabic validation messages for HTTPS link fields (instead of the browser's own English text). */
+const httpsUrlValidity = {
+  onInvalid: (event: FormEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    input.setCustomValidity(
+      input.value.trim() === "" ? "أدخل الرابط." : "يجب أن يكون رابطاً صحيحاً يبدأ بـ https://",
+    );
+  },
+  onInput: (event: FormEvent<HTMLInputElement>) => {
+    event.currentTarget.setCustomValidity("");
+  },
+};
+
 type AdminTab = "overview" | "programs" | "teachers" | "progress" | "reports" | "settings";
 
 const DEFAULT_OPERATION_SETTINGS: Pick<
@@ -1563,6 +1576,7 @@ function LessonsEditor({
                       <input
                         type="url"
                         pattern="https://.*"
+                        {...httpsUrlValidity}
                         value={resourceUrl}
                         onChange={(event) => setResourceUrl(event.target.value)}
                         required
@@ -1641,6 +1655,7 @@ function LessonsEditor({
                             <input
                               type="url"
                               pattern="https://.*"
+                              {...httpsUrlValidity}
                               value={section.resource_url}
                               onChange={(event) =>
                                 updateSection(section.key, "resource_url", event.target.value)
@@ -2007,6 +2022,7 @@ function LiveSessionsEditor({
               <input
                 type="url"
                 pattern="https://.*"
+                {...httpsUrlValidity}
                 value={meetingUrl}
                 onChange={(event) => setMeetingUrl(event.target.value)}
                 required

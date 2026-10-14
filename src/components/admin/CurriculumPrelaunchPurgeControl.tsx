@@ -163,6 +163,10 @@ export function CurriculumPrelaunchPurgeControl() {
     await queryClient.invalidateQueries();
   };
 
+  // Content is live: once the database disables the pre-launch purge, the
+  // control disappears instead of showing a disabled destructive button.
+  if (status?.enabled === false) return null;
+
   return (
     <>
       <Button
