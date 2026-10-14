@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "node scripts/academy/build-offline-shell.mjs && vite build",
+    "build": "node scripts/academy/build-offline-shell.mjs && vite build && node scripts/release/verify-web-output.mjs",
     "academy:dev": "vite --config apps/teacher-academy/vite.config.ts",
     "academy:build": "vite build --config apps/teacher-academy/vite.config.ts",
     "academy:typecheck": "tsc -p apps/teacher-academy/tsconfig.json --noEmit",
