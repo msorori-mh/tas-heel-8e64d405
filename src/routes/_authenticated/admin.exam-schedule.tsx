@@ -5,6 +5,10 @@ import { toast } from "sonner";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
 import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// exam_schedule is not yet in the generated database types.
+const examScheduleDb = supabase as unknown as SupabaseClient;
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -58,7 +62,7 @@ function ExamSchedulePage() {
     queryKey: ["admin-exam-schedule"],
     enabled: access.enabled,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await examScheduleDb
         .from("exam_schedule")
         .select(
           "id,curriculum_track_id,grade_id,semester,exam_kind,title,starts_on,ends_on,is_published",
@@ -273,8 +277,8 @@ function ExamSchedulePage() {
                                 onClick={() =>
                                   void mutate(
                                     () =>
-                                      supabase
-                                        .from("exam_schedule")
+                                      examScheduleDb
+        .from("exam_schedule")
                                         .update({ is_published: !row.is_published })
                                         .eq("id", row.id),
                                     "تم تحديث حالة النشر",
@@ -328,8 +332,8 @@ function ExamSchedulePage() {
                   const saved = await mutate(
                     () =>
                       id
-                        ? supabase.from("exam_schedule").update(value).eq("id", id)
-                        : supabase.from("exam_schedule").insert(value),
+                        ? examScheduleDb.from("exam_schedule").update(value).eq("id", id)
+                        : examScheduleDb.from("exam_schedule").insert(value),
                     "تم حفظ الموعد",
                   );
                   if (saved) setDraft(null);
@@ -477,7 +481,7 @@ function ExamSchedulePage() {
                   if (
                     deleteTarget &&
                     (await mutate(
-                      () => supabase.from("exam_schedule").delete().eq("id", deleteTarget.id),
+                      () => examScheduleDb.from("exam_schedule").delete().eq("id", deleteTarget.id),
                       "تم حذف الموعد",
                     ))
                   )

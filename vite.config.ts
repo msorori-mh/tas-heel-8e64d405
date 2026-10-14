@@ -16,7 +16,7 @@ export default defineConfig(({ mode, command }) => ({
     tailwindcss(),
     tanstackStart({ server: { entry: "server" } }),
     react(),
-    ...(command === "build" ? [nitro({ defaultPreset: "cloudflare-module" })] : []),
+    ...(command === "build" ? [nitro({ defaultPreset: "cloudflare-module", output: { dir: "dist" } })] : []),
     {
       name: "tamkeen-release-proof",
       apply: "build",
