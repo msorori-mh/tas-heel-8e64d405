@@ -5536,6 +5536,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_review_coverage_facts: { Args: never; Returns: Json }
       admin_review_school_profile: {
         Args: {
           p_expected: Json
