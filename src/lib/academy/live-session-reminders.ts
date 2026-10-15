@@ -44,6 +44,9 @@ export async function scheduleLiveSessionReminders(session: LiveSession): Promis
   if (!Capacitor.isNativePlatform()) {
     throw new Error("تذكيرات الجهاز متاحة داخل تطبيق تمكين على Android فقط.");
   }
+  if (!Capacitor.isPluginAvailable("LocalNotifications")) {
+    throw new Error("حدّث تطبيق تمكين إلى أحدث نسخة لتفعيل تذكيرات المحاضرات.");
+  }
 
   const { LocalNotifications } = await import("@capacitor/local-notifications");
   const current = await LocalNotifications.checkPermissions();

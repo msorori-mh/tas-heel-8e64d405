@@ -21,7 +21,6 @@ function AdminNotFound() {
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: () => <Outlet />,
-  // /admin/learning-insights (no index) and mistyped admin paths previously
-  // fell through to TanStack's default English "Not Found".
+  // Keep unknown administrator paths in Arabic; the analytics index redirects explicitly.
   notFoundComponent: AdminNotFound,
 });

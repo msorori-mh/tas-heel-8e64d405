@@ -87,6 +87,11 @@ function newIdempotencyKey() {
 }
 
 export function CurriculumPrelaunchPurgeControl() {
+  if (!import.meta.env.DEV) return null;
+  return <DevelopmentPurgeControl />;
+}
+
+function DevelopmentPurgeControl() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);

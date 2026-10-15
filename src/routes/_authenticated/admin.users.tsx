@@ -223,7 +223,7 @@ function AdminUsersPage() {
               المستخدمون والصلاحيات
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              إنشاء حسابات وتحديد أدوار staff — للمدير الكامل فقط.
+              إنشاء الحسابات وتحديد صلاحيات فريق العمل — للمدير الكامل فقط.
             </p>
           </div>
           <Button

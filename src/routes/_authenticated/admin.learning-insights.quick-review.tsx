@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import {
   fetchAdminReviewCoverage,
+  fetchReviewSummaryPreview,
   filterLessons,
   buildCoverage,
   type AdminReviewLessonRow,
@@ -93,20 +94,34 @@ function CoverageTable({ title, rows }: { title: string; rows: CoverageBucket[] 
 }
 
 function LessonPreview({ lesson }: { lesson: AdminReviewLessonRow }) {
+  const preview = useQuery({
+    queryKey: ["admin-review-summary-preview", lesson.lessonId],
+    queryFn: () => fetchReviewSummaryPreview(lesson.lessonId),
+    enabled: lesson.readiness === "READY",
+    staleTime: 60_000,
+  });
+  if (preview.isLoading) return <p role="status">جارٍ تحميل الملخص…</p>;
+  if (preview.isError)
+    return (
+      <p role="alert">
+        تعذر تحميل الملخص. <Button onClick={() => void preview.refetch()}>إعادة المحاولة</Button>
+      </p>
+    );
+  const detail = preview.data;
   if (lesson.readiness !== "READY") {
     return <p className="text-sm text-muted-foreground">لا يوجد ملخص لعرضه.</p>;
   }
   return (
     <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3 text-right">
-      <p className="whitespace-pre-line text-sm leading-7">{lesson.summary}</p>
-      {lesson.keyPoints.length > 0 && (
+      <p className="whitespace-pre-line text-sm leading-7">{detail?.summary}</p>
+      {(detail?.keyPoints.length ?? 0) > 0 && (
         <ul className="list-disc space-y-1 pr-5 text-xs text-muted-foreground">
-          {lesson.keyPoints.map((point, i) => (
+          {detail?.keyPoints.map((point, i) => (
             <li key={i}>{point}</li>
           ))}
         </ul>
       )}
-      {lesson.studyTip && <p className="text-xs text-primary">{lesson.studyTip}</p>}
+      {detail?.studyTip && <p className="text-xs text-primary">{detail.studyTip}</p>}
     </div>
   );
 }

@@ -33,6 +33,7 @@ import {
 type LinkItem = {
   href:
     | "/admin"
+    | "/admin/contacts"
     | "/admin/students"
     | "/admin/teachers"
     | "/admin/schools"
@@ -67,6 +68,7 @@ type DisabledItem = {
 
 const activeLinks: LinkItem[] = [
   { href: "/admin", label: "لوحة الإدارة", icon: LayoutDashboard, end: true },
+  { href: "/admin/contacts", label: "رسائل التواصل", icon: MessageSquare },
   { href: "/admin/students", label: "الطلاب", icon: Users },
   { href: "/admin/teachers", label: "المعلمون وإحصاءاتهم", icon: GraduationCap },
   { href: "/admin/schools", label: "دليل المدارس", icon: Landmark },
@@ -88,10 +90,7 @@ const activeLinks: LinkItem[] = [
   { href: "/admin/diagnostics", label: "صحة التطبيق والتشخيص", icon: HeartPulse },
 ];
 
-const upcomingLinks: DisabledItem[] = [
-  { label: "رسائل التواصل", icon: MessageSquare },
-  { label: "الإعدادات", icon: Settings },
-];
+const upcomingLinks: DisabledItem[] = [{ label: "الإعدادات", icon: Settings }];
 
 interface AdminLayoutProps {
   children: ReactNode;

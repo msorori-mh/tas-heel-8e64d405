@@ -45,6 +45,7 @@ import { Route as Prototype19aRouteImport } from './routes/prototype.19a'
 import { Route as Prototype19cRouteImport } from './routes/prototype.19c'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminAcademicRouteImport } from './routes/_authenticated/admin.academic'
+import { Route as AuthenticatedAdminContactsRouteImport } from './routes/_authenticated/admin.contacts'
 import { Route as AuthenticatedAdminCurriculumRouteImport } from './routes/_authenticated/admin.curriculum'
 import { Route as AuthenticatedAdminDiagnosticsRouteImport } from './routes/_authenticated/admin.diagnostics'
 import { Route as AuthenticatedAdminExamScheduleRouteImport } from './routes/_authenticated/admin.exam-schedule'
@@ -81,6 +82,7 @@ import { Route as Prototype19aIndexRouteImport } from './routes/prototype.19a.in
 import { Route as Prototype19aHomeRouteImport } from './routes/prototype.19a.home'
 import { Route as Prototype19aLandingRouteImport } from './routes/prototype.19a.landing'
 import { Route as Prototype19aLessonRouteImport } from './routes/prototype.19a.lesson'
+import { Route as AuthenticatedAdminLearningInsightsIndexRouteImport } from './routes/_authenticated/admin.learning-insights.index'
 import { Route as AuthenticatedAdminLearningInsightsMistakesRouteImport } from './routes/_authenticated/admin.learning-insights.mistakes'
 import { Route as AuthenticatedAdminLearningInsightsPerformanceRouteImport } from './routes/_authenticated/admin.learning-insights.performance'
 import { Route as AuthenticatedAdminLearningInsightsQuickReviewRouteImport } from './routes/_authenticated/admin.learning-insights.quick-review'
@@ -281,6 +283,12 @@ const AuthenticatedAdminAcademicRoute =
   AuthenticatedAdminAcademicRouteImport.update({
     id: '/academic',
     path: '/academic',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminContactsRoute =
+  AuthenticatedAdminContactsRouteImport.update({
+    id: '/contacts',
+    path: '/contacts',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminCurriculumRoute =
@@ -491,6 +499,12 @@ const Prototype19aLessonRoute = Prototype19aLessonRouteImport.update({
   path: '/lesson',
   getParentRoute: () => Prototype19aRoute,
 } as any)
+const AuthenticatedAdminLearningInsightsIndexRoute =
+  AuthenticatedAdminLearningInsightsIndexRouteImport.update({
+    id: '/learning-insights/',
+    path: '/learning-insights/',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminLearningInsightsMistakesRoute =
   AuthenticatedAdminLearningInsightsMistakesRouteImport.update({
     id: '/learning-insights/mistakes',
@@ -629,6 +643,7 @@ export interface FileRoutesByFullPath {
   '/prototype/19c': typeof Prototype19cRoute
   '/academy/': typeof AcademyIndexRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
+  '/admin/contacts': typeof AuthenticatedAdminContactsRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/admin/exam-schedule': typeof AuthenticatedAdminExamScheduleRoute
@@ -680,6 +695,7 @@ export interface FileRoutesByFullPath {
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
   '/api/offline-pack/artifact/$resourceId': typeof ApiOfflinePackArtifactResourceIdRoute
   '/api/offline-pack/manifest/$subjectId': typeof ApiOfflinePackManifestSubjectIdRoute
+  '/admin/learning-insights/': typeof AuthenticatedAdminLearningInsightsIndexRoute
   '/admin/lessons/': typeof AuthenticatedAdminLessonsIndexRoute
   '/ministerial-exams/repeated/': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
@@ -715,6 +731,7 @@ export interface FileRoutesByTo {
   '/prototype/19c': typeof Prototype19cRoute
   '/academy': typeof AcademyIndexRoute
   '/admin/academic': typeof AuthenticatedAdminAcademicRoute
+  '/admin/contacts': typeof AuthenticatedAdminContactsRoute
   '/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/admin/exam-schedule': typeof AuthenticatedAdminExamScheduleRoute
@@ -765,6 +782,7 @@ export interface FileRoutesByTo {
   '/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
   '/api/offline-pack/artifact/$resourceId': typeof ApiOfflinePackArtifactResourceIdRoute
   '/api/offline-pack/manifest/$subjectId': typeof ApiOfflinePackManifestSubjectIdRoute
+  '/admin/learning-insights': typeof AuthenticatedAdminLearningInsightsIndexRoute
   '/admin/lessons': typeof AuthenticatedAdminLessonsIndexRoute
   '/ministerial-exams/repeated': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
@@ -806,6 +824,7 @@ export interface FileRoutesById {
   '/prototype/19c': typeof Prototype19cRoute
   '/academy/': typeof AcademyIndexRoute
   '/_authenticated/admin/academic': typeof AuthenticatedAdminAcademicRoute
+  '/_authenticated/admin/contacts': typeof AuthenticatedAdminContactsRoute
   '/_authenticated/admin/curriculum': typeof AuthenticatedAdminCurriculumRoute
   '/_authenticated/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/_authenticated/admin/exam-schedule': typeof AuthenticatedAdminExamScheduleRoute
@@ -857,6 +876,7 @@ export interface FileRoutesById {
   '/_authenticated/units/$unitId/practice': typeof AuthenticatedUnitsUnitIdPracticeRoute
   '/api/offline-pack/artifact/$resourceId': typeof ApiOfflinePackArtifactResourceIdRoute
   '/api/offline-pack/manifest/$subjectId': typeof ApiOfflinePackManifestSubjectIdRoute
+  '/_authenticated/admin/learning-insights/': typeof AuthenticatedAdminLearningInsightsIndexRoute
   '/_authenticated/admin/lessons/': typeof AuthenticatedAdminLessonsIndexRoute
   '/_authenticated/ministerial-exams/repeated/': typeof AuthenticatedMinisterialExamsRepeatedIndexRoute
   '/_authenticated/ministerial-exams/sessions/$sessionId/result': typeof AuthenticatedMinisterialExamsSessionsSessionIdResultRoute
@@ -898,6 +918,7 @@ export interface FileRouteTypes {
     | '/prototype/19c'
     | '/academy/'
     | '/admin/academic'
+    | '/admin/contacts'
     | '/admin/curriculum'
     | '/admin/diagnostics'
     | '/admin/exam-schedule'
@@ -949,6 +970,7 @@ export interface FileRouteTypes {
     | '/units/$unitId/practice'
     | '/api/offline-pack/artifact/$resourceId'
     | '/api/offline-pack/manifest/$subjectId'
+    | '/admin/learning-insights/'
     | '/admin/lessons/'
     | '/ministerial-exams/repeated/'
     | '/ministerial-exams/sessions/$sessionId/result'
@@ -984,6 +1006,7 @@ export interface FileRouteTypes {
     | '/prototype/19c'
     | '/academy'
     | '/admin/academic'
+    | '/admin/contacts'
     | '/admin/curriculum'
     | '/admin/diagnostics'
     | '/admin/exam-schedule'
@@ -1034,6 +1057,7 @@ export interface FileRouteTypes {
     | '/units/$unitId/practice'
     | '/api/offline-pack/artifact/$resourceId'
     | '/api/offline-pack/manifest/$subjectId'
+    | '/admin/learning-insights'
     | '/admin/lessons'
     | '/ministerial-exams/repeated'
     | '/ministerial-exams/sessions/$sessionId/result'
@@ -1074,6 +1098,7 @@ export interface FileRouteTypes {
     | '/prototype/19c'
     | '/academy/'
     | '/_authenticated/admin/academic'
+    | '/_authenticated/admin/contacts'
     | '/_authenticated/admin/curriculum'
     | '/_authenticated/admin/diagnostics'
     | '/_authenticated/admin/exam-schedule'
@@ -1125,6 +1150,7 @@ export interface FileRouteTypes {
     | '/_authenticated/units/$unitId/practice'
     | '/api/offline-pack/artifact/$resourceId'
     | '/api/offline-pack/manifest/$subjectId'
+    | '/_authenticated/admin/learning-insights/'
     | '/_authenticated/admin/lessons/'
     | '/_authenticated/ministerial-exams/repeated/'
     | '/_authenticated/ministerial-exams/sessions/$sessionId/result'
@@ -1409,6 +1435,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAcademicRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/contacts': {
+      id: '/_authenticated/admin/contacts'
+      path: '/contacts'
+      fullPath: '/admin/contacts'
+      preLoaderRoute: typeof AuthenticatedAdminContactsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/curriculum': {
       id: '/_authenticated/admin/curriculum'
       path: '/curriculum'
@@ -1661,6 +1694,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Prototype19aLessonRouteImport
       parentRoute: typeof Prototype19aRoute
     }
+    '/_authenticated/admin/learning-insights/': {
+      id: '/_authenticated/admin/learning-insights/'
+      path: '/learning-insights'
+      fullPath: '/admin/learning-insights/'
+      preLoaderRoute: typeof AuthenticatedAdminLearningInsightsIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/learning-insights/mistakes': {
       id: '/_authenticated/admin/learning-insights/mistakes'
       path: '/learning-insights/mistakes'
@@ -1799,6 +1839,7 @@ const AuthenticatedAdminLessonsRouteWithChildren =
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAcademicRoute: typeof AuthenticatedAdminAcademicRoute
+  AuthenticatedAdminContactsRoute: typeof AuthenticatedAdminContactsRoute
   AuthenticatedAdminCurriculumRoute: typeof AuthenticatedAdminCurriculumRoute
   AuthenticatedAdminDiagnosticsRoute: typeof AuthenticatedAdminDiagnosticsRoute
   AuthenticatedAdminExamScheduleRoute: typeof AuthenticatedAdminExamScheduleRoute
@@ -1822,10 +1863,12 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminLearningInsightsPerformanceRoute: typeof AuthenticatedAdminLearningInsightsPerformanceRoute
   AuthenticatedAdminLearningInsightsQuickReviewRoute: typeof AuthenticatedAdminLearningInsightsQuickReviewRoute
   AuthenticatedAdminLessonContentLessonIdRoute: typeof AuthenticatedAdminLessonContentLessonIdRoute
+  AuthenticatedAdminLearningInsightsIndexRoute: typeof AuthenticatedAdminLearningInsightsIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAcademicRoute: AuthenticatedAdminAcademicRoute,
+  AuthenticatedAdminContactsRoute: AuthenticatedAdminContactsRoute,
   AuthenticatedAdminCurriculumRoute: AuthenticatedAdminCurriculumRoute,
   AuthenticatedAdminDiagnosticsRoute: AuthenticatedAdminDiagnosticsRoute,
   AuthenticatedAdminExamScheduleRoute: AuthenticatedAdminExamScheduleRoute,
@@ -1855,6 +1898,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
     AuthenticatedAdminLearningInsightsQuickReviewRoute,
   AuthenticatedAdminLessonContentLessonIdRoute:
     AuthenticatedAdminLessonContentLessonIdRoute,
+  AuthenticatedAdminLearningInsightsIndexRoute:
+    AuthenticatedAdminLearningInsightsIndexRoute,
 }
 
 const AuthenticatedAdminRouteWithChildren =

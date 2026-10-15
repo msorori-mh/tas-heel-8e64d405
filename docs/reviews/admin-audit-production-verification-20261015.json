@@ -1,0 +1,91 @@
+{
+  "baseline": {
+    "sha": "f7dd0a59af9b960b941e2cfde6e5211f6a7292c7",
+    "lessons": 1493,
+    "profiles": 44,
+    "teachers": 6,
+    "contacts": 0,
+    "purgeEnabled": true
+  },
+  "postMigration": {
+    "contacts": 0,
+    "functions": [
+      {
+        "anon_execute": false,
+        "authenticated_execute": false,
+        "name": "admin_curriculum_force_delete",
+        "security_definer": false,
+        "service_execute": false
+      },
+      {
+        "anon_execute": false,
+        "authenticated_execute": false,
+        "name": "admin_curriculum_prelaunch_purge",
+        "security_definer": false,
+        "service_execute": false
+      },
+      {
+        "anon_execute": false,
+        "authenticated_execute": true,
+        "name": "admin_review_coverage_facts",
+        "security_definer": false,
+        "service_execute": true
+      }
+    ],
+    "lessons": 1493,
+    "migration_recorded": true,
+    "profiles": 44,
+    "purge_control": {
+      "enabled": false,
+      "lock_reason": "Retired after launch: admin audit 2026-10-15",
+      "locked_at": "2026-10-15T00:09:50.411989+00:00",
+      "singleton": true,
+      "updated_at": "2026-10-15T00:09:50.411989+00:00"
+    },
+    "teachers": 6
+  },
+  "authenticated": [
+    {
+      "coverage_lessons": 1493,
+      "directory_students": 35,
+      "filter_students": 35
+    }
+  ],
+  "coverage": [
+    {
+      "grade": "الصف الأول الثانوي",
+      "total": 515,
+      "ready": 253
+    },
+    {
+      "grade": "الصف الثالث الثانوي",
+      "total": 477,
+      "ready": 355
+    },
+    {
+      "grade": "الصف الثاني الثانوي",
+      "total": 501,
+      "ready": 215
+    }
+  ],
+  "summaryTotals": {
+    "total": 1493,
+    "ready": 823,
+    "missing": 670
+  },
+  "cleanup": {
+    "testOnlyLiveSessionsBefore": 1,
+    "testOnlyLiveSessionsAfter": 0,
+    "lessonsBefore": 1493,
+    "lessonsAfter": 1493,
+    "profilesBefore": 44,
+    "profilesAfter": 44,
+    "teachersBefore": 6,
+    "teachersAfter": 6
+  },
+  "performance": {
+    "kind": "database EXPLAIN ANALYZE",
+    "executionMilliseconds": 2257.507,
+    "endToEndMeasured": false
+  }
+}

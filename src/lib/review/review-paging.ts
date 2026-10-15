@@ -22,7 +22,7 @@ export async function fetchAllPaged<T>(
     if (error) throw new Error(error.message);
     const rows = data ?? [];
     all.push(...rows);
-    if (rows.length < pageSize) break;
+    if (rows.length < pageSize) return all;
   }
-  return all;
+  throw new Error("تجاوزت البيانات حد التحميل الآمن؛ تعذر عرض إحصاءات مكتملة.");
 }

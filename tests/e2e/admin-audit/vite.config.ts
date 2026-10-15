@@ -8,6 +8,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: [
+      {
+        find: "@/integrations/supabase/client",
+        replacement: path("tests/e2e/admin-audit/inbox-fixture.ts"),
+      },
       { find: "@/hooks/use-auth", replacement: path("tests/e2e/admin-audit/dependencies.tsx") },
       {
         find: "@tanstack/react-router",

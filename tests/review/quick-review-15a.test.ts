@@ -178,13 +178,12 @@ test("1000-row truncation guard: paging continues past a full page", async () =>
   ]);
 });
 
-test("paging stops at the max-page safety cap", async () => {
-  const rows = await fetchAllPaged<{ i: number }>(
-    async () => ({ data: [{ i: 1 }, { i: 2 }], error: null }),
-    2,
-    3,
+test("paging rejects at the safety cap rather than returning incomplete results", async () => {
+  await assert.rejects(
+    () =>
+      fetchAllPaged<{ i: number }>(async () => ({ data: [{ i: 1 }, { i: 2 }], error: null }), 2, 3),
+    /حد التحميل الآمن/,
   );
-  assert.equal(rows.length, 6);
 });
 
 test("paging surfaces errors instead of returning partial data", async () => {
