@@ -12,6 +12,7 @@ import {
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useRequireAdminSection } from "@/lib/admin-route-access";
+import { fetchAllPaged } from "@/lib/review/review-paging";
 
 export const Route = createFileRoute("/_authenticated/admin/curriculum")({
   component: AdminCurriculumPage,
@@ -77,24 +78,42 @@ function AdminCurriculumPage() {
             "subject_id, curriculum_track_id, track:curriculum_tracks!subject_curriculum_tracks_curriculum_track_id_fkey(id, track_name, track_code)",
           )
           .eq("is_active", true),
-        supabase
-          .from("units")
-          .select("id, title, code, subject_id, sort_order")
-          .order("sort_order"),
-        supabase
-          .from("lessons")
-          .select("id, title, slug, subject_id, unit_id, sort_order")
-          .order("sort_order"),
+        // Units and lessons exceed PostgREST's 1000-row default (1481 lessons):
+        // read every page so totals and the tree are complete.
+        fetchAllPaged<Unit>(
+          (from, to) =>
+            supabase
+              .from("units")
+              .select("id, title, code, subject_id, sort_order")
+              .order("sort_order")
+              .order("id")
+              .range(from, to) as unknown as PromiseLike<{
+              data: Unit[] | null;
+              error: { message: string } | null;
+            }>,
+        ),
+        fetchAllPaged<Lesson>(
+          (from, to) =>
+            supabase
+              .from("lessons")
+              .select("id, title, slug, subject_id, unit_id, sort_order")
+              .order("sort_order")
+              .order("id")
+              .range(from, to) as unknown as PromiseLike<{
+              data: Lesson[] | null;
+              error: { message: string } | null;
+            }>,
+        ),
       ]);
-      for (const result of [grades, subjects, assignments, units, lessons]) {
+      for (const result of [grades, subjects, assignments]) {
         if (result.error) throw result.error;
       }
       return {
         grades: (grades.data ?? []) as Grade[],
         subjects: (subjects.data ?? []) as Subject[],
         assignments: (assignments.data ?? []) as unknown as Assignment[],
-        units: (units.data ?? []) as Unit[],
-        lessons: (lessons.data ?? []) as Lesson[],
+        units,
+        lessons,
       };
     },
   });

@@ -87,6 +87,11 @@ function newIdempotencyKey() {
 }
 
 export function CurriculumPrelaunchPurgeControl() {
+  if (!import.meta.env.DEV) return null;
+  return <DevelopmentPurgeControl />;
+}
+
+function DevelopmentPurgeControl() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -163,6 +168,10 @@ export function CurriculumPrelaunchPurgeControl() {
     await queryClient.invalidateQueries();
   };
 
+  // Content is live: once the database disables the pre-launch purge, the
+  // control disappears instead of showing a disabled destructive button.
+  if (status?.enabled === false) return null;
+
   return (
     <>
       <Button
@@ -170,7 +179,7 @@ export function CurriculumPrelaunchPurgeControl() {
         variant="destructive"
         size="sm"
         onClick={() => handleOpenChange(true)}
-        disabled={statusQ.isLoading || status?.enabled === false}
+        disabled={statusQ.isLoading}
         className="gap-1.5"
       >
         {statusQ.isLoading ? (
@@ -178,7 +187,7 @@ export function CurriculumPrelaunchPurgeControl() {
         ) : (
           <Trash2 className="h-4 w-4" />
         )}
-        {status?.enabled === false ? "التنظيف التجريبي مغلق" : "تنظيف البيانات التجريبية"}
+        تنظيف البيانات التجريبية
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>

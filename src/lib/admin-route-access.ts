@@ -18,6 +18,7 @@ export const CONTENT_MANAGER_ADMIN_PATHS = [
 
 export const FULL_ADMIN_ONLY_ADMIN_PATHS = [
   "/admin",
+  "/admin/contacts",
   "/admin/students",
   "/admin/teachers",
   "/admin/schools",
@@ -60,6 +61,7 @@ export function canAccessAdminPath(
 type SidebarLink = {
   href:
     | "/admin"
+    | "/admin/contacts"
     | "/admin/students"
     | "/admin/teachers"
     | "/admin/schools"
@@ -91,6 +93,7 @@ export function filterAdminSidebarLinks<T extends SidebarLink>(links: T[], isAdm
   return links.filter(
     (link) =>
       link.href !== "/admin" &&
+      link.href !== "/admin/contacts" &&
       link.href !== "/admin/students" &&
       link.href !== "/admin/teachers" &&
       link.href !== "/admin/schools" &&

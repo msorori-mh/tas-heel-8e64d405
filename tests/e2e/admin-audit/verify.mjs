@@ -19,6 +19,7 @@ try {
     await page.setViewportSize({ width, height: 640 });
     await page.goto("http://127.0.0.1:4179");
     await page.getByRole("heading", { name: "TEST_ONLY إدارة تمكين" }).waitFor();
+    assert.equal(await page.getByText("تنظيف البيانات التجريبية", { exact: true }).count(), 0);
     if (width < 768) {
       assert.equal(
         await page.getByRole("navigation", { name: "أقسام الإدارة" }).isVisible(),
@@ -70,6 +71,17 @@ try {
     await page.getByRole("link", { name: "لوحة الإدارة", exact: true }).getAttribute("href"),
     "/admin/academic",
   );
+  assert.equal(await page.getByRole("link", { name: "رسائل التواصل", exact: true }).count(), 0);
+  for (const width of [320, 375, 768]) {
+    await page.setViewportSize({ width, height: 812 });
+    await page.goto("http://127.0.0.1:4179?contacts");
+    await page.getByRole("heading", { name: "رسائل التواصل", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "استفسار تجريبي عن المحتوى" }).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+    await page.screenshot({ path: `${dir}/contacts-${width}.png`, fullPage: true });
+  }
+  await page.getByRole("button", { name: "تحديد كمقروءة", exact: true }).click();
+  await page.getByText("مقروءة", { exact: true }).waitFor();
   assert.deepEqual(errors, []);
   await writeFile(`${dir}/verification.json`, JSON.stringify({ measurements, errors }, null, 2));
 } finally {

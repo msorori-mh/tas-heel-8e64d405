@@ -126,7 +126,7 @@ function AdminImportPage() {
             allowedTemplateKeys={["lessons"]}
             initialTemplateKey="lessons"
             heading="استيراد ملف الدروس"
-            description="ارفع ملف Excel الخاص بالدروس. اترك unit_code فارغًا للمادة التي لا تحتوي وحدات."
+            description="ارفع ملف Excel الخاص بالدروس. اترك عمود رمز الوحدة (unit_code) فارغًا للمادة التي لا تحتوي وحدات."
             idPrefix="lessons-import"
             curriculumScope={structureScope}
           />

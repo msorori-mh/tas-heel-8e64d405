@@ -1,3 +1,4 @@
+import { countLabel, durationLabel } from "./lib/teacher-feedback";
 import {
   useEffect,
   useMemo,
@@ -78,6 +79,19 @@ import type {
   LessonSectionType,
   LiveSession,
 } from "./types";
+
+/** Arabic validation messages for HTTPS link fields (instead of the browser's own English text). */
+const httpsUrlValidity = {
+  onInvalid: (event: FormEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    input.setCustomValidity(
+      input.value.trim() === "" ? "أدخل الرابط." : "يجب أن يكون رابطاً صحيحاً يبدأ بـ https://",
+    );
+  },
+  onInput: (event: FormEvent<HTMLInputElement>) => {
+    event.currentTarget.setCustomValidity("");
+  },
+};
 
 type AdminTab = "overview" | "programs" | "teachers" | "progress" | "reports" | "settings";
 
@@ -254,7 +268,7 @@ function AdminOverview({ capabilities }: { capabilities: Set<AcademyCapability> 
             icon={<UsersRound />}
             label="المعلمون النشطون"
             value={activeTeachers}
-            hint={`${teachers.length} ملف معلم إجمالًا`}
+            hint={`${countLabel(teachers.length, "teacher")} إجمالًا`}
           />
         ) : null}
         {capabilities.has("ACADEMY_PROGRESS_VIEW") ? (
@@ -263,13 +277,13 @@ function AdminOverview({ capabilities }: { capabilities: Set<AcademyCapability> 
               icon={<BarChart3 />}
               label="نسبة إكمال التسجيلات"
               value={`${completionRate}%`}
-              hint={`${completed} من ${progress.length} تسجيل`}
+              hint={`${completed} من ${countLabel(progress.length, "enrollment")}`}
             />
             <MetricCard
               icon={<GraduationCap />}
               label="الشهادات السارية"
               value={validCertificates}
-              hint={`${progress.filter((item) => item.certificate_id).length} شهادة صادرة`}
+              hint={`${countLabel(progress.filter((item) => item.certificate_id).length, "certificate")} صادرة`}
             />
           </>
         ) : null}
@@ -304,7 +318,7 @@ function AdminOverview({ capabilities }: { capabilities: Set<AcademyCapability> 
               <div>
                 <BarChart3 />
                 <span>
-                  <strong>{learning} تسجيل</strong> ما زالت قيد التدريب.
+                  <strong>{countLabel(learning, "enrollment")}</strong> ما زالت قيد التدريب.
                 </span>
               </div>
             ) : null}
@@ -1055,7 +1069,7 @@ function ProgramsAdmin() {
                 <span>
                   <ClipboardCheck /> {program.question_count} سؤال
                 </span>
-                <span>{program.estimated_minutes} دقيقة</span>
+                <span>{durationLabel(program.estimated_minutes)}</span>
               </div>
 
               <div
@@ -1563,6 +1577,7 @@ function LessonsEditor({
                       <input
                         type="url"
                         pattern="https://.*"
+                        {...httpsUrlValidity}
                         value={resourceUrl}
                         onChange={(event) => setResourceUrl(event.target.value)}
                         required
@@ -1641,6 +1656,7 @@ function LessonsEditor({
                             <input
                               type="url"
                               pattern="https://.*"
+                              {...httpsUrlValidity}
                               value={section.resource_url}
                               onChange={(event) =>
                                 updateSection(section.key, "resource_url", event.target.value)
@@ -2007,6 +2023,7 @@ function LiveSessionsEditor({
               <input
                 type="url"
                 pattern="https://.*"
+                {...httpsUrlValidity}
                 value={meetingUrl}
                 onChange={(event) => setMeetingUrl(event.target.value)}
                 required
@@ -2372,7 +2389,7 @@ function ProgressAdmin() {
           icon={<GraduationCap />}
           label="الشهادات السارية"
           value={validCertificates}
-          hint={`${items.filter((item) => item.certificate_id && !item.certificate_valid).length} شهادة ملغاة`}
+          hint={`${countLabel(items.filter((item) => item.certificate_id && !item.certificate_valid).length, "certificate")} ملغاة`}
         />
       </div>
       <div className="filter-grid">

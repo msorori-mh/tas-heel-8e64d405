@@ -135,16 +135,18 @@ describe("15A_A safety guards", () => {
     expect(SRC).not.toContain("profiles");
   });
 
-  it("paginates every read (B5 closed)", () => {
-    expect(SRC).toContain("fetchAllPaged");
-    expect(SRC).not.toMatch(/\.select\([^)]*\);\s*$/m);
+  it("loads uncapped facts in one aggregate and previews summaries separately", () => {
+    expect(SRC).toContain('rpc("admin_review_coverage_facts")');
+    expect(SRC).toContain("fetchReviewSummaryPreview");
+    expect(SRC).not.toContain("ID_CHUNK");
   });
 
   it("requires full admin, not content staff", () => {
     expect(PAGE).toContain('useRequireAdminSection("full")');
   });
 
-  it("adds no migration dependency", () => {
-    expect(SRC).not.toContain("rpc(");
+  it("never falls back to expensive bulk summary reads after an RPC failure", () => {
+    expect(SRC).toContain("if (error) throw new Error(error.message)");
+    expect(SRC).not.toContain('.in("lesson_id"');
   });
 });

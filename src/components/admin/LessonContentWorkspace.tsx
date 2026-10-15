@@ -55,7 +55,7 @@ function matrixLabel(
 ): string {
   if (applicability === "NA") return "غير مطلوب لهذا الدرس (N/A)";
   if (cap.status === "ABSENT") {
-    return applicability === "REQUIRED" ? "ناقص (MISSING)" : "غير مُدخل (اختياري)";
+    return applicability === "REQUIRED" ? "ناقص" : "غير مُدخل (اختياري)";
   }
   if (cap.status === "DRAFT" && stage === "REVIEW") return "قيد المراجعة";
   return STATUS_AR[cap.status];

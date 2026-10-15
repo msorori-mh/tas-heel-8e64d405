@@ -18,11 +18,13 @@ function AdminIndexPage() {
 
   const studentsQ = useQuery({
     enabled,
-    queryKey: ["admin-student-filter-options"],
+    queryKey: ["admin-students", "total"],
     queryFn: async () => {
-      return (await schoolDirectoryApi.studentOptions()) as { total: number };
+      return (await schoolDirectoryApi.students({ p_page: 0, p_page_size: 1 })) as {
+        count: number;
+      };
     },
-    select: (options) => options.total,
+    select: (result) => result.count,
   });
 
   const subjectsQ = useQuery({
@@ -167,11 +169,16 @@ function AdminIndexPage() {
             title="الاشتراكات"
             description="خطط الاشتراك والمدفوعات"
           />
-          <AdminCard
-            icon={<MessageSquare className="h-5 w-5" />}
-            title="رسائل التواصل"
-            description="التواصل مع الطلاب وأولياء الأمور"
-          />
+          <Link
+            to="/admin/contacts"
+            className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 hover:border-primary hover:shadow-md transition-all"
+          >
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <h3 className="text-sm font-bold">رسائل التواصل</h3>
+            <p className="text-xs text-muted-foreground">
+              قراءة رسائل الطلاب وأولياء الأمور ومتابعتها
+            </p>
+          </Link>
         </div>
 
         <ReleaseDiagnostics release={release} />

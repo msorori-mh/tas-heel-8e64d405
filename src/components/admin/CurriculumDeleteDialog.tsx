@@ -266,7 +266,8 @@ export function CurriculumDeleteDialog({ open, onOpenChange, target, onDeleted }
             تأكيد الحذف
           </Button>
 
-          {isAdmin &&
+          {import.meta.env.DEV &&
+            isAdmin &&
             preview &&
             !preview.deletable &&
             target &&

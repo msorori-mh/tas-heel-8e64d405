@@ -269,7 +269,7 @@ try {
       .getByRole(width >= 1024 ? "rowheader" : "heading", { name: "مدرسة 3000", exact: true })
       .waitFor();
     await page.getByLabel("البحث باسم المدرسة", { exact: true }).fill("مدرسة 1500");
-    await page.getByText("1 مدرسة معتمدة", { exact: false }).waitFor();
+    await page.getByText("مدرسة واحدة معتمدة", { exact: false }).waitFor();
     assert.equal(await page.getByLabel("انتقل إلى صفحة", { exact: true }).inputValue(), "0");
     await page.getByLabel("المحافظة", { exact: true }).selectOption("g2");
     await page.getByText("لا توجد نتائج في هذه الصفحة.").waitFor();

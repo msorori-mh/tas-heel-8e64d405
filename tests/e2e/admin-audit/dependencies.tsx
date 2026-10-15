@@ -1,4 +1,5 @@
 import type { AnchorHTMLAttributes } from "react";
+export const createFileRoute = () => (options: unknown) => ({ options });
 export function Link({ to, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { to: string }) {
   return <a {...props} href={to} />;
 }

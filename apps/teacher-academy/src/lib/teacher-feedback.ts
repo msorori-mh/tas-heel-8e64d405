@@ -41,10 +41,14 @@ const units = {
   section: ["قسم", "قسمان", "أقسام", "قسمًا"],
   question: ["سؤال", "سؤالان", "أسئلة", "سؤالًا"],
   program: ["برنامج", "برنامجان", "برامج", "برنامجًا"],
+  teacher: ["معلم", "معلمان", "معلمين", "معلمًا"],
+  enrollment: ["تسجيل", "تسجيلان", "تسجيلات", "تسجيلًا"],
+  certificate: ["شهادة", "شهادتان", "شهادات", "شهادة"],
 } as const;
 export function countLabel(count: number, unit: keyof typeof units): string {
   const forms = units[unit];
-  if (count === 1) return `${forms[0]} واحد${unit === "minute" || unit === "hour" ? "ة" : ""}`;
+  if (count === 1)
+    return `${forms[0]} واحد${["minute", "hour", "certificate"].includes(unit) ? "ة" : ""}`;
   if (count === 2) return forms[1];
   return `${count.toLocaleString("en-US")} ${count === 0 || (count % 100 >= 3 && count % 100 <= 10) ? forms[2] : forms[3]}`;
 }
