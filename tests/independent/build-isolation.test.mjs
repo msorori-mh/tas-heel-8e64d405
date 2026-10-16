@@ -13,6 +13,7 @@ test("isolation scanner rejects old services or privileged keys in native and ac
       JSON.stringify({
         targetProject: "yjpirilbpqxtmnayruht",
         stagingOrigin: origin,
+        androidAppId: "app.studentamkeen.tamkeen.staging",
       }),
     );
     for (const directory of ["assets", "native-shell/assets", "academy-offline/assets"])

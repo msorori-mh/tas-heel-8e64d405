@@ -17,7 +17,8 @@
  */
 
 export const HTTPS_CALLBACK_ORIGIN =
-  import.meta.env?.VITE_INDEPENDENT_STAGING === "true"
+  import.meta.env?.VITE_INDEPENDENT_STAGING === "true" ||
+  import.meta.env?.VITE_INDEPENDENT_PRODUCTION === "true"
     ? import.meta.env.VITE_STAGING_ORIGIN
     : "https://studentamkeen.com";
 export const HTTPS_CALLBACK_PATH = "/auth/mobile-callback";

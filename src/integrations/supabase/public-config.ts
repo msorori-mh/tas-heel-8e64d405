@@ -1,5 +1,7 @@
 /** Public Supabase client config (anon/publishable only). Safe to embed in client bundle. */
-const independent = import.meta.env?.VITE_INDEPENDENT_STAGING === "true";
+const independent =
+  import.meta.env?.VITE_INDEPENDENT_STAGING === "true" ||
+  import.meta.env?.VITE_INDEPENDENT_PRODUCTION === "true";
 export const PUBLIC_SUPABASE_URL = independent
   ? "https://yjpirilbpqxtmnayruht.supabase.co"
   : "https://zbdhxyuulyovihjgeqbn.supabase.co";
