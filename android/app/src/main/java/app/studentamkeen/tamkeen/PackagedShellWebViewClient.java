@@ -23,7 +23,9 @@ public final class PackagedShellWebViewClient extends BridgeWebViewClient {
         super(bridge);
         this.bridge = bridge;
         this.origin = Uri.parse(bridge.getErrorUrl());
-        Uri builtOrigin = Uri.parse(manifest.has("appOrigin") ? manifest.getString("appOrigin") : manifest.getString("stagingOrigin"));
+        String originKey = manifest.has("appOrigin") ? "appOrigin"
+                : manifest.has("productionOrigin") ? "productionOrigin" : "stagingOrigin";
+        Uri builtOrigin = Uri.parse(manifest.getString(originKey));
         if (!sameOrigin(builtOrigin) || manifest.getInt("schema") != 1
                 || !bridge.getContext().getPackageName().equals(manifest.getString("androidAppId"))) {
             throw new IllegalStateException("Packaged shell target mismatch");
