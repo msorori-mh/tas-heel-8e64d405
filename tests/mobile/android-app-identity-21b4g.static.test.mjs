@@ -53,8 +53,8 @@ describe("21B4G — Android app identity and release readiness", () => {
     let out = "";
     try {
       out = execFileSync(
-        "rg",
-        ["-l", "dev\\.lovable\\.build", "android", "capacitor.config.ts", "mobile"],
+        "git",
+        ["grep", "-l", "-F", "dev.lovable.build", "--", "android", "capacitor.config.ts", "mobile"],
         { cwd: repoRoot, encoding: "utf8" },
       );
     } catch (error) {
