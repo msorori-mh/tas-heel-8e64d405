@@ -1,11 +1,10 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, rm, readdir, writeFile, readFile } from "node:fs/promises";
-import { validateStagingOrigin, TARGET_URL, PUBLIC_KEY } from "../independent/config.mjs";
+import { getDeploymentConfig, TARGET_URL, PUBLIC_KEY } from "../independent/config.mjs";
 const independent = process.argv.includes("--independent");
-const origin = independent
-  ? validateStagingOrigin(process.env.TAMKEEN_STAGING_ORIGIN)
-  : "https://studentamkeen.com";
+const deployment = independent ? getDeploymentConfig() : undefined;
+const origin = deployment?.origin ?? "https://studentamkeen.com";
 // Public shell contains code only. Teacher content remains in account-scoped IndexedDB.
 execFileSync(
   process.execPath,
@@ -17,7 +16,8 @@ execFileSync(
       ACADEMY_OFFLINE_SHELL: "1",
       VITE_ACADEMY_ENABLED: "true",
       VITE_ACADEMY_BASE_PATH: "/academy",
-      VITE_INDEPENDENT_STAGING: independent ? "true" : "false",
+      VITE_INDEPENDENT_STAGING: deployment?.environment === "staging" ? "true" : "false",
+      VITE_INDEPENDENT_PRODUCTION: deployment?.environment === "production" ? "true" : "false",
       VITE_STAGING_ORIGIN: origin,
       ...(independent
         ? { VITE_SUPABASE_URL: TARGET_URL, VITE_SUPABASE_PUBLISHABLE_KEY: PUBLIC_KEY }

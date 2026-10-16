@@ -9,10 +9,11 @@ import {
   TARGET_URL,
   PUBLIC_KEY,
   TARGET_REF,
-  validateStagingOrigin,
+  getDeploymentConfig,
 } from "./scripts/independent/config.mjs";
 
-const origin = validateStagingOrigin(process.env.TAMKEEN_STAGING_ORIGIN);
+const deployment = getDeploymentConfig();
+const { origin, environment } = deployment;
 const nativeShell = process.env.TAMKEEN_NATIVE_SHELL === "1";
 const { sourceManifest, ...release } = buildRelease(process.cwd());
 export default defineConfig({
@@ -42,8 +43,11 @@ export default defineConfig({
           source: JSON.stringify({
             schema: 1,
             targetProject: TARGET_REF,
-            stagingOrigin: origin,
-            androidAppId: "app.studentamkeen.tamkeen.staging",
+            environment,
+            ...(environment === "production"
+              ? { productionOrigin: origin }
+              : { stagingOrigin: origin }),
+            androidAppId: deployment.appId,
             ...release,
           }),
         });
@@ -54,7 +58,12 @@ export default defineConfig({
   ...(nativeShell ? { build: { assetsDir: "native-shell/assets" } } : {}),
   define: {
     "import.meta.env.VITE_NATIVE_SHELL": JSON.stringify(nativeShell ? "true" : "false"),
-    "import.meta.env.VITE_INDEPENDENT_STAGING": JSON.stringify("true"),
+    "import.meta.env.VITE_INDEPENDENT_STAGING": JSON.stringify(
+      environment === "staging" ? "true" : "false",
+    ),
+    "import.meta.env.VITE_INDEPENDENT_PRODUCTION": JSON.stringify(
+      environment === "production" ? "true" : "false",
+    ),
     "import.meta.env.VITE_STAGING_ORIGIN": JSON.stringify(origin),
     "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(TARGET_URL),
     "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(PUBLIC_KEY),

@@ -1,11 +1,15 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { TARGET_REF, TARGET_URL, validateStagingOrigin } from "./config.mjs";
-export function verifyBuild(root, origin) {
+import { TARGET_URL, getDeploymentConfig, assertDeploymentProof } from "./config.mjs";
+export function verifyBuild(root, origin, environment = "staging") {
   const proof = JSON.parse(readFileSync(resolve(root, "independent-release.json"), "utf8"));
-  if (proof.targetProject !== TARGET_REF || proof.stagingOrigin !== validateStagingOrigin(origin))
-    throw new Error("Build proof mismatch");
+  const deployment = getDeploymentConfig(
+    environment === "production"
+      ? { TAMKEEN_DEPLOYMENT_ENV: environment, TAMKEEN_PRODUCTION_ORIGIN: origin }
+      : { TAMKEEN_DEPLOYMENT_ENV: environment, TAMKEEN_STAGING_ORIGIN: origin },
+  );
+  assertDeploymentProof(proof, deployment);
   let files = 0,
     targetFound = false;
   function visit(dir) {
@@ -31,6 +35,7 @@ export function verifyBuild(root, origin) {
   return files;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const files = verifyBuild(resolve(".output/public"), process.env.TAMKEEN_STAGING_ORIGIN);
+  const deployment = getDeploymentConfig();
+  const files = verifyBuild(resolve(".output/public"), deployment.origin, deployment.environment);
   console.log(`INDEPENDENT_CLIENT_TARGET_OK ${files} JavaScript assets`);
 }

@@ -1,8 +1,12 @@
 /** No account data or server secret is exposed by this deployment proof. */
 export function independentResponse(response: Response) {
-  if (import.meta.env?.VITE_INDEPENDENT_STAGING !== "true") return response;
+  const production = import.meta.env?.VITE_INDEPENDENT_PRODUCTION === "true";
+  if (import.meta.env?.VITE_INDEPENDENT_STAGING !== "true" && !production) return response;
   const headers = new Headers(response.headers);
-  headers.set("X-Tamkeen-Environment", "independent-staging");
+  headers.set(
+    "X-Tamkeen-Environment",
+    production ? "independent-production" : "independent-staging",
+  );
   headers.set("X-Robots-Tag", "noindex, nofollow");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   if (headers.get("content-type")?.includes("text/html")) {
