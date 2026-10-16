@@ -5,6 +5,10 @@ on:
       - "src/lib/*ocr*"
       - "src/integrations/**"
       - "scripts/independent/**"
+      - "scripts/academy/build-offline-shell.mjs"
+      - "src/lib/auth/native-oauth.ts"
+      - "src/lib/network/**"
+      - "tests/mobile/independent-staging-auth.runtime.test.ts"
       - "vite*.config.ts"
       - "package*.json"
       - "bun.lock"
@@ -56,7 +60,7 @@ jobs:
       - run: node scripts/independent/smoke-build.mjs
       - name: Verify independent native assets and offline cold restart
         env:
-          TAMKEEN_NATIVE_SHELL: '1'
+          TAMKEEN_NATIVE_SHELL: "1"
         run: |
           npm run build:independent
           node scripts/independent/verify-build.mjs
@@ -69,3 +73,19 @@ jobs:
           name: independent-cold-start-evidence
           path: artifacts/native-shell/
           retention-days: 14
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TAMKEEN_DEPLOYMENT_ENV: production
+      TAMKEEN_PRODUCTION_ORIGIN: https://studentamkeen.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build:independent
+      - run: node scripts/independent/verify-build.mjs
+      - run: node scripts/independent/smoke-build.mjs
