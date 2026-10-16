@@ -14,7 +14,7 @@ describe("OFFLINE-02 security and rollout guards", () => {
     expect(manifestRoute).toContain('rpc("can_access_subject"');
     expect(manifestRoute).toContain('rpc("lesson_student_content_gate"');
     expect(artifactRoute).toContain('rpc("can_access_lesson"');
-    expect(artifactRoute).toContain('rpc(\n    "lesson_student_content_gate"');
+    expect(artifactRoute).toMatch(/rpc\(\s*"lesson_student_content_gate"/);
     expect(manifestRoute).not.toContain("supabaseAdmin");
     expect(artifactRoute).not.toContain("supabaseAdmin");
   });
