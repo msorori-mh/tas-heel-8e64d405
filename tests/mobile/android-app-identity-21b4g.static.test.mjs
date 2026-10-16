@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const read = (p) => readFileSync(new URL(`../../${p}`, import.meta.url), "utf8");
 
@@ -12,6 +13,7 @@ const mainActivity = read("android/app/src/main/java/app/studentamkeen/tamkeen/M
 const assetlinks = read("docs/mobile/assetlinks.template.json");
 
 const PKG = "app.studentamkeen.tamkeen";
+const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 
 describe("21B4G — Android app identity and release readiness", () => {
   it("1. Capacitor appId matches Android applicationId", () => {
@@ -48,19 +50,26 @@ describe("21B4G — Android app identity and release readiness", () => {
   });
 
   it("6. dev.lovable.build is not produced by the Tamkeen Android build", () => {
-    const out = execSync(
-      "rg -l 'dev\\.lovable\\.build' android capacitor.config.ts mobile || true",
-      { cwd: new URL("../../", import.meta.url).pathname, encoding: "utf8" },
-    );
+    let out = "";
+    try {
+      out = execFileSync(
+        "git",
+        ["grep", "-l", "-F", "dev.lovable.build", "--", "android", "capacitor.config.ts", "mobile"],
+        { cwd: repoRoot, encoding: "utf8" },
+      );
+    } catch (error) {
+      if (error.status !== 1) throw error;
+      out = error.stdout || "";
+    }
     expect(out.trim()).toBe("");
   });
 
   it("7. no release keystore is committed", () => {
-    const out = execSync("git ls-files | rg '\\.(jks|keystore)$' || true", {
-      cwd: new URL("../../", import.meta.url).pathname,
+    const out = execFileSync("git", ["ls-files"], {
+      cwd: repoRoot,
       encoding: "utf8",
     });
-    expect(out.trim()).toBe("");
+    expect(out.split(/\r?\n/).filter((name) => /\.(jks|keystore)$/.test(name))).toEqual([]);
   });
 
   it("8. no signing secrets are committed; signing reads untracked properties", () => {

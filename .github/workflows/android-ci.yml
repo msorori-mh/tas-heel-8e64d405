@@ -144,7 +144,7 @@ jobs:
       - name: Upload installable APK for device testing
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-android-1.2.0-code-11-test-apk
+          name: tamkeen-independent-android-1.2.1-code-12-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -156,6 +156,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
+      TAMKEEN_DEPLOYMENT_ENV: production
+      TAMKEEN_PRODUCTION_ORIGIN: https://studentamkeen.com
+      TAMKEEN_EXPECTED_SHA: ${{ github.sha }}
       KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
@@ -193,6 +196,9 @@ jobs:
           npm ci
           npm run test:mobile-release
 
+      - name: Require the matching independent production deployment
+        run: node scripts/independent/verify-deployment.mjs
+
       - name: Materialize and validate the ephemeral upload key
         run: |
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/tamkeen-upload.jks"
@@ -229,7 +235,7 @@ jobs:
       - name: Upload signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: tamkeen-play-1.2.0-code-11-signed-aab
+          name: tamkeen-play-1.2.1-code-12-independent-signed-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14

@@ -16,7 +16,7 @@ export function packageNativeShell({
     throw new Error("Build the independent SPA shell with TAMKEEN_NATIVE_SHELL=1 first.");
   }
   const release = JSON.parse(readFileSync(resolve(source, releaseFile), "utf8"));
-  const origin = release.appOrigin ?? release.stagingOrigin;
+  const origin = release.appOrigin ?? release.productionOrigin ?? release.stagingOrigin;
   if (
     release.targetProject !== expectedProject ||
     release.androidAppId !== expectedAppId ||
